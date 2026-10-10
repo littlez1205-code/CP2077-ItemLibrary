@@ -1,0 +1,10 @@
+# .NET 构建产物
+bin/
+obj/
+artifacts/
+TestResults/
+.vs/
+*.user
+
+# 真实存档样本只放本地，不入库
+src/GameTool.Tests/Fixtures/local/

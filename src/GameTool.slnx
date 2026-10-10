@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="GameTool.Core/GameTool.Core.csproj" />
+  <Project Path="GameTool.Adapters.Cyberpunk2077/GameTool.Adapters.Cyberpunk2077.csproj" />
+  <Project Path="GameTool.App/GameTool.App.csproj" />
+  <Project Path="GameTool.Cli/GameTool.Cli.csproj" />
+  <Project Path="GameTool.Desktop/GameTool.Desktop.csproj" />
+  <Project Path="GameTool.Tests/GameTool.Tests.csproj" />
+</Solution>

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>GameTool.Desktop</AssemblyName>
+    <RootNamespace>GameTool.Desktop</RootNamespace>
+    <ApplicationTitle>游戏工具</ApplicationTitle>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GameTool.App\GameTool.App.csproj" />
+    <ProjectReference Include="..\GameTool.Core\GameTool.Core.csproj" />
+    <ProjectReference Include="..\GameTool.Adapters.Cyberpunk2077\GameTool.Adapters.Cyberpunk2077.csproj" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="wwwroot\index.html" LogicalName="GameTool.Desktop.wwwroot.index.html" />
+    <EmbeddedResource Include="wwwroot\app.css" LogicalName="GameTool.Desktop.wwwroot.app.css" />
+    <EmbeddedResource Include="wwwroot\app.js" LogicalName="GameTool.Desktop.wwwroot.app.js" />
+  </ItemGroup>
+</Project>

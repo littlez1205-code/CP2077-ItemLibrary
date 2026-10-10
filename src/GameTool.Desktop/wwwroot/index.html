@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>游戏工具</title>
+  <link rel="stylesheet" href="app.css?v=14" />
+</head>
+<body>
+  <div id="backdrop"></div>
+  <div id="veil"></div>
+  <header>
+    <h1 id="title">游戏工具</h1>
+    <div class="head-actions">
+      <button id="help-open" class="ghost" type="button">说明</button>
+      <button id="skin-open" class="ghost" type="button">外观</button>
+      <button id="settings-open" class="ghost icon-button" type="button" title="设置路径" aria-label="设置路径">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      </button>
+    </div>
+  </header>
+  <div id="caption" class="caption" role="group" aria-label="窗口">
+    <button id="win-min" class="cap" type="button" title="最小化" aria-label="最小化">
+      <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5.5h10"></path></svg>
+    </button>
+    <button id="win-max" class="cap" type="button" title="最大化" aria-label="最大化">
+      <svg class="i-max" viewBox="0 0 10 10" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9"></rect></svg>
+      <svg class="i-restore" viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 2.5V0.5h7v7h-2"></path><rect x="0.5" y="2.5" width="7" height="7"></rect></svg>
+    </button>
+    <button id="win-close" class="cap close" type="button" title="关闭" aria-label="关闭">
+      <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0.5 0.5l9 9M9.5 0.5l-9 9"></path></svg>
+    </button>
+  </div>
+  <section id="setup" class="setup" hidden>
+    <div class="card setup-card" role="dialog" aria-modal="true" aria-labelledby="setup-title">
+      <h2 id="setup-title">设置路径</h2>
+      <p id="setup-intro" class="setup-intro"></p>
+      <div class="setup-row">
+        <div class="setup-label">存档目录</div>
+        <div class="setup-line">
+          <span id="setup-save-path" class="setup-path"></span>
+          <button id="setup-save-pick" class="ghost small" type="button">选择文件夹</button>
+        </div>
+        <p id="setup-save-hint" class="setup-hint"></p>
+        <p id="setup-save-status" class="setup-status" hidden></p>
+      </div>
+      <div class="setup-row">
+        <div class="setup-label">游戏目录</div>
+        <div class="setup-line">
+          <span id="setup-game-path" class="setup-path"></span>
+          <button id="setup-game-pick" class="ghost small" type="button">选择文件夹</button>
+        </div>
+        <p id="setup-game-hint" class="setup-hint"></p>
+        <p id="setup-game-status" class="setup-status" hidden></p>
+      </div>
+      <p id="setup-error" class="error" hidden></p>
+      <div class="actions end">
+        <button id="setup-cancel" class="ghost" type="button">取消</button>
+        <button id="setup-done" type="button" disabled>开始使用</button>
+      </div>
+      <p id="setup-file" class="setup-file"></p>
+    </div>
+  </section>
+  <main>
+    <aside class="card panel">
+      <div class="tabs">
+        <button id="tab-saves" class="tab active" type="button">当前存档</button>
+        <button id="tab-backups" class="tab" type="button">备份区</button>
+      </div>
+      <div id="saves-pane" class="list"></div>
+      <div id="backups-pane" class="list" hidden></div>
+    </aside>
+    <section class="detail">
+      <div id="slot-head">
+        <div class="slot-title">
+          <h2 id="slot-name">未选择存档</h2>
+          <p id="slot-time" class="muted"></p>
+        </div>
+        <button id="backup-add" class="ghost small" type="button">加入备份区</button>
+      </div>
+      <div id="error" class="error" hidden></div>
+      <div id="library" class="library" hidden>
+        <label class="search">
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4.5 4.5"></path></svg>
+          <input id="search" type="search" autocomplete="off" spellcheck="false" placeholder="输入物品名，如 阿贾克斯、夹克、传说组件、网络接入仓、配方" />
+        </label>
+        <div id="chips" class="chips"></div>
+        <div class="lib-bar">
+          <div id="lib-meta" class="lib-meta"></div>
+          <label class="page-size">每页
+            <select id="page-size">
+              <option value="60">60</option>
+              <option value="120">120</option>
+              <option value="160">160</option>
+            </select>
+          </label>
+        </div>
+        <div id="results" class="results">
+          <div id="grid" class="grid"></div>
+          <div id="lib-empty" class="empty" hidden></div>
+          <nav id="pager" class="pager" aria-label="翻页" hidden></nav>
+        </div>
+      </div>
+      <div id="backup-view" class="backup-view" hidden>
+        <div id="backup-rows" class="card backup-rows"></div>
+        <div id="backup-actions" class="actions"></div>
+      </div>
+    </section>
+  </main>
+  <div id="skin-panel" class="card skin-panel" hidden>
+    <h2>外观</h2>
+    <label id="skin-drop" class="drop">
+      选择图片，或把图片拖到这里
+      <input id="skin-file" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+    </label>
+    <div class="actions">
+      <button id="skin-clear" class="ghost" type="button">清除背景</button>
+    </div>
+    <label class="overlay-label">遮罩 <span id="skin-opacity-label">50%</span>
+      <input id="skin-opacity" type="range" min="0" max="80" value="50" />
+    </label>
+  </div>
+  <section id="help" class="help" hidden>
+    <div class="card help-card" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <div class="help-head">
+        <h2 id="help-title">说明</h2>
+        <button id="help-close" class="ghost icon-button help-close" type="button" title="关闭" aria-label="关闭">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+        </button>
+      </div>
+      <div class="tabs help-tabs" role="tablist" aria-label="说明">
+        <button class="tab active" type="button" role="tab" aria-selected="true" data-help-tab="start">快速上手</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" data-help-tab="faq">常见问题</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" data-help-tab="about">关于</button>
+      </div>
+      <div id="help-body" class="help-body">
+        <div class="help-pane" role="tabpanel" data-help-pane="start">
+          <ol class="help-steps">
+            <li><strong>设置目录</strong>：第一次打开时选择「存档目录」和「游戏目录」，两项都通过后点「开始使用」。以后可点右上角齿轮修改。</li>
+            <li><strong>选择存档</strong>：在左侧「当前存档」里点选要修改的存档。</li>
+            <li><strong>获得物品</strong>：在搜索框输入物品名，或点分类标签；在卡片上点「获得」，在确认框里选品阶或款式（可叠放物品填数量）后确认。</li>
+            <li><strong>回游戏读档</strong>：回到游戏读取这个存档，新物品就在背包里。</li>
+          </ol>
+          <p class="help-tip">想留后路？先点「加入备份区」，出问题可在「备份区」一键还原。</p>
+          <div class="help-author">
+            <span>觉得好用，欢迎关注作者 B 站「魔法苦茶籽」获取更新。</span>
+            <button class="ghost small" type="button" data-author-open>B 站主页</button>
+          </div>
+        </div>
+        <div class="help-pane" role="tabpanel" data-help-pane="faq" hidden>
+          <dl class="help-faq">
+            <dt>获得后游戏里看不到？</dt>
+            <dd>需要在游戏里重新读取这个存档。另外，游戏运行时如果又存到同一个存档位，会覆盖掉修改，建议在主菜单读档前使用。</dd>
+            <dt>开了 Steam / GOG 云存档会有影响吗？</dt>
+            <dd>修改后启动游戏时，如果平台弹出云存档冲突提示，请选择保留<strong>本机</strong>存档，否则修改会被云端的旧存档覆盖。不确定时，先把存档加入备份区。</dd>
+            <dt>物品库是空的或提示名字表不可用？</dt>
+            <dd>需要安装官方免费 DLC REDmod（Steam / GOG / Epic 均可获取），并在设置里选对游戏目录。</dd>
+            <dt>没买往日之影能用吗？</dt>
+            <dd>可以。工具会检测游戏目录：没有往日之影时，物品库只列本体物品，往日之影的物品不显示、也不会生成。设置里游戏目录一行会显示检测结果。</dd>
+            <dt>存档显示「不支持」？</dt>
+            <dd>分两种情况：
+              <ul class="help-list">
+                <li><strong>旧版本的存档</strong>：在游戏里读取后重新存档即可。</li>
+                <li><strong>游戏更新后的新版本存档</strong>：工具需要适配新版本，暂时不能修改（这是保护存档的安全设计）。请关注作者 B 站获取更新。</li>
+              </ul>
+            </dd>
+            <dt>怎么备份和还原？</dt>
+            <dd>选中存档后点「加入备份区」；在「备份区」页签里可以查看、还原或删除备份。获得物品不会自动备份。</dd>
+            <dt>会不会把存档改坏？</dt>
+            <dd>每次写入前都会逐字节校验：除了新增或修改的物品，其他内容只要有任何变化就放弃写入，原存档保持不变。</dd>
+            <dt>为什么没有载具、任务物品、技能点？</dt>
+            <dd>载具可在游戏内购买；任务物品可能打乱任务进度；技能点和属性点不属于物品，所以不提供。</dd>
+          </dl>
+        </div>
+        <div class="help-pane" role="tabpanel" data-help-pane="about" hidden>
+          <div class="help-about">
+            <h3>游戏工具 · Cyberpunk 2077 物品库</h3>
+            <span id="help-version" class="help-version">v</span>
+          </div>
+          <h4>作者</h4>
+          <div class="help-author">
+            <span>作者：<strong>魔法苦茶籽</strong></span>
+            <button class="ghost small" type="button" data-author-open>B 站主页</button>
+          </div>
+          <p class="help-note">本工具免费。游戏更新后需要等待工具适配，最新版本与更新请关注作者 B 站动态。</p>
+          <h4>运行环境</h4>
+          <ul id="help-env" class="help-list">
+            <li>Windows 10/11 64 位</li>
+            <li>Microsoft Edge WebView2 运行时</li>
+            <li>游戏 2.31 版本存档（有没有往日之影都可以）</li>
+            <li>官方免费 DLC REDmod</li>
+          </ul>
+          <h4>声明</h4>
+          <ul class="help-list">
+            <li>本工具只修改存档文件，不注入、不修改游戏进程，也不改动游戏目录。</li>
+            <li>物品名称、分类与图标均在运行时从你本机的游戏文件读取，本工具不附带任何游戏素材。</li>
+            <li>非官方工具，与 CD PROJEKT RED 无关。仅供单机游戏使用。</li>
+            <li>修改存档有风险，建议重要存档先加入备份区。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+  <div id="confirm" class="modal" hidden>
+    <div class="card dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <h2 id="confirm-title" hidden></h2>
+      <div id="confirm-preview" class="preview" hidden></div>
+      <p id="confirm-text"></p>
+      <div id="confirm-body"></div>
+      <p id="confirm-error" class="error" hidden></p>
+      <div id="confirm-actions" class="actions end"></div>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <div class="edges" aria-hidden="true">
+    <div class="edge" data-edge="top"></div>
+    <div class="edge" data-edge="bottom"></div>
+    <div class="edge" data-edge="left"></div>
+    <div class="edge" data-edge="right"></div>
+    <div class="edge" data-edge="topLeft"></div>
+    <div class="edge" data-edge="topRight"></div>
+    <div class="edge" data-edge="bottomLeft"></div>
+    <div class="edge" data-edge="bottomRight"></div>
+  </div>
+  <script src="app.js?v=15"></script>
+</body>
+</html>

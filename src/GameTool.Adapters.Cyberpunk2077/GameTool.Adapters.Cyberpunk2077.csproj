@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>GameTool.Adapters.Cyberpunk2077</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GameTool.Core\GameTool.Core.csproj" />
+    <PackageReference Include="K4os.Compression.LZ4" Version="1.3.8" />
+    <EmbeddedResource Include="resources.json" LogicalName="GameTool.Adapters.Cyberpunk2077.resources.json" />
+    <EmbeddedResource Include="theme.json" LogicalName="GameTool.Adapters.Cyberpunk2077.theme.json" />
+  </ItemGroup>
+</Project>

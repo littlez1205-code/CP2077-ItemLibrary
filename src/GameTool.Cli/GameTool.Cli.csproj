@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>GameTool</AssemblyName>
+    <RootNamespace>GameTool.Cli</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GameTool.Core\GameTool.Core.csproj" />
+    <ProjectReference Include="..\GameTool.App\GameTool.App.csproj" />
+    <ProjectReference Include="..\GameTool.Adapters.Cyberpunk2077\GameTool.Adapters.Cyberpunk2077.csproj" />
+  </ItemGroup>
+</Project>

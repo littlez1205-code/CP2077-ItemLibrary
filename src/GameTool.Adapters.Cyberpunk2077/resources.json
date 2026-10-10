@@ -1,0 +1,82 @@
+[
+  {
+    "id": "money",
+    "name": { "zh": "欧元", "en": "Eurodollar" },
+    "group": "currency",
+    "max": 2147483647,
+    "defaultFill": 9999999,
+    "locator": "tdb:Items.money"
+  },
+  {
+    "id": "craft.t1",
+    "name": { "zh": "普通制作组件", "en": "Common Crafting Component" },
+    "group": "material",
+    "max": 99999,
+    "defaultFill": 9999,
+    "locator": "tdb:Items.CommonMaterial1"
+  },
+  {
+    "id": "craft.t2",
+    "name": { "zh": "优质制作组件", "en": "Uncommon Crafting Component" },
+    "group": "material",
+    "max": 99999,
+    "defaultFill": 9999,
+    "locator": "tdb:Items.UncommonMaterial1"
+  },
+  {
+    "id": "craft.t3",
+    "name": { "zh": "稀有制作组件", "en": "Rare Crafting Component" },
+    "group": "material",
+    "max": 99999,
+    "defaultFill": 9999,
+    "locator": "tdb:Items.RareMaterial1"
+  },
+  {
+    "id": "craft.t4",
+    "name": { "zh": "史诗制作组件", "en": "Epic Crafting Component" },
+    "group": "material",
+    "max": 99999,
+    "defaultFill": 9999,
+    "locator": "tdb:Items.EpicMaterial1"
+  },
+  {
+    "id": "craft.t5",
+    "name": { "zh": "传奇制作组件", "en": "Legendary Crafting Component" },
+    "group": "material",
+    "max": 99999,
+    "defaultFill": 9999,
+    "locator": "tdb:Items.LegendaryMaterial1"
+  },
+  {
+    "id": "quickhack.t2",
+    "name": { "zh": "优质快速破解组件", "en": "Uncommon Quickhack Component" },
+    "group": "material",
+    "max": 99999,
+    "defaultFill": 9999,
+    "locator": "tdb:Items.QuickHackUncommonMaterial1"
+  },
+  {
+    "id": "quickhack.t3",
+    "name": { "zh": "稀有快速破解组件", "en": "Rare Quickhack Component" },
+    "group": "material",
+    "max": 99999,
+    "defaultFill": 9999,
+    "locator": "tdb:Items.QuickHackRareMaterial1"
+  },
+  {
+    "id": "quickhack.t4",
+    "name": { "zh": "史诗快速破解组件", "en": "Epic Quickhack Component" },
+    "group": "material",
+    "max": 99999,
+    "defaultFill": 9999,
+    "locator": "tdb:Items.QuickHackEpicMaterial1"
+  },
+  {
+    "id": "quickhack.t5",
+    "name": { "zh": "传奇快速破解组件", "en": "Legendary Quickhack Component" },
+    "group": "material",
+    "max": 99999,
+    "defaultFill": 9999,
+    "locator": "tdb:Items.QuickHackLegendaryMaterial1"
+  }
+]
