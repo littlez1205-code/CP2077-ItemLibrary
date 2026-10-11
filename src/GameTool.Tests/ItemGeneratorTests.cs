@@ -128,8 +128,6 @@ public class ItemGeneratorTests : IDisposable
         Assert.Contains("slotPartListPreset", Assert.Throws<InvalidDataException>(() =>
             ItemGenerator.GenerateFromTemplate(container, weapon, "Items.Preset_Ajax_Default", PartsMode.Auto, null)).Message);
         var jacket = ItemGenerator.ScanParts(container).Single(scan => scan.Key.StartsWith("1000000:", StringComparison.Ordinal)).Key;
-        Assert.Contains("没有子配件", Assert.Throws<InvalidDataException>(() =>
-            ItemGenerator.GenerateFromTemplate(container, jacket, "Items.Preset_Ajax_Default", PartsMode.Auto, Ajax)).Message);
         var money = "1:1:" + Convert.ToHexString(Header(TweakDbId.FromName("Items.money"), 2)).ToLowerInvariant();
         Assert.Contains("堆叠", Assert.Throws<InvalidDataException>(() =>
             ItemGenerator.GenerateFromTemplate(container, money, "Items.Preset_Ajax_Default", PartsMode.Keep, null)).Message);
@@ -138,6 +136,12 @@ public class ItemGeneratorTests : IDisposable
         var jacketGenerated = ItemGenerator.GenerateFromTemplate(container, jacket, "Items.Jacket_01_basic_01", PartsMode.Keep, null);
         Assert.Equal(91, jacketGenerated.BodyLength);
         Assert.Equal(3, jacketGenerated.NodeIndex);
+
+        // T030：没有子配件的模板（服装）按 auto 生成远程武器时，同近战武器用根配件代替第一个子配件（以前拒绝「没有子配件」）。
+        var clothingPrefix = SaveContainer.Read(path);
+        var gun = ItemGenerator.GenerateFromTemplate(clothingPrefix, jacket, "Items.Preset_Ajax_Default", PartsMode.Auto, Ajax, zeroPrefixIds: true);
+        Assert.Equal(41 + (50 * Ajax.Length), gun.BodyLength);
+        Assert.Equal(Ajax.Length, gun.PartList.Count);
     }
 
     private static string WeaponKey(SaveContainer container) =>

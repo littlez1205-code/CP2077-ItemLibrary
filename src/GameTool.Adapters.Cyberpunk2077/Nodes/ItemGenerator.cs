@@ -138,7 +138,8 @@ public static class ItemGenerator
 
     /// <summary>
     /// C2b 正式功能：在可生成目录里按目标记录生成 copies 件，自动从背包或储物箱选模板，追加到玩家背包末尾。
-    /// 服装：keep 模式，只换根 ItemID（E3a）；远程武器：auto 模式按预设重建配件树，并清零 +25..+37（E3d）。
+    /// 服装：keep 模式，只换根 ItemID（E3a）；远程武器：auto 模式按预设重建配件树，并清零 +25..+37（E3d）；
+    /// 背包和储物箱里没有可当模板的普通远程武器时（如只有标志性枪），回退到前缀来源（T030，见 <see cref="Choose"/>）。
     /// 近战武器、义体（T021）：不要求同类模板，前缀借任意可解析装备并清零 +25..+37，配件树按预设生成（见 BuildMelee / BuildCyberware）。
     /// 第三批（T022，同样借前缀）：手雷（物品头种子 2、结构 3，45 字节前缀、数量 1，弹芯为根 + 投掷方式子配件）；
     /// 手臂义体（CyberwareRoot 根 + 预设里其余配件）；快速破解与模组（物品自己就是根配件，挂点取 placementSlots 第一项）。
@@ -186,8 +187,7 @@ public static class ItemGenerator
                 throw new InvalidDataException("背包里已经有这种手雷，不能再插入一份（同一种手雷按数量叠加）。");
         }
 
-        var choice = (loose ? ChoosePrefixSource(layout, kind, gear.KindOf) : ChooseTemplate(layout, kind, TemplateFilter(kind, gear)))
-            ?? throw new InvalidDataException(NoTemplateMessage(kind));
+        var choice = Choose(layout, kind, gear) ?? throw new InvalidDataException(NoTemplateMessage(kind));
 
         var taken = new HashSet<uint>();
         var records = new List<GeneratedRecord>(copies);
@@ -222,22 +222,34 @@ public static class ItemGenerator
         return new GenerateApplyResult(targetRecord, copies, added, firstNode, previous, choice.Key, null, records);
     }
 
+    /// <summary>远程武器（T030）在没有同类模板时也回退到前缀来源，所以和近战武器、义体等用同一句说明。</summary>
     public static string NoTemplateMessage(string kind) => kind switch
     {
-        GearKinds.Ranged => "背包或储物箱里至少要有一件远程武器作为模板。",
-        _ when GearKinds.UsesPrefixSource(kind) => "背包或储物箱里至少要有一件能解析的装备（提供物品前缀）。",
+        _ when kind == GearKinds.Ranged || GearKinds.UsesPrefixSource(kind) => "背包或储物箱里至少要有一件能解析的装备（提供物品前缀）。",
         _ => "背包或储物箱里至少要有一件服装作为模板。"
     };
 
-    /// <summary>按生成规则选模板（近战武器、义体及第三批各类是前缀来源），返回物品键；没有可用模板返回 null。</summary>
+    /// <summary>按生成规则选模板（近战武器、义体及第三批各类是前缀来源，远程武器没有同类模板时也回退到前缀来源），返回物品键；没有可用模板返回 null。</summary>
     public static string? ChooseTemplateKey(SaveContainer container, string kind, IGearCatalog gear)
     {
         ArgumentNullException.ThrowIfNull(container);
         ArgumentNullException.ThrowIfNull(gear);
-        var layout = ItemInserter.Layout.Read(container);
-        return GearKinds.UsesPrefixSource(kind)
-            ? ChoosePrefixSource(layout, kind, gear.KindOf)?.Key
-            : ChooseTemplate(layout, kind, TemplateFilter(kind, gear))?.Key;
+        return Choose(ItemInserter.Layout.Read(container), kind, gear)?.Key;
+    }
+
+    /// <summary>
+    /// 生成与预览共用的选模板规则。远程武器（T030）：首选目录里非标志性、带子配件的远程武器（E3c / E3d 的模板，选中时行为不变）；
+    /// 找不到时回退到 <see cref="ChoosePrefixSource"/>：远程武器（含标志性、目录外的记录）在前，其次目录认得的其他装备，最后其他非堆叠物品。
+    /// 远程武器的配件树本来就按预设重建（<see cref="BuildParts"/>），+25..+37 也清零，模板实际只提供前缀、配件 ItemID 的后 4 字节、CName 和尾部。
+    /// </summary>
+    private static TemplateChoice? Choose(ItemInserter.Layout layout, string kind, IGearCatalog gear)
+    {
+        if (GearKinds.UsesPrefixSource(kind))
+            return ChoosePrefixSource(layout, kind, gear.KindOf);
+        var template = ChooseTemplate(layout, kind, TemplateFilter(kind, gear));
+        return template is null && kind == GearKinds.Ranged
+            ? ChoosePrefixSource(layout, kind, gear.KindOf)
+            : template;
     }
 
     /// <summary>玩家背包里是否已有这一记录的手雷（物品头与 <see cref="QuantityHeader"/> 相同）。</summary>
@@ -266,6 +278,7 @@ public static class ItemGenerator
     /// <summary>
     /// 服装模板：继承链是服装即可（E3a 的模板就是任务服装）。
     /// 远程武器模板：记录必须在可生成目录的远程武器里且不是标志性武器，避开 Preset_Masamune_Rogue_Stash 这类非标准结构的特殊武器。
+    /// 这是首选；都不符合时由 <see cref="Choose"/> 回退到前缀来源（T030）。
     /// </summary>
     private static Func<ulong, bool> TemplateFilter(string kind, IGearCatalog gear)
     {
@@ -295,8 +308,9 @@ public static class ItemGenerator
     }
 
     /// <summary>
-    /// 近战武器、义体（T021，E4 形态）及第三批各类不要求同类模板，只借一件装备的 41 字节前缀（+25..+37 随后清零）、配件的 CName 和尾部。
-    /// 候选同 <see cref="ChooseTemplate"/>，另要求根配件和第一个子配件（近战、义体照抄它的 CName）的 CName 都是 None
+    /// 近战武器、义体（T021，E4 形态）及第三批各类不要求同类模板，只借一件装备的 41 字节前缀（+25..+37 随后清零）、配件的 CName 和尾部；
+    /// 没有同类模板的远程武器（T030）也走这里。
+    /// 候选同 <see cref="ChooseTemplate"/>，另要求根配件和第一个子配件（近战、义体、远程武器照抄它的 CName）的 CName 都是 None
     /// （手臂义体的子配件带外观名，如 PhysicalKnuckles&amp;Male，不能借给别的物品）；同类在前，其次是目录里认得的装备，最后是其他非堆叠物品。
     /// </summary>
     internal static TemplateChoice? ChoosePrefixSource(ItemInserter.Layout layout, string kind, Func<ulong, string?> kindOf) =>
@@ -439,14 +453,19 @@ public static class ItemGenerator
             }
         });
 
+    /// <summary>
+    /// 远程武器：机匣为根，预设里其余条目为子配件，全部新种子；挂点和配件记录都来自预设。
+    /// 从来源只取：根配件 ItemID 的后 4 字节、CName、尾部（给新根）；第一个子配件的同样三项（给每个新子配件）。
+    /// 来源没有子配件时（T030 前缀来源回退，如服装的 GenericItemRoot 根或空根）同近战武器，用根配件代替。
+    /// 首选模板一定带子配件，行为与 E3c / E3d 相同。
+    /// </summary>
     private static ItemPart BuildParts(ItemPart templateRoot, IReadOnlyList<TweakPresetPart>? preset, Func<uint> fresh)
     {
         if (preset is null || preset.Count == 0)
             throw new InvalidDataException("目标没有带 itemPartPreset 的 slotPartListPreset 条目。");
         var receiver = preset.FirstOrDefault(part => part.Slot == ReceiverSlot)
             ?? throw new InvalidDataException("目标的 slotPartListPreset 没有 AttachmentSlots.Receiver。");
-        var model = templateRoot.Children.FirstOrDefault()
-            ?? throw new InvalidDataException("模板的配件树没有子配件，无法照抄子配件的尾部。");
+        var model = templateRoot.Children.FirstOrDefault() ?? templateRoot;
         var rootId = PartId(receiver.Item, fresh(), templateRoot.ItemId);
         var children = preset
             .Where(part => !ReferenceEquals(part, receiver))

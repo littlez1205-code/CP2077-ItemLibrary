@@ -261,6 +261,7 @@ async function refresh() {
     showNoSlot();
   backups = await call("backup.list", { gameId });
   renderBackups();
+  booted = true;
 }
 
 async function refreshQuietly() {
@@ -274,6 +275,101 @@ async function refreshQuietly() {
   backups = await call("backup.list", { gameId });
   renderBackups();
 }
+
+// ---------- 存档列表自动刷新（T030） ----------
+// 宿主监视存档根目录，游戏存档后推送 saves.changed（宿主已去抖 1.5 秒）；窗口重新获得焦点时也刷新一次作保底。
+
+let booted = false;
+let diskRefreshRunning = null;
+let diskRefreshAgain = false;
+let libraryStale = false;
+let focusRefreshTimer = 0;
+
+/** 合并并串行执行：刷新进行中又来了事件，就在这次结束后再刷一次。主界面第一次加载完之前不做。 */
+function refreshFromDisk() {
+  if (!booted)
+    return Promise.resolve();
+  if (diskRefreshRunning) {
+    diskRefreshAgain = true;
+    return diskRefreshRunning;
+  }
+  diskRefreshRunning = (async () => {
+    try {
+      do {
+        diskRefreshAgain = false;
+        await syncWithDisk();
+      } while (diskRefreshAgain);
+    } finally {
+      diskRefreshRunning = null;
+    }
+  })();
+  return diskRefreshRunning;
+}
+
+/**
+ * 静默刷新存档列表和备份区；选中存档的时间（或支持状态）变了，就重载它的物品状态（已拥有、持有数量）。
+ * 确认框开着时只更新列表，物品库等确认框关闭后再重载，不打断用户的操作；正在看备份时右侧不动。
+ */
+async function syncWithDisk() {
+  const before = selected ? { time: selected.time, supported: selected.supported } : null;
+  await refreshQuietly();
+  if (selectedBackup)
+    return;
+  const still = selected ? slots.find((slot) => slot.slot === selected.slot) : null;
+  const changed = !still || !before || before.time !== still.time || before.supported !== still.supported;
+  if (!changed)
+    return;
+  if (!confirmEl.hidden) {
+    libraryStale = true;
+    return;
+  }
+  await reloadSelected();
+}
+
+/**
+ * 重载右侧：选中的存档还在，就原地重载物品库，保留分类、搜索词、页码和滚动位置；
+ * 不在了（被删除或改名）就选第一个存档，一个都没有就显示「未选择存档」。
+ */
+async function reloadSelected() {
+  libraryStale = false;
+  const still = selected ? slots.find((slot) => slot.slot === selected.slot) : null;
+  if (!still) {
+    selected = null;
+    if (slots.length > 0) {
+      await selectSlot(slots[0]);
+    } else {
+      renderSlots();
+      showNoSlot();
+    }
+    return;
+  }
+  selected = still;
+  if (still.supported === false || libraryEl.hidden) {
+    await selectSlot(still);
+    return;
+  }
+  slotTimeEl.textContent = formatTime(still.time);
+  await loadLibrary(false, false, true);
+}
+
+/** 焦点类的触发（窗口激活、页面重新可见）往往一次来好几个，300 ms 内合并。 */
+function refreshSoon() {
+  clearTimeout(focusRefreshTimer);
+  focusRefreshTimer = setTimeout(() => { refreshFromDisk().catch(showError); }, 300);
+}
+
+document.addEventListener("gametool", (event) => {
+  const data = event.detail.data || {};
+  if (event.detail.event === "saves.changed" && (!data.gameId || data.gameId === gameId))
+    refreshFromDisk().catch(showError);
+  else if (event.detail.event === "window" && data.active === true)
+    refreshSoon();
+});
+window.addEventListener("focus", refreshSoon);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible")
+    refreshSoon();
+});
 
 function showNoSlot() {
   slotNameEl.textContent = "未选择存档";
@@ -511,8 +607,9 @@ function betterKind() {
  * 加载当前分类、搜索词下的第 library.page 页（T024 分页）。reset 为 true 时回到第 1 页。
  * 没有「全部」标签：还不知道分类（首次加载）或选中的分类不在这个存档里时，宿主按 kindFallback 改用第一个分类并返回实际分类。
  * autoKind 为 true（搜索词变化、换存档）时，当前分类没有命中而别的分类有，就自动切到第一个有命中的分类。
+ * keepScroll 为 true（存档在磁盘上变了的静默重载，T030）时结果区保持原来的滚动位置，否则回到顶部。
  */
-async function loadLibrary(reset, autoKind) {
+async function loadLibrary(reset, autoKind, keepScroll) {
   if (!selected || selected.supported === false)
     return;
   if (reset)
@@ -559,8 +656,9 @@ async function loadLibrary(reset, autoKind) {
     return;
   }
   library.groups = page.groups;
+  const scrollTop = keepScroll ? resultsEl.scrollTop : 0;
   gridEl.replaceChildren(...page.groups.map((group) => cardFor(group)));
-  resultsEl.scrollTop = 0;
+  resultsEl.scrollTop = scrollTop;
   renderChips();
   renderPager();
   paintMeta();
@@ -783,6 +881,13 @@ function closeDialog() {
   if (dialogKeys) {
     document.removeEventListener("keydown", dialogKeys);
     dialogKeys = null;
+  }
+  // T030：确认框开着时存档在磁盘上变了，物品库推迟到现在重载（放到下一轮，让「获得」的结果先画上去）。
+  if (libraryStale) {
+    setTimeout(() => {
+      if (libraryStale && confirmEl.hidden && !selectedBackup)
+        reloadSelected().catch(showError);
+    }, 0);
   }
 }
 
@@ -1896,6 +2001,43 @@ async function runLibrarySelfTest() {
   await loadLibrary(true, false);
 }
 
+/** 等页面上的条件成立（轮询，超时返回 false）。 */
+async function until(condition, timeoutMs) {
+  const started = Date.now();
+  while (!condition()) {
+    if (Date.now() - started > timeoutMs)
+      return false;
+    await pause(50);
+  }
+  return true;
+}
+
+/**
+ * T030：宿主在自检沙箱的存档目录里新建一个槽位，页面不做任何操作，存档列表应自动出现它；
+ * 再把选中的存档覆盖成原始副本（相当于游戏重新存档），选中存档的时间和物品库应自动重载，分类、页码、搜索词不变。
+ */
+async function runAutoRefreshSelfTest() {
+  const before = slots.length;
+  const keep = { kind: library.kind, page: library.page, query: library.query, slot: selected && selected.slot };
+  const pushed = waitEvent("saves.changed", 10000);
+  const created = await call("selftest.newSlot", {});
+  await pushed;
+  const listed = await until(() => slots.some((slot) => slot.name === created.name), 5000);
+  const listOk = listed && slots.length === before + 1 && savesPane.textContent.includes(created.name)
+    && !!selected && selected.slot === keep.slot;
+
+  const oldTime = selected.time;
+  const token = library.token;
+  const rewritten = waitEvent("saves.changed", 10000);
+  await call("selftest.overwrite", {});
+  await rewritten;
+  const reloaded = await until(() => selected.time !== oldTime && library.token > token && !library.loading, 5000);
+  const kept = library.kind === keep.kind && library.page === keep.page && library.query === keep.query
+    && slotTimeEl.textContent === formatTime(selected.time) && gridEl.children.length > 0;
+  await step("saves-autorefresh", listOk && reloaded && kept,
+    created.name + " slots " + before + "→" + slots.length + " reloaded=" + reloaded + " kind=" + library.kind + " page=" + library.page);
+}
+
 function samePath(left, right) {
   const trim = (value) => String(value || "").replace(/[\\/]+$/, "").toLowerCase();
   return !!left && trim(left) === trim(right);
@@ -2153,6 +2295,7 @@ async function runFullSelfTest() {
     }
     await step("clone", cloneOk, gear ? gear.label : "none");
     await runLibrarySelfTest();
+    await runAutoRefreshSelfTest();
     await call("selftest.done", { ok: true, detail: "full" });
   } catch (error) {
     await call("selftest.done", { ok: false, detail: messageOf(error) });

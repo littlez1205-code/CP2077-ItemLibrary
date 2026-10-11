@@ -37,6 +37,10 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
     private readonly ConcurrentDictionary<string, GamePaths> _paths = new(StringComparer.Ordinal);
     private readonly string _version;
     private readonly IUrlLauncher? _urlLauncher;
+    private readonly Lock _rootWatchGate = new();
+    private readonly Dictionary<string, SaveRootWatcher> _rootWatchers = new(StringComparer.Ordinal);
+    private int? _rootWatchDebounce;
+    private bool _disposed;
     private volatile bool _helpShownInMemory;
 
     /// <param name="saveRootOverride">命令行 --save-root（自检用），优先于设置文件。</param>
@@ -163,7 +167,96 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
 
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
-    public async ValueTask DisposeAsync() => await _enable.DisposeAsync();
+    public async ValueTask DisposeAsync()
+    {
+        lock (_rootWatchGate)
+        {
+            _disposed = true;
+            foreach (var watcher in _rootWatchers.Values)
+                watcher.Dispose();
+            _rootWatchers.Clear();
+        }
+
+        await _enable.DisposeAsync();
+    }
+
+    /// <summary>
+    /// 存档列表自动刷新（T030，桌面端启用）：监视各游戏当前生效的存档根目录，游戏存档、槽位目录增删改名后，
+    /// 去抖合并推送 <c>{"event":"saves.changed","data":{"gameId":…}}</c>，页面收到后静默刷新。
+    /// 存档根目录在设置里改了，监视跟着切换；目录不存在时不监视、不报错；随本对象释放。
+    /// </summary>
+    public void WatchSaveRoots(int debounceMilliseconds = SaveRootWatcher.DefaultDebounceMilliseconds)
+    {
+        if (debounceMilliseconds is < 0 or > 60_000)
+            throw new ArgumentOutOfRangeException(nameof(debounceMilliseconds), "防抖毫秒的安全范围是 0..60000。");
+        lock (_rootWatchGate)
+        {
+            if (_disposed)
+                return;
+            _rootWatchDebounce = debounceMilliseconds;
+            foreach (var adapter in _registry.All)
+                RewatchLocked(adapter);
+        }
+    }
+
+    /// <summary>某个游戏的存档根目录当前是否在监视（测试和自检用）。</summary>
+    public bool IsWatchingSaveRoot(string gameId)
+    {
+        lock (_rootWatchGate)
+            return _rootWatchers.TryGetValue(gameId, out var watcher) && watcher.Active;
+    }
+
+    private void Rewatch(IGameAdapter adapter)
+    {
+        lock (_rootWatchGate)
+        {
+            if (!_disposed && _rootWatchDebounce is not null)
+                RewatchLocked(adapter);
+        }
+    }
+
+    private void RewatchLocked(IGameAdapter adapter)
+    {
+        var root = PathsOf(adapter).SaveRoot;
+        if (_rootWatchers.TryGetValue(adapter.GameId, out var current))
+        {
+            if (!string.IsNullOrWhiteSpace(root) && current.Active && SamePath(current.Root, root))
+                return;
+            current.Dispose();
+            _rootWatchers.Remove(adapter.GameId);
+        }
+
+        if (string.IsNullOrWhiteSpace(root))
+            return;
+        var gameId = adapter.GameId;
+        _rootWatchers[gameId] = new SaveRootWatcher(root, () => PushSavesChanged(gameId), _rootWatchDebounce!.Value, SaveFileNameOf(adapter));
+    }
+
+    private void PushSavesChanged(string gameId) =>
+        _push(JsonSerializer.Serialize(new { Event = "saves.changed", Data = new { GameId = gameId } }, JsonOptions));
+
+    /// <summary>槽位里的存档文件名：取适配器监听通配的最后一段（2077 为 sav.dat），带通配符或没有时用 sav.dat。</summary>
+    private static string SaveFileNameOf(IGameAdapter adapter)
+    {
+        var glob = adapter.WatchSpec.IncludeGlobs.FirstOrDefault();
+        var name = string.IsNullOrWhiteSpace(glob) ? null : glob.Replace('\\', '/').Split('/')[^1];
+        return string.IsNullOrWhiteSpace(name) || name.Contains('*') || name.Contains('?') ? SaveRootWatcher.DefaultSaveFileName : name;
+    }
+
+    private static bool SamePath(string left, string right)
+    {
+        try
+        {
+            return string.Equals(
+                Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+    }
 
     /// <summary>
     /// 程序信息（D022）：版本号，以及「说明」是否已经自动弹出过。标记存在设置文件里（程序级，不分游戏）；
@@ -670,6 +763,8 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         _paths[adapter.GameId] = next;
         if (!string.Equals(previous.SaveRoot, next.SaveRoot, StringComparison.OrdinalIgnoreCase))
             _enable.Stop();
+        // 存档列表自动刷新（T030）跟着新的存档根目录走；没变且正在监视时什么也不做。
+        Rewatch(adapter);
         if (adapter is IGamePathSetup setup)
             ApplyGameDirectory(setup, next.GameDir);
         return Ok(id, adapter.GameId, SettingsPayload(adapter));

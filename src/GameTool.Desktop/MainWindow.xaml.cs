@@ -230,6 +230,8 @@ public partial class MainWindow : Window
                 string.IsNullOrWhiteSpace(_gameDir) ? null : _gameDir,
                 PickFolder,
                 urlLauncher: _selfTest ? _selfTestLauncher : new ShellUrlLauncher());
+            // T030：游戏存档后自动刷新存档列表（宿主监视存档根目录，去抖后推送 saves.changed），随桥接一起在关闭时释放。
+            _bridge.WatchSaveRoots();
             var query = new List<string>();
             if (_fullSelfTest)
                 query.Add("selftest=full");
@@ -310,7 +312,7 @@ public partial class MainWindow : Window
             using var document = JsonDocument.Parse(requestJson);
             var root = document.RootElement;
             var method = root.TryGetProperty("method", out var methodValue) ? methodValue.GetString() : null;
-            if (method is not ("selftest.step" or "selftest.overwrite" or "selftest.hash" or "selftest.done" or "selftest.leak" or "selftest.fakeGame" or "selftest.launched"))
+            if (method is not ("selftest.step" or "selftest.overwrite" or "selftest.hash" or "selftest.done" or "selftest.leak" or "selftest.fakeGame" or "selftest.launched" or "selftest.newSlot"))
                 return false;
             var id = root.TryGetProperty("id", out var idValue) ? idValue.GetString() : null;
             var parameters = root.TryGetProperty("params", out var parameterValue) ? parameterValue : default;
@@ -337,6 +339,19 @@ public partial class MainWindow : Window
                 // D023：在临时目录里搭两个最小的假游戏目录（只有空占位文件，不碰真实游戏目录），供页面走桥接校验往日之影检测。
                 var (baseOnly, withExpansion) = CreateFakeGames();
                 Reply(id, true, null, new { BaseOnly = baseOnly, WithExpansion = withExpansion });
+                return true;
+            }
+            else if (method == "selftest.newSlot")
+            {
+                if (!_fullSelfTest)
+                    return false;
+                // T030：在自检沙箱的存档目录里新建一个槽位（复制原始副本），页面不做任何操作，存档列表应自动出现它。
+                const string name = "ManualSave-8";
+                var directory = Path.Combine(_saveRoot, name);
+                Directory.CreateDirectory(directory);
+                File.Copy(_pristine, Path.Combine(directory, "sav.dat"), overwrite: true);
+                LogSelfTest("newSlot", true, directory);
+                Reply(id, true, null, new { Name = name });
                 return true;
             }
             else if (method == "selftest.launched")

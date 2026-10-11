@@ -344,8 +344,12 @@ public class LibraryTests : IDisposable
         Assert.Contains("至少为 1", Assert.Throws<PatchRejectedException>(() => library.Obtain(_adapter, path, Food, 0)).Message);
         Assert.Contains("没有", Assert.Throws<PatchRejectedException>(() => library.Obtain(_adapter, path, "Items.HiddenDrink", 1)).Message);
         Assert.Throws<PatchRejectedException>(() => library.Obtain(_adapter, path, " ", 1));
-        // 没有远程武器模板：生成拒绝，存档不变，也不产生备份。
-        Assert.Contains("远程武器作为模板", Assert.Throws<InvalidDataException>(() => library.Obtain(_adapter, path, "Items.Preset_Lexington_Default", 1)).Message);
+        // 背包里没有任何装备（只有欧元）：远程武器连前缀来源都没有，生成拒绝，存档不变，也不产生备份。
+        var bare = GearGenerateTests.WriteSaveAt(Path.Combine(_root, "saves"), "ManualSave-1");
+        var bareOriginal = File.ReadAllBytes(bare);
+        Assert.Contains("能解析的装备", Assert.Throws<InvalidDataException>(() => library.Obtain(_adapter, bare, "Items.Preset_Lexington_Default", 1)).Message);
+        Assert.Equal(bareOriginal, File.ReadAllBytes(bare));
+        Assert.False(File.Exists(bare + ".tmp"));
         Assert.Equal(original, File.ReadAllBytes(path));
         Assert.False(File.Exists(path + ".tmp"));
         Assert.Empty(backups.List(_adapter.GameId));
@@ -353,6 +357,26 @@ public class LibraryTests : IDisposable
         var unnamed = new Cp2077Adapter(() => Cp2077ItemNames.FromCatalog(null));
         Assert.Contains("REDmod", Assert.Throws<PatchRejectedException>(() => library.Obtain(unnamed, path, Food, 1)).Message);
         Assert.Equal(original, File.ReadAllBytes(path));
+    }
+
+    [Fact]
+    public async Task Obtain_RangedWithOnlyClothing_BorrowsTheJacketPrefix()
+    {
+        // T030：存档里一把枪都没有，物品库「获得」莱克星顿仍能生成（夹克作前缀来源），通过严格校验，不产生备份。
+        var path = Save("saves", "ManualSave-0");
+        var count = ((Cp2077SaveDocument)_adapter.Load(path)).PlayerItemCount;
+        var backups = new BackupStore(Path.Combine(_root, "backups"));
+        await using var enable = new EnableService(backups, _ => { });
+        var library = new LibraryService(backups, enable);
+
+        var gun = library.Obtain(_adapter, path, "Items.Preset_Lexington_Default", null);
+        Assert.False(gun.Stackable);
+        Assert.Equal(1, gun.Quantity);
+        Assert.Equal("夹克", gun.TemplateLabel);
+        var after = (Cp2077SaveDocument)_adapter.Load(path);
+        Assert.Equal(count + 1, after.PlayerItemCount);
+        Assert.True(after.FindGeneratable("Items.Preset_Lexington_Default")!.Owned);
+        Assert.Empty(backups.List(_adapter.GameId));
     }
 
     [Fact]

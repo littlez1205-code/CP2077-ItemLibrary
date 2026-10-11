@@ -238,13 +238,21 @@ public class GearGenerateTests : IDisposable
     }
 
     [Fact]
-    public void TemplateSelection_RangedNeedsAChildPart_AndMissingTemplatesAreRejected()
+    public void TemplateSelection_RangedPrefersAChildPart_ThenFallsBackToPrefixSource()
     {
+        // 没有带子配件的远程武器时（T030），回退到前缀来源：不带子配件的 MA70 本身就是远程武器，排在服装前面。
         var bare = WriteSave("bare", (1, Weapon("Items.Preset_MA70_Default", children: false)), (1, Samurai()));
-        Assert.Null(ItemGenerator.ChooseTemplateKey(SaveContainer.Read(bare), GearKinds.Ranged, _names));
+        Assert.StartsWith("1:2:", ItemGenerator.ChooseTemplateKey(SaveContainer.Read(bare), GearKinds.Ranged, _names));
         var document = (Cp2077SaveDocument)_adapter.Load(bare);
-        Assert.Contains("远程武器作为模板", Assert.Throws<InvalidDataException>(() =>
-            document.Generate(new GenerateRequest("Items.Preset_Ajax_Default", 1))).Message);
+        var fallback = document.Generate(new GenerateRequest("Items.Preset_Ajax_Default", 1));
+        Assert.StartsWith("1:2:", fallback.TemplateKey);
+        document.VerifyOnlyGenerated(Open(bare), fallback);
+
+        // 背包里只有堆叠物品（欧元）：没有任何能提供前缀的装备。
+        var empty = WriteSave("empty");
+        Assert.Null(ItemGenerator.ChooseTemplateKey(SaveContainer.Read(empty), GearKinds.Ranged, _names));
+        Assert.Contains("能解析的装备", Assert.Throws<InvalidDataException>(() =>
+            ((Cp2077SaveDocument)_adapter.Load(empty)).Generate(new GenerateRequest("Items.Preset_Ajax_Default", 1))).Message);
 
         var withChild = WriteSave("child", (1, Weapon("Items.Preset_MA70_Default", children: false)), (ItemInserter.StashBagId, Weapon("Items.Preset_MA70_Default", children: true)));
         Assert.StartsWith("1000000:1:", ItemGenerator.ChooseTemplateKey(SaveContainer.Read(withChild), GearKinds.Ranged, _names));
@@ -287,17 +295,17 @@ public class GearGenerateTests : IDisposable
         """;
 
     [Fact]
-    public void Iconic_InCatalog_GeneratesWithIconicMod_ButIsNeverATemplate()
+    public void Iconic_InCatalog_GeneratesWithIconicMod_AndIsOnlyAPrefixFallback()
     {
-        var index = TweakSourceIndex.Parse([("a.tweak", Tweaks), ("b.tweak", IconicTweaks)]);
-        var names = Cp2077ItemNames.FromCatalog(ItemNameCatalog.FromParts(index, [.. Texts, new LocEntry(8, "", "", "偏见")]));
+        var names = IconicNames();
         var adapter = new Cp2077Adapter(() => names);
         var rogue = names.Gear.Single(entry => entry.RecordName == "Items.Preset_Masamune_Rogue");
         Assert.True(rogue.Iconic);
         Assert.Equal(GearKinds.Ranged, rogue.Kind);
 
+        // 标志性武器不当首选模板；只有它时（T030）作前缀来源。
         var iconicOnly = WriteSave("iconic-only", (1, Weapon("Items.Preset_Masamune_Rogue", children: true)));
-        Assert.Null(ItemGenerator.ChooseTemplateKey(SaveContainer.Read(iconicOnly), GearKinds.Ranged, names));
+        Assert.StartsWith("1:2:", ItemGenerator.ChooseTemplateKey(SaveContainer.Read(iconicOnly), GearKinds.Ranged, names));
 
         var path = WriteSave("iconic", (1, Weapon("Items.Preset_Masamune_Rogue", children: true)), (ItemInserter.StashBagId, Weapon("Items.Preset_MA70_Default", children: true)));
         var document = (Cp2077SaveDocument)adapter.Load(path);
@@ -308,6 +316,148 @@ public class GearGenerateTests : IDisposable
         Assert.Contains(tree.Root.Children, part =>
             part.Tweak == TweakDbId.FromName("Items.RogueMasamuneWeaponMod") && part.Slot == TweakDbId.FromName("AttachmentSlots.IconicWeaponModLegendary"));
         document.VerifyOnlyGenerated(Open(path), applied);
+    }
+
+    [Fact]
+    public void TemplateSelection_RangedFallback_GunsFirst_ThenKnownGear_ThenAnything()
+    {
+        // T030 回退顺序：远程武器（含标志性） → 目录认得的其他装备 → 其他非堆叠物品；根 CName 不是 None 的枪（如偏见的 afterlife）跳过。
+        var names = IconicNames();
+        var unknown = Clothing("Items.Katana", generic: true);
+        Assert.Null(names.KindOf(TweakDbId.FromName("Items.Katana")));
+        var afterlife = ItemPartTreeTests.Body("Items.Preset_Masamune_Rogue", 0x6668,
+            ItemPartTreeTests.Part(TweakDbId.FromName("Items.w_rifle_assault__arasaka_masamune__rvc1"), 0x76, 0x6FEE, "afterlife", TweakDbId.FromName("AttachmentSlots.Receiver"),
+                ItemPartTreeTests.Part(TweakDbId.FromName("Items.RogueMasamuneWeaponMod"), 0x77, 0x6FEF, "None", TweakDbId.FromName("AttachmentSlots.IconicWeaponModLegendary"))));
+
+        string? Key(string name, params (ulong Bag, byte[] Body)[] items) =>
+            ItemGenerator.ChooseTemplateKey(SaveContainer.Read(WriteSave(name, items)), GearKinds.Ranged, names);
+
+        Assert.StartsWith("1000000:1:", Key("order-gun", (1, unknown), (1, afterlife), (1, Samurai()), (ItemInserter.StashBagId, Weapon("Items.Preset_Masamune_Rogue", children: true))));
+        Assert.StartsWith("1:4:", Key("order-known", (1, unknown), (1, afterlife), (1, Samurai())));
+        Assert.StartsWith("1:2:", Key("order-any", (1, unknown), (1, afterlife)));
+        Assert.Null(Key("order-none", (1, afterlife)));
+    }
+
+    [Fact]
+    public void Generate_Ranged_IconicGunOnly_BorrowsItsPrefixAndFirstPart()
+    {
+        // 总监存档的情形：只有标志性枪（T030）。前缀、根和第一个子配件的 ItemID 后 4 字节、CName、尾部来自这把枪，配件树按预设重建。
+        var names = IconicNames();
+        var adapter = new Cp2077Adapter(() => names);
+        var iconic = ItemPartTreeTests.Body("Items.Preset_Masamune_Rogue", 0x6669,
+            ItemPartTreeTests.Part(TweakDbId.FromName("Items.w_rifle_assault__arasaka_masamune__rvc1"), 0x78, 0x7001, "None", TweakDbId.FromName("AttachmentSlots.Receiver"),
+                ItemPartTreeTests.Part(TweakDbId.FromName("Items.RogueMasamuneWeaponMod"), 0x79, 0x7002, "None", TweakDbId.FromName("AttachmentSlots.IconicWeaponModLegendary"), 0.135f),
+                ItemPartTreeTests.Part(TweakDbId.FromName("Items.w_rifle_assault__arasaka_masamune__base1"), 0x7A, 0x7003, "None", TweakDbId.FromName("AttachmentSlots.Barrel"), 0.135f)));
+        iconic[21] ^= 0x5A;
+        var path = WriteSave("iconic-prefix", (1, Samurai()), (1, iconic));
+        var document = (Cp2077SaveDocument)adapter.Load(path);
+        var applied = document.Generate(new GenerateRequest("Items.Preset_Ajax_Default", 2));
+
+        Assert.StartsWith("1:3:", applied.TemplateKey);
+        Assert.Equal("偏见", applied.TemplateLabel);
+        var source = ItemPartTree.Parse(iconic);
+        var model = source.Root.Children[0];
+        foreach (var record in applied.Records)
+        {
+            var tree = ItemPartTree.Parse(record.Body);
+            Assert.Equal(TweakDbId.FromName("Items.Preset_Ajax_Default"), BinaryPrimitives.ReadUInt64LittleEndian(record.Header));
+            Assert.Equal(iconic.AsSpan(16, 4).ToArray(), record.Header.AsSpan(12).ToArray());
+            Assert.Equal(iconic.AsSpan(20, 5).ToArray(), record.Body.AsSpan(20, 5).ToArray());
+            Assert.All(record.Body.AsSpan(25, 12).ToArray(), value => Assert.Equal(0, value));
+            Assert.Equal(TweakDbId.FromName("Items.w_rifle_assault__militech_ajax__rcv1"), tree.Root.Tweak);
+            Assert.Equal(source.Root.ItemId.AsSpan(12).ToArray(), tree.Root.ItemId.AsSpan(12).ToArray());
+            Assert.Equal(source.Root.Trailer, tree.Root.Trailer);
+            Assert.Equal(
+                new[] { "Items.w_rifle_assault__militech_ajax__base1", "Items.w_rifle_assault__militech_ajax__mag_std", "Items.w_rifle_assault__militech_ajax__mag_stdr" }.Select(TweakDbId.FromName),
+                tree.Root.Children.Select(part => part.Tweak));
+            Assert.All(tree.Root.Children, part =>
+            {
+                Assert.Equal(model.ItemId.AsSpan(12).ToArray(), part.ItemId.AsSpan(12).ToArray());
+                Assert.Equal("None", part.Appearance);
+                Assert.Equal(model.Trailer, part.Trailer);
+                Assert.Empty(part.Children);
+            });
+            Assert.Equal(record.Seeds.Skip(1), tree.Walk().Select(entry => entry.Part.Seed));
+        }
+
+        document.VerifyOnlyGenerated(Cp2077SaveDocument.Open(SaveContainer.Read(path), adapter.Resources), applied);
+    }
+
+    [Fact]
+    public void Generate_Ranged_ClothingOnly_UsesTheClothingRootAsPartModel()
+    {
+        // 完全没有枪（T030）：服装作前缀来源。服装根没有子配件，同近战武器用根代替；面罩的空根 ItemID 后 4 字节为 0、CName None、尾部 16 个 0 + FLT_MAX。
+        var path = WriteSave("clothing-prefix", (1, Mask()), (ItemInserter.StashBagId, Samurai()));
+        var mask = ItemPartTree.Parse(Mask());
+        var document = (Cp2077SaveDocument)_adapter.Load(path);
+        var applied = document.Generate(new GenerateRequest("Items.Preset_Ajax_Default", 1));
+
+        Assert.StartsWith("1:2:", applied.TemplateKey);
+        Assert.Equal("面罩", applied.TemplateLabel);
+        var record = Assert.Single(applied.Records);
+        Assert.Equal(41 + (50 * 4), record.Body.Length);
+        var tree = ItemPartTree.Parse(record.Body);
+        Assert.Equal(TweakDbId.FromName("Items.w_rifle_assault__militech_ajax__rcv1"), tree.Root.Tweak);
+        Assert.Equal(TweakDbId.FromName("AttachmentSlots.Receiver"), tree.Root.Slot);
+        Assert.Equal(3, tree.Root.Children.Count);
+        Assert.All(tree.Walk().Select(entry => entry.Part), part =>
+        {
+            Assert.Equal(new byte[4], part.ItemId.AsSpan(12).ToArray());
+            Assert.Equal("None", part.Appearance);
+            Assert.Equal(mask.Root.Trailer, part.Trailer);
+            Assert.Equal(ItemGenerator.BlankTrailer(), part.Trailer);
+        });
+        Assert.All(record.Body.AsSpan(25, 12).ToArray(), value => Assert.Equal(0, value));
+        document.VerifyOnlyGenerated(Open(path), applied);
+    }
+
+    [Fact]
+    public void Generate_Ranged_PlainTemplatePresent_BytesUnchanged()
+    {
+        // 有普通远程武器时仍选它（T030 前的首选），哪怕标志性枪和服装排在前面；生成字节逐字节按 E3d 规则（与修改前一致）。
+        var names = IconicNames();
+        var adapter = new Cp2077Adapter(() => names);
+        var template = Weapon("Items.Preset_MA70_Default", children: true);
+        var path = WriteSave("plain", (1, Weapon("Items.Preset_Masamune_Rogue", children: true)), (1, Samurai()), (ItemInserter.StashBagId, template));
+        Assert.StartsWith("1000000:1:", ItemGenerator.ChooseTemplateKey(SaveContainer.Read(path), GearKinds.Ranged, names));
+        var document = (Cp2077SaveDocument)adapter.Load(path);
+        var applied = document.Generate(new GenerateRequest("Items.Preset_Ajax_Default", 2));
+        Assert.StartsWith("1000000:1:", applied.TemplateKey);
+
+        var source = ItemPartTree.Parse(template);
+        var model = source.Root.Children[0];
+        string[][] preset =
+        [
+            ["AttachmentSlots.Barrel", "Items.w_rifle_assault__militech_ajax__base1"],
+            ["AttachmentSlots.Magazine", "Items.w_rifle_assault__militech_ajax__mag_std"],
+            ["AttachmentSlots.MagazineEmpty", "Items.w_rifle_assault__militech_ajax__mag_stdr"]
+        ];
+        foreach (var record in applied.Records)
+        {
+            byte[] Id(string name, uint seed, byte[] from)
+            {
+                var id = from.ToArray();
+                BinaryPrimitives.WriteUInt64LittleEndian(id, TweakDbId.FromName(name));
+                BinaryPrimitives.WriteUInt32LittleEndian(id.AsSpan(8), seed);
+                return id;
+            }
+
+            var header = Id("Items.Preset_Ajax_Default", record.Seed, template.AsSpan(4, 16).ToArray());
+            var prefix = source.Prefix.ToArray();
+            record.Body.AsSpan(0, 4).CopyTo(prefix);
+            header.CopyTo(prefix, 4);
+            prefix.AsSpan(25, 12).Clear();
+            var root = new ItemPart(
+                Id("Items.w_rifle_assault__militech_ajax__rcv1", record.Seeds[1], source.Root.ItemId),
+                source.Root.Appearance,
+                TweakDbId.FromName("AttachmentSlots.Receiver"),
+                preset.Select((part, i) => new ItemPart(Id(part[1], record.Seeds[2 + i], model.ItemId), model.Appearance, TweakDbId.FromName(part[0]), [], model.Trailer)).ToArray(),
+                source.Root.Trailer);
+            Assert.Equal(header, record.Header);
+            Assert.Equal(ItemPartTree.Write(new ItemDataBody(prefix, root)), record.Body);
+        }
+
+        document.VerifyOnlyGenerated(Cp2077SaveDocument.Open(SaveContainer.Read(path), adapter.Resources), applied);
     }
 
     [Fact]
@@ -563,6 +713,12 @@ public class GearGenerateTests : IDisposable
         using var missing = JsonDocument.Parse(bridge.Dispatch("{\"id\":\"g2\",\"method\":\"generate.run\",\"params\":{\"gameId\":\"cp2077\",\"slot\":" + slotJson + "}}"));
         Assert.Equal("bad_args", missing.RootElement.GetProperty("error").GetProperty("code").GetString());
     }
+
+    /// <summary>基础 tweak 源 + 标志性武器「偏见」（Preset_Masamune_Rogue）。</summary>
+    private static Cp2077ItemNames IconicNames() =>
+        Cp2077ItemNames.FromCatalog(ItemNameCatalog.FromParts(
+            TweakSourceIndex.Parse([("a.tweak", Tweaks), ("b.tweak", IconicTweaks)]),
+            [.. Texts, new LocEntry(8, "", "", "偏见")]));
 
     private Cp2077SaveDocument Open(string path) =>
         Cp2077SaveDocument.Open(SaveContainer.Read(path), _adapter.Resources);
