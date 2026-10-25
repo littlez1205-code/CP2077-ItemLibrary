@@ -184,9 +184,23 @@ public static class ItemInserter
         byte[] body,
         string? tweakName,
         uint? quantity,
-        uint seed)
+        uint seed,
+        bool toStash = false)
     {
-        var last = layout.PlayerItems[^1];
+        var targetList = toStash ? layout.StashItems : layout.PlayerItems;
+        if (toStash)
+        {
+            if (layout.StashCountOffset is null || layout.StashItems.Count == 0)
+                throw new InvalidDataException("存档中暂无储藏箱记录，请在游戏内先使用一次载具后备箱或公寓储藏处。");
+        }
+        else
+        {
+            if (layout.PlayerItems.Count == 0)
+                throw new InvalidDataException("玩家背包是空的。");
+        }
+
+        var countOffset = toStash ? layout.StashCountOffset!.Value : layout.PlayerCountOffset;
+        var last = targetList[^1];
         var k = last.NodeIndex + 1;
         var added = HeaderLength + body.Length;
         var insertAt = last.BodyOffset + last.Length;
@@ -199,8 +213,8 @@ public static class ItemInserter
         body.CopyTo(payload.AsSpan(insertAt + HeaderLength));
         old.AsSpan(insertAt).CopyTo(payload.AsSpan(insertAt + added));
 
-        var count = BinaryPrimitives.ReadUInt32LittleEndian(payload.AsSpan(layout.PlayerCountOffset, 4));
-        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(layout.PlayerCountOffset, 4), count + 1);
+        var count = BinaryPrimitives.ReadUInt32LittleEndian(payload.AsSpan(countOffset, 4));
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(countOffset, 4), count + 1);
 
         var nodes = NodeTable.Parse(container.CopyNodeTable());
         for (var i = 0; i < nodes.Count; i++)
@@ -373,6 +387,7 @@ public static class ItemInserter
     {
         public int InventoryIndex { get; init; }
         public int PlayerCountOffset { get; init; }
+        public int? StashCountOffset { get; init; }
         public List<PlacedItem> PlayerItems { get; init; } = [];
         public List<PlacedItem> StashItems { get; init; } = [];
 
@@ -393,6 +408,7 @@ public static class ItemInserter
             var items = new List<PlacedItem>();
             var stash = new List<PlacedItem>();
             int? countOffset = null;
+            int? stashCountOffset = null;
             var child = inventory.Child;
             for (var sub = 0; sub < subCount; sub++)
             {
@@ -400,12 +416,19 @@ public static class ItemInserter
                 var atCount = cursor;
                 var itemCount = ReadUInt32(payload, ref cursor);
                 var player = bagId == InventoryResearch.DefaultBagId;
-                var tracked = player || bagId == StashBagId;
+                var isStash = bagId == StashBagId;
+                var tracked = player || isStash;
                 if (player)
                 {
                     if (countOffset is not null)
                         throw new InvalidDataException("玩家背包 ID=1 出现了多次。");
                     countOffset = atCount;
+                }
+                else if (isStash)
+                {
+                    if (stashCountOffset is not null)
+                        throw new InvalidDataException("储藏箱 ID=1000000 出现了多次。");
+                    stashCountOffset = atCount;
                 }
 
                 for (var item = 0; item < itemCount; item++)
@@ -450,6 +473,7 @@ public static class ItemInserter
             {
                 InventoryIndex = inventory.Index,
                 PlayerCountOffset = countOffset.Value,
+                StashCountOffset = stashCountOffset,
                 PlayerItems = items,
                 StashItems = stash
             };

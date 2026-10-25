@@ -41,6 +41,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         _resources = resources;
         _stacks = inventory.PlayerStacks.ToList();
         PlayerInventoryItemCount = inventory.PlayerItemCount;
+        StashInventoryItemCount = inventory.StashItemCount;
         _canInsert = canInsert;
         _namesFactory = names;
         _gearFactory = gear;
@@ -69,6 +70,8 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     public SaveVersionInfo Version { get; }
     public int PlayerInventoryItemCount { get; private set; }
     public int PlayerItemCount => PlayerInventoryItemCount;
+    public int StashInventoryItemCount { get; private set; }
+    public int StashItemCount => StashInventoryItemCount;
 
     public bool NamesAvailable => Names?.Available == true;
 
@@ -208,6 +211,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         _stacks.Clear();
         _stacks.AddRange(inventory.PlayerStacks);
         PlayerInventoryItemCount = inventory.PlayerItemCount;
+        StashInventoryItemCount = inventory.StashItemCount;
     }
 
     private void VerifyInsertion(Cp2077SaveDocument source, IReadOnlyList<ResourceChange> changes, IReadOnlyList<ResourceChange> inserts)
@@ -604,7 +608,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     {
         ArgumentNullException.ThrowIfNull(request);
         var gear = Gear ?? throw new InvalidDataException(ItemNameCatalog.RedmodUnavailable);
-        var applied = ItemGenerator.Generate(_container, request.Target, request.Copies, gear);
+        var applied = ItemGenerator.Generate(_container, request.Target, request.Copies, gear, request.ToStash);
         ReloadInventory();
         // 物品键 = 子背包:序号:物品头；物品头前 8 字节就是模板的 TweakDBID（小端十六进制）。
         var templateHex = applied.TemplateKey.Split(':')[2][..16];

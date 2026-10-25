@@ -115,8 +115,12 @@ public static class PatchEngine
         if (working is not IItemGenerateCapable generator || original is not IItemGenerateCapable source)
             throw new PatchRejectedException("这个存档不能生成物品。");
         var applied = generator.Generate(request);
-        var expectedCount = source.PlayerItemCount + request.Copies;
-        if (generator.PlayerItemCount != expectedCount || applied.Copies != request.Copies || applied.Records.Count != request.Copies)
+        var expectedPlayerCount = request.ToStash ? source.PlayerItemCount : source.PlayerItemCount + request.Copies;
+        var expectedStashCount = request.ToStash ? source.StashItemCount + request.Copies : source.StashItemCount;
+        if (generator.PlayerItemCount != expectedPlayerCount
+            || (request.ToStash && generator.StashItemCount != expectedStashCount)
+            || applied.Copies != request.Copies
+            || applied.Records.Count != request.Copies)
             throw new PatchRejectedException("生成结果与请求的件数不一致。");
         var patch = Commit(
             adapter,
@@ -131,8 +135,18 @@ public static class PatchEngine
             clock,
             reloaded =>
             {
-                if (reloaded is not IItemGenerateCapable check || check.PlayerItemCount != expectedCount)
-                    throw new PatchRejectedException("回读校验失败：玩家物品数没有增加对应的件数。");
+                if (reloaded is not IItemGenerateCapable check)
+                    throw new PatchRejectedException("回读校验失败：无法作为物品生成文档加载。");
+                if (request.ToStash)
+                {
+                    if (check.PlayerItemCount != expectedPlayerCount || check.StashItemCount != expectedStashCount)
+                        throw new PatchRejectedException("回读校验失败：储藏箱物品数没有增加对应的件数。");
+                }
+                else
+                {
+                    if (check.PlayerItemCount != expectedPlayerCount)
+                        throw new PatchRejectedException("回读校验失败：玩家物品数没有增加对应的件数。");
+                }
                 check.VerifyOnlyGenerated(original, applied);
             },
             working);

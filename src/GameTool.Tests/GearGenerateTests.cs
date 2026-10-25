@@ -746,6 +746,61 @@ public class GearGenerateTests : IDisposable
 
         using var missing = JsonDocument.Parse(bridge.Dispatch("{\"id\":\"g2\",\"method\":\"generate.run\",\"params\":{\"gameId\":\"cp2077\",\"slot\":" + slotJson + "}}"));
         Assert.Equal("bad_args", missing.RootElement.GetProperty("error").GetProperty("code").GetString());
+
+        using var stashRan = JsonDocument.Parse(bridge.Dispatch("{\"id\":\"g3\",\"method\":\"generate.run\",\"params\":{\"gameId\":\"cp2077\",\"slot\":" + slotJson + ",\"target\":\"Items.Jacket_01_basic_01\",\"copies\":1,\"toStash\":true,\"backupFirst\":false}}"));
+        Assert.Equal("failed", stashRan.RootElement.GetProperty("error").GetProperty("code").GetString());
+        Assert.Contains("存档中暂无储藏箱记录", stashRan.RootElement.GetProperty("error").GetProperty("message").GetString());
+
+        var stashSlot = Path.Combine(saves, "ManualSave-1");
+        Directory.CreateDirectory(stashSlot);
+        var stashSave = Path.Combine(stashSlot, "sav.dat");
+        File.Copy(WriteSave("bridge-stash", (1, Samurai()), (ItemInserter.StashBagId, Samurai())), stashSave);
+        var stashSlotJson = JsonSerializer.Serialize(stashSave);
+
+        using var stashObtain = JsonDocument.Parse(bridge.Dispatch("{\"id\":\"o1\",\"method\":\"library.obtain\",\"params\":{\"gameId\":\"cp2077\",\"slot\":" + stashSlotJson + ",\"target\":\"Items.Jacket_01_basic_01\",\"toStash\":true}}"));
+        Assert.Equal("ok", stashObtain.RootElement.GetProperty("status").GetString());
+        Assert.True(stashObtain.RootElement.GetProperty("data").GetProperty("toStash").GetBoolean());
+    }
+
+    [Fact]
+    public void Generate_ToStash_IncrementsStashCount_AndPassesStrictVerification()
+    {
+        var path = WriteSave("stash-gen", (1, Weapon("Items.Preset_MA70_Default", children: true)), (ItemInserter.StashBagId, Samurai()));
+        var document = (Cp2077SaveDocument)_adapter.Load(path);
+        Assert.Equal(2, document.PlayerItemCount);
+        Assert.Equal(1, document.StashItemCount);
+
+        var applied = document.Generate(new GenerateRequest("Items.Preset_Ajax_Default", 2, ToStash: true));
+        Assert.True(applied.ToStash);
+        Assert.Equal(2, applied.Copies);
+        Assert.Equal(2, document.PlayerItemCount);
+        Assert.Equal(3, document.StashItemCount);
+
+        document.VerifyOnlyGenerated(_adapter.Load(path), applied);
+    }
+
+    [Fact]
+    public void Generate_ToStash_WithoutStashBag_ThrowsFriendlyException()
+    {
+        var path = WriteSave("no-stash", (1, Samurai()));
+        var document = (Cp2077SaveDocument)_adapter.Load(path);
+        Assert.Equal(2, document.PlayerItemCount);
+        Assert.Equal(0, document.StashItemCount);
+
+        var ex = Assert.Throws<InvalidDataException>(() => document.Generate(new GenerateRequest("Items.Jacket_01_basic_01", 1, ToStash: true)));
+        Assert.Contains("存档中暂无储藏箱记录", ex.Message);
+    }
+
+    [Fact]
+    public void PatchEngine_Generate_ToStash_PassesReloadVerification()
+    {
+        var path = WriteSave("engine-stash", (1, Weapon("Items.Preset_MA70_Default", children: true)), (ItemInserter.StashBagId, Samurai()));
+        var report = PatchEngine.Generate(_adapter, path, new GenerateRequest("Items.Preset_Ajax_Default", 1, ToStash: true), new PatchOptions(null));
+        Assert.Equal(PatchOutcome.Patched, report.Patch.Outcome);
+
+        var reloaded = (Cp2077SaveDocument)_adapter.Load(path);
+        Assert.Equal(2, reloaded.PlayerItemCount);
+        Assert.Equal(2, reloaded.StashItemCount);
     }
 
     /// <summary>基础 tweak 源 + 标志性武器「偏见」（Preset_Masamune_Rogue）。</summary>
