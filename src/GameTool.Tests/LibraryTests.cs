@@ -380,6 +380,37 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public async Task Obtain_ModWithMultipleCopies_GeneratesMultiple()
+    {
+        var modTweaks = Tweaks + """
+
+            WeaponMod1 : Item
+            {
+            	displayName = "LocKey#17";
+            	tags = [ "itemPart" ];
+            	itemType = "ItemType.Prt_Mod";
+            	placementSlots = [ "AttachmentSlots.GenericWeaponMod" ];
+            }
+            """;
+        var texts = Texts.Append(new LocEntry(17, "", "", "武器插件")).ToArray();
+        var index = TweakSourceIndex.Parse([("mod.tweak", modTweaks)]);
+        var names = Cp2077ItemNames.FromCatalog(ItemNameCatalog.FromParts(index, texts));
+        var adapter = new Cp2077Adapter(() => names);
+
+        var path = Save("saves", "ManualSave-0");
+        var count = ((Cp2077SaveDocument)adapter.Load(path)).PlayerItemCount;
+        var backups = new BackupStore(Path.Combine(_root, "backups"));
+        await using var enable = new EnableService(backups, _ => { });
+        var library = new LibraryService(backups, enable);
+
+        var report = library.Obtain(adapter, path, "Items.WeaponMod1", 3);
+        Assert.False(report.Stackable);
+        Assert.Equal(3, report.Quantity);
+        var after = (Cp2077SaveDocument)adapter.Load(path);
+        Assert.Equal(count + 3, after.PlayerItemCount);
+    }
+
+    [Fact]
     public async Task Bridge_LibraryObtain()
     {
         var saves = Path.Combine(_root, "bridge-saves");

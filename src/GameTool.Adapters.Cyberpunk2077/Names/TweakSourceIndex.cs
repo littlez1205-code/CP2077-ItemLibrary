@@ -189,8 +189,63 @@ public sealed partial class TweakSourceIndex
         ArgumentException.ThrowIfNullOrWhiteSpace(recordName);
         if (!_records.ContainsKey(recordName))
             return null;
-        return InheritedParts(recordName, new HashSet<string>(StringComparer.Ordinal));
+        var parts = InheritedParts(recordName, new HashSet<string>(StringComparer.Ordinal));
+        if (parts.Count > 0)
+            return parts;
+
+        if (Ancestors(recordName).Any(name => name is "RTDB.Clothing" or "Clothing" or "Items.Clothing"))
+        {
+            var tags = TagsOf(recordName);
+            foreach (var (tag, enhancer) in IntrinsicEnhancerTags)
+            {
+                if (tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
+                {
+                    var slot = EnhancerSlotOf(FieldOf(recordName, "itemType"));
+                    return
+                    [
+                        new TweakPresetPart("AttachmentSlots.GenericItemRoot", "Items.GenericItemRoot"),
+                        new TweakPresetPart(slot, enhancer)
+                    ];
+                }
+            }
+
+            return [new TweakPresetPart("AttachmentSlots.GenericItemRoot", "Items.GenericItemRoot")];
+        }
+
+        return parts;
     }
+
+    private static readonly (string Tag, string Enhancer)[] IntrinsicEnhancerTags =
+    [
+        ("ArmorMod", "Items.IntrinsicFabricEnhancer01"),
+        ("TherResMod", "Items.IntrinsicFabricEnhancer02"),
+        ("ShockResMod", "Items.IntrinsicFabricEnhancer03"),
+        ("ChemResMod", "Items.IntrinsicFabricEnhancer04"),
+        ("BleedResMod", "Items.IntrinsicFabricEnhancer05"),
+        ("BlindResMod", "Items.IntrinsicFabricEnhancer06"),
+        ("ZoomMod", "Items.IntrinsicFabricEnhancer07"),
+        ("QuickhackMod", "Items.IntrinsicFabricEnhancer08"),
+        ("QuickhackUploadMod", "Items.IntrinsicFabricEnhancer09"),
+        ("MeleeStaminaMod", "Items.IntrinsicFabricEnhancer10"),
+        ("ReloadMod", "Items.IntrinsicFabricEnhancer11"),
+        ("VendorMod", "Items.IntrinsicFabricEnhancer12"),
+        ("SprintStaminaMod", "Items.IntrinsicFabricEnhancer13"),
+        ("VisibilityMod", "Items.IntrinsicFabricEnhancer14"),
+        ("GrenadeChargeMod", "Items.IntrinsicFabricEnhancer15"),
+        ("EnemyHackMod", "Items.IntrinsicFabricEnhancer16"),
+        ("ExplosionMod", "Items.IntrinsicFabricEnhancer17"),
+        ("DLCItemMod", "Items.DLCItemsQualityUpgradeMod")
+    ];
+
+    private static string EnhancerSlotOf(string? itemType) => itemType switch
+    {
+        "ItemType.Clo_InnerChest" => "AttachmentSlots.InnerChestFabricEnhancer1",
+        "ItemType.Clo_Head" => "AttachmentSlots.HeadFabricEnhancer1",
+        "ItemType.Clo_Face" => "AttachmentSlots.FaceFabricEnhancer1",
+        "ItemType.Clo_Legs" => "AttachmentSlots.LegsFabricEnhancer1",
+        "ItemType.Clo_Feet" => "AttachmentSlots.FeetFabricEnhancer1",
+        _ => "AttachmentSlots.OuterChestFabricEnhancer1"
+    };
 
     /// <summary>索引里记下的深度 1 简单字段（物品图标用到外观名、实体名和 UIIcon 的图集路径与部件名；描述与关键属性）。</summary>
     public static readonly string[] ScalarFields =

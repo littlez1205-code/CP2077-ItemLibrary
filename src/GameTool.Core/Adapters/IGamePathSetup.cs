@@ -36,4 +36,10 @@ public interface IGamePathSetup
 
     /// <summary>改用新的游戏目录（null 表示清除）。之后打开的存档、名字表和图标都基于新目录。</summary>
     void UseGameDirectory(string? gameDirectory);
+
+    /// <summary>当前使用的显示/词条语言（如 zh-cn / zh-tw / en-us）。</summary>
+    string Language => "zh-cn";
+
+    /// <summary>切换词条语言。</summary>
+    void UseLanguage(string? language) { }
 }

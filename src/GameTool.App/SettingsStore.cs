@@ -83,6 +83,34 @@ public sealed class SettingsStore
         }
     }
 
+    public string GetLanguage()
+    {
+        lock (_gate)
+            return NormalizeLanguage(ReadFile().Language);
+    }
+
+    public void SetLanguage(string? language)
+    {
+        lock (_gate)
+        {
+            var file = ReadFile();
+            file.Language = string.IsNullOrWhiteSpace(language) ? null : NormalizeLanguage(language);
+            WriteFile(file);
+        }
+    }
+
+    public static string NormalizeLanguage(string? lang)
+    {
+        if (string.IsNullOrWhiteSpace(lang))
+            return "zh-cn";
+        var lower = lang.Trim().ToLowerInvariant();
+        if (lower.StartsWith("zh-tw", StringComparison.Ordinal) || lower.StartsWith("zh-hk", StringComparison.Ordinal))
+            return "zh-tw";
+        if (lower.StartsWith("en", StringComparison.Ordinal))
+            return "en-us";
+        return "zh-cn";
+    }
+
     private SettingsFile ReadFile()
     {
         JsonObject? root;
@@ -101,7 +129,10 @@ public sealed class SettingsStore
             return new SettingsFile();
         var file = new SettingsFile
         {
-            HelpShown = root["helpShown"] is JsonValue flag && flag.GetValueKind() == JsonValueKind.True ? true : null
+            HelpShown = root["helpShown"] is JsonValue flag && flag.GetValueKind() == JsonValueKind.True ? true : null,
+            Language = root["language"] is JsonValue langVal && langVal.GetValueKind() == JsonValueKind.String
+                ? Clean(langVal.GetValue<string>())
+                : null
         };
         try
         {
@@ -157,6 +188,9 @@ public sealed class SettingsStore
 
         /// <summary>只在为 true 时写出；false 时省略，文件和旧版写出的一样。</summary>
         public bool? HelpShown { get; set; }
+
+        /// <summary>界面与词条语言（zh-cn / zh-tw / en-us）；未设置时省略。</summary>
+        public string? Language { get; set; }
     }
 
     private sealed class GameEntry

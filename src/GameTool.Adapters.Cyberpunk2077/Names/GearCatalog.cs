@@ -21,23 +21,67 @@ public static class GearKinds
 
     public static bool IsStackable(string kind) => kind is Consumable or Ammo or Material or Recipe or Currency;
 
-    /// <summary>分类的中文名（界面分类标签、搜索词、配方的类型说明共用）。</summary>
-    public static string Label(string kind) => kind switch
+    /// <summary>分类的显示名（界面分类标签、搜索词、配方的类型说明共用，支持 zh-cn / zh-tw / en-us）。</summary>
+    public static string Label(string kind, string? lang = null) => NormalizeLang(lang) switch
     {
-        Clothing => "服装",
-        Ranged => "远程武器",
-        Melee => "近战武器",
-        Grenade => "手雷",
-        Cyberware => "义体",
-        ArmCyberware => "手臂义体",
-        Quickhack => "快速破解",
-        Mod => "模组",
-        Consumable => "消耗品",
-        Ammo => "弹药",
-        Material => "制作材料",
-        Recipe => "配方",
-        Currency => "货币",
-        _ => kind
+        "zh-tw" => kind switch
+        {
+            Clothing => "服裝",
+            Ranged => "遠程武器",
+            Melee => "近戰武器",
+            Grenade => "手榴彈",
+            Cyberware => "改造裝置",
+            ArmCyberware => "手臂改造裝置",
+            Quickhack => "速駭",
+            Mod => "改裝零件",
+            Consumable => "消耗品",
+            Ammo => "彈藥",
+            Material => "製作材料",
+            Recipe => "製作規範",
+            Currency => "貨幣",
+            _ => kind
+        },
+        "en-us" => kind switch
+        {
+            Clothing => "Clothing",
+            Ranged => "Ranged",
+            Melee => "Melee",
+            Grenade => "Grenades",
+            Cyberware => "Cyberware",
+            ArmCyberware => "Arm Cyberware",
+            Quickhack => "Quickhacks",
+            Mod => "Mods",
+            Consumable => "Consumables",
+            Ammo => "Ammo",
+            Material => "Components",
+            Recipe => "Specs",
+            Currency => "Currency",
+            _ => kind
+        },
+        _ => kind switch
+        {
+            Clothing => "服装",
+            Ranged => "远程武器",
+            Melee => "近战武器",
+            Grenade => "手雷",
+            Cyberware => "义体",
+            ArmCyberware => "手臂义体",
+            Quickhack => "快速破解",
+            Mod => "模组",
+            Consumable => "消耗品",
+            Ammo => "弹药",
+            Material => "制作材料",
+            Recipe => "配方",
+            Currency => "货币",
+            _ => kind
+        }
+    };
+
+    public static string NormalizeLang(string? lang) => lang?.Trim().ToLowerInvariant() switch
+    {
+        "zh-tw" or "zhtw" or "tw" or "zh-hk" => "zh-tw",
+        "en-us" or "en" or "enus" => "en-us",
+        _ => "zh-cn"
     };
 
     /// <summary>
@@ -86,18 +130,39 @@ public static partial class GearQuality
         return value.EndsWith("Plus", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
     }
 
-    public static string Word(string quality) => quality switch
+    public static string Word(string quality, string? lang = null) => GearKinds.NormalizeLang(lang) switch
     {
-        Common => "普通",
-        Uncommon => "罕见",
-        Rare => "稀有",
-        Epic => "史诗",
-        Legendary => "传说",
-        _ => quality
+        "zh-tw" => quality switch
+        {
+            Common => "普通",
+            Uncommon => "精良",
+            Rare => "稀有",
+            Epic => "史詩",
+            Legendary => "傳奇",
+            _ => quality
+        },
+        "en-us" => quality switch
+        {
+            Common => "Common",
+            Uncommon => "Uncommon",
+            Rare => "Rare",
+            Epic => "Epic",
+            Legendary => "Legendary",
+            _ => quality
+        },
+        _ => quality switch
+        {
+            Common => "普通",
+            Uncommon => "罕见",
+            Rare => "稀有",
+            Epic => "史诗",
+            Legendary => "传说",
+            _ => quality
+        }
     };
 
     /// <summary>品阶标签：传说、史诗+、传说++。</summary>
-    public static string TierLabel(string quality, int plus) => Word(quality) + new string('+', Math.Clamp(plus, 0, 2));
+    public static string TierLabel(string quality, int plus, string? lang = null) => Word(quality, lang) + new string('+', Math.Clamp(plus, 0, 2));
 
     /// <summary>
     /// 记录名末尾的品阶（T023）：<c>…Legendary</c>、<c>…EpicPlus</c>、<c>…_LegendaryPlusPlus</c>，
@@ -229,6 +294,9 @@ public interface IGearCatalog
 
     string? UnavailableMessage { get; }
 
+    /// <summary>目录当前使用的界面语言（zh-cn / zh-tw / en-us）。</summary>
+    string Language => "zh-cn";
+
     /// <summary>装备（非堆叠，按模板生成）。</summary>
     IReadOnlyList<GearEntry> Gear { get; }
 
@@ -236,7 +304,7 @@ public interface IGearCatalog
     IReadOnlyList<GearEntry> Stackables => [];
 
     /// <summary>同名合并后的卡片（装备和堆叠物品都在内，按分类、中文名排列）。</summary>
-    IReadOnlyList<GearGroup> Groups => GearCatalog.Group(Gear.Concat(Stackables));
+    IReadOnlyList<GearGroup> Groups => GearCatalog.Group(Gear.Concat(Stackables), Language);
 
     /// <summary>只按继承链和配件预设分类，不看属性和中文名；用于判断存档里的物品能不能当模板。</summary>
     string? KindOf(ulong tweakDbId);
@@ -290,15 +358,18 @@ public sealed partial class GearCatalog
 
     private readonly HashSet<string> _hidden;
 
-    private GearCatalog(IReadOnlyList<GearEntry> entries, IReadOnlyList<GearEntry> stackables, IReadOnlyList<GearGroup> groups, Dictionary<ulong, string> kinds, IReadOnlyList<GearGroup> hiddenGroups)
+    private GearCatalog(IReadOnlyList<GearEntry> entries, IReadOnlyList<GearEntry> stackables, IReadOnlyList<GearGroup> groups, Dictionary<ulong, string> kinds, IReadOnlyList<GearGroup> hiddenGroups, string lang = "zh-cn")
     {
         Entries = entries;
         Stackables = stackables;
         Groups = groups;
         _kinds = kinds;
         HiddenGroups = hiddenGroups;
+        Language = GearKinds.NormalizeLang(lang);
         _hidden = hiddenGroups.SelectMany(group => group.Variants).Select(entry => entry.RecordName).ToHashSet(StringComparer.Ordinal);
     }
+
+    public string Language { get; }
 
     /// <summary>
     /// 没装往日之影时从目录里隐藏的往日之影物品（D023），按同样的规则合并成卡片；装了往日之影时为空。
@@ -328,11 +399,13 @@ public sealed partial class GearCatalog
         Func<ulong, ItemName> resolve,
         Func<string?, bool> isInternal,
         Func<string, bool>? hasIcon = null,
-        Func<string?, string?>? resolveText = null)
+        Func<string?, string?>? resolveText = null,
+        string? lang = null)
     {
         ArgumentNullException.ThrowIfNull(index);
         ArgumentNullException.ThrowIfNull(resolve);
         ArgumentNullException.ThrowIfNull(isInternal);
+        var normLang = GearKinds.NormalizeLang(lang);
         var kinds = new Dictionary<ulong, string>();
         var picked = new List<GearEntry>();
         var hidden = new List<GearEntry>();
@@ -392,6 +465,7 @@ public sealed partial class GearCatalog
                     GearKinds.ArmCyberware => IsUpgradeTier(record, attributes, upgradeTargets) || (chainStart && IsOnlyNotQueryable(record, attributes)),
                     GearKinds.Grenade => IsPlayerGrenadeTier(record, attributes, index.FieldOf(record, "quality")),
                     GearKinds.Mod => IsOnlyNotQueryable(record, attributes) && tags.Contains(RetrievableTag, StringComparer.Ordinal),
+                    GearKinds.Clothing => IsObtainableClothing(record, attributes),
                     _ => false
                 };
                 if (!exception)
@@ -420,11 +494,11 @@ public sealed partial class GearCatalog
                 continue;
             if (exception && !hasIcon!(record))
                 continue;
-            var described = Describe(index, record, id, text, kind, tags, crafted, crafted is not null && kindByRecord.TryGetValue(crafted, out var made) ? made : null, resolveText);
+            var described = Describe(index, record, id, text, kind, tags, crafted, crafted is not null && kindByRecord.TryGetValue(crafted, out var made) ? made : null, resolveText, normLang);
             (isExpansion ? hidden : picked).Add(described);
         }
 
-        var groups = Group(MarkShared(picked));
+        var groups = Group(MarkShared(picked), normLang);
         // 目录顺序与合并卡片一致：分类、中文名，组内按品阶（或款式）排列。
         var ordered = groups.SelectMany(group => group.Variants).ToArray();
         return new GearCatalog(
@@ -432,7 +506,8 @@ public sealed partial class GearCatalog
             ordered.Where(item => item.Stackable).ToArray(),
             groups,
             kinds,
-            Group(MarkShared(hidden)));
+            Group(MarkShared(hidden), normLang),
+            normLang);
     }
 
     private static HashSet<string> UpgradeTargets(TweakSourceIndex index, List<(string Record, string Kind, bool Stackable)> classified, Func<string, bool> source) =>
@@ -467,7 +542,8 @@ public sealed partial class GearCatalog
         IReadOnlyList<string> tags,
         string? crafted,
         string? craftedKind,
-        Func<string?, string?>? resolveText)
+        Func<string?, string?>? resolveText,
+        string lang = "zh-cn")
     {
         var nameTier = GearQuality.FromNameSuffix(record);
         var prefixTier = GearQuality.FromPrefix(record);
@@ -487,7 +563,7 @@ public sealed partial class GearCatalog
         var descKey = index.LocalizedDescriptionOf(record);
         if (string.IsNullOrEmpty(descKey) && crafted is not null)
             descKey = index.LocalizedDescriptionOf(crafted);
-        var description = CleanText(resolveText?.Invoke(descKey));
+        var description = CleanText(resolveText?.Invoke(descKey), lang);
 
         var effectInfo = index.EffectInfoOf(record);
         if (effectInfo is null && crafted is not null)
@@ -526,12 +602,18 @@ public sealed partial class GearCatalog
             statValues = computed;
         }
 
-        var effectDesc = FormatEffectText(resolveText?.Invoke(effectInfo?.LocKey), effectInfo?.IntValues, effectInfo?.FloatValues, statValues);
+        var effectDesc = FormatEffectText(resolveText?.Invoke(effectInfo?.LocKey), effectInfo?.IntValues, effectInfo?.FloatValues, statValues, lang);
 
         if (description == effectDesc)
             description = null;
 
-        var statBadges = BuildStatBadges(index, record, kind, crafted);
+        var statBadges = BuildStatBadges(index, record, kind, crafted, lang);
+
+        var recipeSuffix = lang switch
+        {
+            "en-us" => " Spec",
+            _ => "配方"
+        };
 
         return new GearEntry(record, id, label, kind, false)
         {
@@ -543,8 +625,8 @@ public sealed partial class GearCatalog
             VisualTags = index.ListOf(record, "visualTags"),
             Iconic = index.MentionsIconicItem(record) || tags.Any(IsIconicTag),
             TypeLabel = kind == GearKinds.Recipe
-                ? (craftedKind is null ? null : GearKinds.Label(craftedKind) + "配方")
-                : TypeLabelOf(kind, index.FieldOf(record, "itemType"), tags, index.FieldOf(record, "equipArea")),
+                ? (craftedKind is null ? null : GearKinds.Label(craftedKind, lang) + recipeSuffix)
+                : TypeLabelOf(kind, index.FieldOf(record, "itemType"), tags, index.FieldOf(record, "equipArea"), lang),
             RootSlot = kind is GearKinds.Quickhack or GearKinds.Mod ? index.ListOf(record, "placementSlots").FirstOrDefault() : null,
             CraftedItem = crafted,
             Description = description,
@@ -553,15 +635,22 @@ public sealed partial class GearCatalog
         };
     }
 
-    public static string? FormatEffectText(string? text, string? intValuesStr, string? floatValuesStr, IReadOnlyList<string?>? statValues = null)
+    public static string? FormatEffectText(string? text, string? intValuesStr, string? floatValuesStr, IReadOnlyList<string?>? statValues = null, string? lang = null)
     {
         if (string.IsNullOrWhiteSpace(text))
             return null;
 
+        var normLang = GearKinds.NormalizeLang(lang);
+        var skullWord = normLang switch
+        {
+            "zh-tw" => "骷髏頭",
+            "en-us" => " Skull ",
+            _ => "骷髅头"
+        };
         var result = System.Text.RegularExpressions.Regex.Replace(
             text,
             @"\s*<Image[^>]*q000_tutorial_icon_boss[^>]*>(?:</>)?\s*",
-            "骷髅头");
+            skullWord);
         result = System.Text.RegularExpressions.Regex.Replace(result, @"<[^>]+>", "");
         result = result.Replace("\\n", "\n").Trim();
 
@@ -638,8 +727,16 @@ public sealed partial class GearCatalog
         });
 
         // 6. 清理义体同调（attunements）的当前运行时总量行（静态物品库中无需展示未装备时的动态总量计算）
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"(?m)^\s*当前总量[：:][^\r\n]*\r?\n?", "");
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"当前总量[：:][^\r\n]*", "");
+        result = System.Text.RegularExpressions.Regex.Replace(
+            result,
+            @"(?m)^\s*(?:当前总量|目前總計|目前總量|Current total|Current bonus|Total bonus)[：:][^\r\n]*\r?\n?",
+            "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        result = System.Text.RegularExpressions.Regex.Replace(
+            result,
+            @"(?:当前总量|目前總計|目前總量|Current total|Current bonus|Total bonus)[：:][^\r\n]*",
+            "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
         // 7. 清理残留的未匹配代码占位符（如未提供具体数值的 {int_0}、{float_0}、{stat} 等），避免向玩家展示底层代码 token
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\{\s*(?:int|float|value|VALUE|stat)\w*\s*\}", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
@@ -655,10 +752,11 @@ public sealed partial class GearCatalog
         return string.IsNullOrWhiteSpace(result) ? null : result.Trim();
     }
 
-    private static string? CleanText(string? text) => FormatEffectText(text, null, null);
+    private static string? CleanText(string? text, string? lang = null) => FormatEffectText(text, null, null, null, lang);
 
-    private static IReadOnlyList<string> BuildStatBadges(TweakSourceIndex index, string record, string kind, string? crafted)
+    private static IReadOnlyList<string> BuildStatBadges(TweakSourceIndex index, string record, string kind, string? crafted, string? lang = null)
     {
+        var normLang = GearKinds.NormalizeLang(lang);
         var badges = new List<string>();
         var targetRecord = crafted ?? record;
 
@@ -669,15 +767,21 @@ public sealed partial class GearCatalog
             if (!string.IsNullOrEmpty(evo))
             {
                 var evoName = evo.StartsWith("WeaponEvolution.", StringComparison.Ordinal) ? evo["WeaponEvolution.".Length..] : evo;
-                var evoCn = evoName switch
+                var evoLabel = (normLang, evoName) switch
                 {
-                    "Power" => "动能",
-                    "Tech" => "技术",
-                    "Smart" => "智能",
+                    ("zh-tw", "Power") => "動能",
+                    ("zh-tw", "Tech") => "科技",
+                    ("zh-tw", "Smart") => "智慧",
+                    ("en-us", "Power") => "Power",
+                    ("en-us", "Tech") => "Tech",
+                    ("en-us", "Smart") => "Smart",
+                    (_, "Power") => "动能",
+                    (_, "Tech") => "技术",
+                    (_, "Smart") => "智能",
                     _ => null
                 };
-                if (evoCn is not null)
-                    badges.Add(evoCn);
+                if (evoLabel is not null)
+                    badges.Add(evoLabel);
             }
 
             // 击发模式（全自动 / 半自动 / 连发 / 充能 / 蓄力）
@@ -685,16 +789,26 @@ public sealed partial class GearCatalog
             if (!string.IsNullOrEmpty(mode))
             {
                 var modeName = mode.StartsWith("TriggerMode.", StringComparison.Ordinal) ? mode["TriggerMode.".Length..] : mode;
-                var modeCn = modeName switch
+                var modeLabel = (normLang, modeName) switch
                 {
-                    "FullAuto" => "全自动",
-                    "SemiAuto" => "半自动",
-                    "Burst" => "连发",
-                    "Charge" => "充能",
-                    "Windup" => "蓄力",
+                    ("zh-tw", "FullAuto") => "全自動",
+                    ("zh-tw", "SemiAuto") => "半自動",
+                    ("zh-tw", "Burst") => "連發",
+                    ("zh-tw", "Charge") => "充能",
+                    ("zh-tw", "Windup") => "蓄力",
+                    ("en-us", "FullAuto") => "Full-Auto",
+                    ("en-us", "SemiAuto") => "Semi-Auto",
+                    ("en-us", "Burst") => "Burst",
+                    ("en-us", "Charge") => "Charge",
+                    ("en-us", "Windup") => "Windup",
+                    (_, "FullAuto") => "全自动",
+                    (_, "SemiAuto") => "半自动",
+                    (_, "Burst") => "连发",
+                    (_, "Charge") => "充能",
+                    (_, "Windup") => "蓄力",
                     _ => modeName
                 };
-                badges.Add(modeCn);
+                badges.Add(modeLabel);
             }
 
             // 射速 / 攻速、弹匣、装弹
@@ -704,28 +818,50 @@ public sealed partial class GearCatalog
                 if (float.TryParse(cycleStr, System.Globalization.CultureInfo.InvariantCulture, out var cycle) && cycle > 0f)
                 {
                     var rate = 1.0f / cycle;
-                    badges.Add($"射速 {rate:0.#}发/秒");
+                    badges.Add(normLang switch
+                    {
+                        "zh-tw" => $"射速 {rate:0.#}發/秒",
+                        "en-us" => $"Fire Rate {rate:0.#}/s",
+                        _ => $"射速 {rate:0.#}发/秒"
+                    });
                 }
 
                 // 弹丸数（如霰弹枪 8 弹丸）
                 var projStr = index.StatModifierValueOf(targetRecord, "ProjectilesPerShot");
                 if (float.TryParse(projStr, System.Globalization.CultureInfo.InvariantCulture, out var proj) && proj > 1.1f)
                 {
-                    badges.Add($"{(int)Math.Round(proj)}弹丸");
+                    var count = (int)Math.Round(proj);
+                    badges.Add(normLang switch
+                    {
+                        "zh-tw" => $"{count}彈丸",
+                        "en-us" => $"{count} Pellets",
+                        _ => $"{count}弹丸"
+                    });
                 }
 
                 // 弹匣容量
                 var magStr = index.StatModifierValueOf(targetRecord, "MagazineCapacity");
                 if (float.TryParse(magStr, System.Globalization.CultureInfo.InvariantCulture, out var mag) && mag > 0f && mag < 9999f)
                 {
-                    badges.Add($"弹匣 {(int)Math.Round(mag)}");
+                    var count = (int)Math.Round(mag);
+                    badges.Add(normLang switch
+                    {
+                        "zh-tw" => $"彈匣 {count}",
+                        "en-us" => $"Mag {count}",
+                        _ => $"弹匣 {count}"
+                    });
                 }
 
                 // 装弹时间
                 var reloadStr = index.FieldOf(targetRecord, "baseReloadTime") ?? index.StatModifierValueOf(targetRecord, "ReloadTime");
                 if (float.TryParse(reloadStr, System.Globalization.CultureInfo.InvariantCulture, out var reload) && reload > 0f)
                 {
-                    badges.Add($"装弹 {reload:0.##}秒");
+                    badges.Add(normLang switch
+                    {
+                        "zh-tw" => $"裝填 {reload:0.##}秒",
+                        "en-us" => $"Reload {reload:0.##}s",
+                        _ => $"装弹 {reload:0.##}秒"
+                    });
                 }
 
                 // 弹药类型
@@ -733,16 +869,24 @@ public sealed partial class GearCatalog
                 if (!string.IsNullOrEmpty(ammo))
                 {
                     var ammoName = ammo.StartsWith("Ammo.", StringComparison.Ordinal) ? ammo["Ammo.".Length..] : ammo;
-                    var ammoCn = ammoName switch
+                    var ammoLabel = (normLang, ammoName) switch
                     {
-                        "HandgunAmmo" => "手枪弹药",
-                        "RifleAmmo" => "步枪弹药",
-                        "ShotgunAmmo" => "霰弹弹药",
-                        "SniperRifleAmmo" => "狙击弹药",
+                        ("zh-tw", "HandgunAmmo") => "手槍彈藥",
+                        ("zh-tw", "RifleAmmo") => "步槍彈藥",
+                        ("zh-tw", "ShotgunAmmo") => "霰彈彈藥",
+                        ("zh-tw", "SniperRifleAmmo") => "狙擊彈藥",
+                        ("en-us", "HandgunAmmo") => "Handgun Ammo",
+                        ("en-us", "RifleAmmo") => "Rifle Ammo",
+                        ("en-us", "ShotgunAmmo") => "Shotgun Ammo",
+                        ("en-us", "SniperRifleAmmo") => "Sniper Ammo",
+                        (_, "HandgunAmmo") => "手枪弹药",
+                        (_, "RifleAmmo") => "步枪弹药",
+                        (_, "ShotgunAmmo") => "霰弹弹药",
+                        (_, "SniperRifleAmmo") => "狙击弹药",
                         _ => null
                     };
-                    if (ammoCn is not null)
-                        badges.Add(ammoCn);
+                    if (ammoLabel is not null)
+                        badges.Add(ammoLabel);
                 }
             }
             else // 近战武器
@@ -751,14 +895,14 @@ public sealed partial class GearCatalog
                 if (float.TryParse(meleeDurStr, System.Globalization.CultureInfo.InvariantCulture, out var meleeDur) && meleeDur > 0f)
                 {
                     var speed = 1.0f / meleeDur;
-                    badges.Add($"攻速 {speed:0.#}次/秒");
+                    badges.Add(normLang == "en-us" ? $"Atk Speed {speed:0.#}/s" : $"攻速 {speed:0.#}次/秒");
                 }
                 else
                 {
                     var apsStr = index.StatModifierValueOf(targetRecord, "AttacksPerSecond");
                     if (float.TryParse(apsStr, System.Globalization.CultureInfo.InvariantCulture, out var aps) && aps > 0f)
                     {
-                        badges.Add($"攻速 {aps:0.#}次/秒");
+                        badges.Add(normLang == "en-us" ? $"Atk Speed {aps:0.#}/s" : $"攻速 {aps:0.#}次/秒");
                     }
                 }
             }
@@ -771,7 +915,13 @@ public sealed partial class GearCatalog
                 var match = System.Text.RegularExpressions.Regex.Match(v, @"Humanity(\d+)Cost");
                 if (match.Success)
                 {
-                    badges.Add($"义体容量 {match.Groups[1].Value}");
+                    var cost = match.Groups[1].Value;
+                    badges.Add(normLang switch
+                    {
+                        "zh-tw" => $"改造容量 {cost}",
+                        "en-us" => $"Capacity {cost}",
+                        _ => $"义体容量 {cost}"
+                    });
                     break;
                 }
             }
@@ -803,9 +953,13 @@ public sealed partial class GearCatalog
     /// 都不行时每条取自己第一个有的品阶（没有的记为「标准」），重复的补上款式或记录名里不同的部分；
     /// 整组都没有品阶时用记录名（去掉组内共同的前后段）。
     /// </summary>
-    public static IReadOnlyList<GearGroup> Group(IEnumerable<GearEntry> entries)
+    public static IReadOnlyList<GearGroup> Group(IEnumerable<GearEntry> entries, string? lang = null)
     {
         ArgumentNullException.ThrowIfNull(entries);
+        var normLang = GearKinds.NormalizeLang(lang);
+        var defaultWord = StyleWord("Default", normLang);
+        var tierNoun = normLang switch { "zh-tw" => "品階", "en-us" => "Tier", _ => "品阶" };
+        var styleNoun = normLang switch { "en-us" => "Style", _ => "款式" };
         var groups = new List<GearGroup>();
         foreach (var bucket in entries
             .GroupBy(entry => (entry.Kind, entry.Label))
@@ -820,22 +974,24 @@ public sealed partial class GearCatalog
                 continue;
             }
 
-            var (labels, tiered) = VariantLabels(members);
+            var (labels, tiered) = VariantLabels(members, normLang);
             var labelled = members.Select((entry, i) => entry with { GroupKey = key, VariantLabel = labels[i] }).ToArray();
             var ordered = tiered
                 ? labelled.OrderBy(entry => entry.PrefixTier == GearQuality.PresetPrefix ? -1 : entry.Rank).ThenBy(entry => entry.RecordName, StringComparer.Ordinal).ToArray()
-                : labelled.OrderBy(entry => entry.VariantLabel == "默认" || entry.VisualTags.Contains("Default", StringComparer.Ordinal) ? 0 : 1).ThenBy(entry => entry.VariantLabel, StringComparer.Ordinal).ToArray();
+                : labelled.OrderBy(entry => entry.VariantLabel == defaultWord || entry.VisualTags.Contains("Default", StringComparer.Ordinal) ? 0 : 1).ThenBy(entry => entry.VariantLabel, StringComparer.Ordinal).ToArray();
             var defaultIndex = tiered
                 ? Array.IndexOf(ordered, ordered.OrderByDescending(entry => entry.Rank).ThenBy(entry => entry.PrefixTier == GearQuality.PresetPrefix ? 1 : 0).First())
                 : 0;
-            groups.Add(new GearGroup(key, bucket.Key.Kind, bucket.Key.Label, ordered, defaultIndex, tiered ? "品阶" : "款式"));
+            groups.Add(new GearGroup(key, bucket.Key.Kind, bucket.Key.Label, ordered, defaultIndex, tiered ? tierNoun : styleNoun));
         }
 
         return groups;
     }
 
-    private static (string[] Labels, bool Tiered) VariantLabels(GearEntry[] members)
+    private static (string[] Labels, bool Tiered) VariantLabels(GearEntry[] members, string lang = "zh-cn")
     {
+        var baseWord = lang == "en-us" ? "Base" : "原版";
+        var standardWord = lang switch { "zh-tw" => "標準", "en-us" => "Standard", _ => "标准" };
         var commonTags = members.Skip(1).Aggregate(
             new HashSet<string>(members[0].VisualTags, StringComparer.Ordinal),
             (set, entry) =>
@@ -843,15 +999,15 @@ public sealed partial class GearCatalog
                 set.IntersectWith(entry.VisualTags);
                 return set;
             });
-        var styles = members.Select(entry => StyleLabel(entry.VisualTags.Where(tag => !commonTags.Contains(tag)).ToArray())).ToArray();
+        var styles = members.Select(entry => StyleLabel(entry.VisualTags.Where(tag => !commonTags.Contains(tag)).ToArray(), lang)).ToArray();
         var records = DiffLabels(members.Select(entry => ShortRecord(entry.RecordName)).ToArray());
-        string?[] nameTiers = members.Select(entry => entry.NameTier is { } tier ? TierText(tier) : null).ToArray();
+        string?[] nameTiers = members.Select(entry => entry.NameTier is { } tier ? TierText(tier, lang) : null).ToArray();
         // Preset_（原版）只有在组里还有 Common_ … Legendary_ 前缀的可制作版本时才算一档；整组都是 Preset_ 时不看前缀。
         var realPrefix = members.Any(entry => entry.PrefixTier is { } prefix && prefix != GearQuality.PresetPrefix);
         string?[] prefixTiers = members
-            .Select(entry => realPrefix && entry.PrefixTier is { } prefix ? (prefix == GearQuality.PresetPrefix ? "原版" : GearQuality.Word(prefix)) : null)
+            .Select(entry => realPrefix && entry.PrefixTier is { } prefix ? (prefix == GearQuality.PresetPrefix ? baseWord : GearQuality.Word(prefix, lang)) : null)
             .ToArray();
-        string?[] fieldTiers = members.Select(entry => entry.FieldTier is { } tier ? TierText(tier) : null).ToArray();
+        string?[] fieldTiers = members.Select(entry => entry.FieldTier is { } tier ? TierText(tier, lang) : null).ToArray();
         (string?[] Labels, bool Tiered)[] sources = [(nameTiers, true), (prefixTiers, true), (styles, false), (fieldTiers, true)];
         foreach (var (labels, tiered) in sources)
         {
@@ -864,10 +1020,10 @@ public sealed partial class GearCatalog
         // 仍然重复的补上款式，再不行补记录名里不同的部分。整组都没有品阶时用记录名（第 4 优先级）。
         var tiers = Enumerable.Range(0, members.Length).Select(i => nameTiers[i] ?? prefixTiers[i] ?? fieldTiers[i]).ToArray();
         if (tiers.All(tier => tier is null))
-            return (records.Select(StyleWord).ToArray(), false);
-        var mixed = tiers.Select(tier => tier ?? "标准").ToArray();
-        Disambiguate(mixed, i => styles[i]);
-        Disambiguate(mixed, i => ShortRecord(members[i].RecordName), diff: true);
+            return (records.Select(r => StyleWord(r, lang)).ToArray(), false);
+        var mixed = tiers.Select(tier => tier ?? standardWord).ToArray();
+        Disambiguate(mixed, i => styles[i], lang: lang);
+        Disambiguate(mixed, i => ShortRecord(members[i].RecordName), diff: true, lang: lang);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < mixed.Length; i++)
         {
@@ -886,7 +1042,7 @@ public sealed partial class GearCatalog
     /// 重复的标签补上说明：extra 给出每条的说明；diff 为真时只取重复的几条之间不同的部分（见 <see cref="DiffLabels"/>），
     /// 说明为空的那条保持原样（如 史诗+ 与 史诗+ · Regina）。
     /// </summary>
-    private static void Disambiguate(string[] labels, Func<int, string?> extra, bool diff = false)
+    private static void Disambiguate(string[] labels, Func<int, string?> extra, bool diff = false, string lang = "zh-cn")
     {
         foreach (var duplicate in Enumerable.Range(0, labels.Length).GroupBy(i => labels[i], StringComparer.Ordinal).Where(group => group.Count() > 1).ToArray())
         {
@@ -897,22 +1053,24 @@ public sealed partial class GearCatalog
             for (var k = 0; k < indexes.Length; k++)
             {
                 if (!string.IsNullOrEmpty(notes[k]))
-                    labels[indexes[k]] = labels[indexes[k]] + " · " + StyleWord(notes[k]!);
+                    labels[indexes[k]] = labels[indexes[k]] + " · " + StyleWord(notes[k]!, lang);
             }
         }
     }
 
-    private static string StyleWord(string word) => word == "Default" ? "默认" : word;
+    private static string StyleWord(string word, string lang = "zh-cn") => word == "Default"
+        ? lang switch { "zh-tw" => "預設", "en-us" => "Default", _ => "默认" }
+        : word;
 
-    private static string TierText(string tier)
+    private static string TierText(string tier, string lang = "zh-cn")
     {
         var plus = GearQuality.PlusOf(tier);
         var quality = plus switch { 2 => tier[..^"PlusPlus".Length], 1 => tier[..^"Plus".Length], _ => tier };
-        return GearQuality.TierLabel(quality, plus);
+        return GearQuality.TierLabel(quality, plus, lang);
     }
 
-    private static string? StyleLabel(IReadOnlyList<string> tags) =>
-        tags.Count == 0 ? null : string.Join(" / ", tags.Select(StyleWord));
+    private static string? StyleLabel(IReadOnlyList<string> tags, string lang = "zh-cn") =>
+        tags.Count == 0 ? null : string.Join(" / ", tags.Select(t => StyleWord(t, lang)));
 
     /// <summary>
     /// 去掉几个名字共同的开头和结尾，只留不同的部分；切口退到词边界（下划线后、大写字母或数字与字母交界处），
@@ -954,6 +1112,24 @@ public sealed partial class GearCatalog
     {
         var dot = record.IndexOf('.', StringComparison.Ordinal);
         return dot >= 0 ? record[(dot + 1)..] : record;
+    }
+
+    /// <summary>
+    /// 带 notQueryable 的服装里，哪些是玩家能获得的特殊/任务/标志性服装（如强尼全套、武士夹克、暴恐机动队等）：
+    /// 属性只有 notQueryable（可带 EP1），没有 Debug / DisabledContent / abstract / CPO；
+    /// 在 Items 包里；不是 Clothing 基类；不含 NPC / Boss 等非玩家标记。
+    /// 中文名和背包图标在 <see cref="Build"/> 里另外检查。
+    /// </summary>
+    public static bool IsObtainableClothing(string record, IReadOnlyList<string> attributes)
+    {
+        if (!IsOnlyNotQueryable(record, attributes))
+            return false;
+        if (ClothingRoots.Contains(record, StringComparer.Ordinal))
+            return false;
+        var name = record["Items.".Length..];
+        if (NpcLoadoutPattern().IsMatch(name))
+            return false;
+        return !NonPlayerMarkers.Any(marker => name.Contains(marker, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -1044,28 +1220,28 @@ public sealed partial class GearCatalog
     /// <summary>
     /// 武器模组与配件（瞄具、枪口装置）的 itemType。服装模组（Prt_*FabricEnhancer）2.0 起已弃用（全部 notQueryable，挂在 DeprecatedFabricEnhancerBase 下，服装也没有模组槽），不收。
     /// </summary>
-    private static readonly Dictionary<string, string> ModTypes = new(StringComparer.Ordinal)
+    private static readonly Dictionary<string, (string Cn, string Tw, string En)> ModTypes = new(StringComparer.Ordinal)
     {
-        ["ItemType.Prt_Mod"] = "武器模组",
-        ["ItemType.Prt_RangedMod"] = "远程武器模组",
-        ["ItemType.Prt_PowerMod"] = "威力武器模组",
-        ["ItemType.Prt_TechMod"] = "技术武器模组",
-        ["ItemType.Prt_SmartMod"] = "智能武器模组",
-        ["ItemType.Prt_AR_SMG_LMGMod"] = "步枪 / 冲锋枪 / 机枪模组",
-        ["ItemType.Prt_HandgunMod"] = "手枪模组",
-        ["ItemType.Prt_ShotgunMod"] = "霰弹枪模组",
-        ["ItemType.Prt_Precision_Sniper_RifleMod"] = "精确 / 狙击步枪模组",
-        ["ItemType.Prt_MeleeMod"] = "近战武器模组",
-        ["ItemType.Prt_BladeMod"] = "利刃武器模组",
-        ["ItemType.Prt_BluntMod"] = "钝器模组",
-        ["ItemType.Prt_ThrowableMod"] = "投掷武器模组",
-        ["ItemType.Prt_ShortScope"] = "短程瞄具",
-        ["ItemType.Prt_LongScope"] = "远程瞄具",
-        ["ItemType.Prt_TechSniperScope"] = "狙击瞄具",
-        ["ItemType.Prt_PowerSniperScope"] = "狙击瞄具",
-        ["ItemType.Prt_Muzzle"] = "枪口装置",
-        ["ItemType.Prt_RifleMuzzle"] = "枪口装置",
-        ["ItemType.Prt_HandgunMuzzle"] = "枪口装置"
+        ["ItemType.Prt_Mod"] = ("武器模组", "武器改裝零件", "Weapon Mod"),
+        ["ItemType.Prt_RangedMod"] = ("远程武器模组", "遠程武器改裝零件", "Ranged Mod"),
+        ["ItemType.Prt_PowerMod"] = ("威力武器模组", "動能武器改裝零件", "Power Mod"),
+        ["ItemType.Prt_TechMod"] = ("技术武器模组", "科技武器改裝零件", "Tech Mod"),
+        ["ItemType.Prt_SmartMod"] = ("智能武器模组", "智慧武器改裝零件", "Smart Mod"),
+        ["ItemType.Prt_AR_SMG_LMGMod"] = ("步枪 / 冲锋枪 / 机枪模组", "步槍 / 衝鋒槍 / 機槍改裝零件", "AR / SMG / LMG Mod"),
+        ["ItemType.Prt_HandgunMod"] = ("手枪模组", "手槍改裝零件", "Handgun Mod"),
+        ["ItemType.Prt_ShotgunMod"] = ("霰弹枪模组", "霰彈槍改裝零件", "Shotgun Mod"),
+        ["ItemType.Prt_Precision_Sniper_RifleMod"] = ("精确 / 狙击步枪模组", "精準 / 狙擊步槍改裝零件", "Precision / Sniper Mod"),
+        ["ItemType.Prt_MeleeMod"] = ("近战武器模组", "近戰武器改裝零件", "Melee Mod"),
+        ["ItemType.Prt_BladeMod"] = ("利刃武器模组", "刀劍改裝零件", "Blade Mod"),
+        ["ItemType.Prt_BluntMod"] = ("钝器模组", "鈍器改裝零件", "Blunt Mod"),
+        ["ItemType.Prt_ThrowableMod"] = ("投掷武器模组", "投擲武器改裝零件", "Throwable Mod"),
+        ["ItemType.Prt_ShortScope"] = ("短程瞄具", "短距瞄準鏡", "Short Scope"),
+        ["ItemType.Prt_LongScope"] = ("远程瞄具", "長距瞄準鏡", "Long Scope"),
+        ["ItemType.Prt_TechSniperScope"] = ("狙击瞄具", "狙擊瞄準鏡", "Sniper Scope"),
+        ["ItemType.Prt_PowerSniperScope"] = ("狙击瞄具", "狙擊瞄準鏡", "Sniper Scope"),
+        ["ItemType.Prt_Muzzle"] = ("枪口装置", "槍口裝置", "Muzzle"),
+        ["ItemType.Prt_RifleMuzzle"] = ("枪口装置", "槍口裝置", "Muzzle"),
+        ["ItemType.Prt_HandgunMuzzle"] = ("枪口装置", "槍口裝置", "Muzzle")
     };
 
     /// <summary>
@@ -1180,91 +1356,100 @@ public sealed partial class GearCatalog
         return index.TagsOf(record).Contains("Currency", StringComparer.Ordinal) ? GearKinds.Currency : null;
     }
 
-    private static readonly Dictionary<string, string> TypeLabels = new(StringComparer.Ordinal)
+    private static readonly Dictionary<string, (string Cn, string Tw, string En)> TypeLabels = new(StringComparer.Ordinal)
     {
-        ["ItemType.Clo_Head"] = "头部",
-        ["ItemType.Clo_Face"] = "面部",
-        ["ItemType.Clo_OuterChest"] = "外衣",
-        ["ItemType.Clo_InnerChest"] = "内衣",
-        ["ItemType.Clo_Legs"] = "下装",
-        ["ItemType.Clo_Feet"] = "鞋履",
-        ["ItemType.Clo_Outfit"] = "套装",
-        ["ItemType.Wea_Handgun"] = "手枪",
-        ["ItemType.Wea_Revolver"] = "左轮手枪",
-        ["ItemType.Wea_Rifle"] = "步枪",
-        ["ItemType.Wea_AssaultRifle"] = "突击步枪",
-        ["ItemType.Wea_PrecisionRifle"] = "精确步枪",
-        ["ItemType.Wea_SniperRifle"] = "狙击步枪",
-        ["ItemType.Wea_SubmachineGun"] = "冲锋枪",
-        ["ItemType.Wea_LightMachineGun"] = "轻机枪",
-        ["ItemType.Wea_HeavyMachineGun"] = "重机枪",
-        ["ItemType.Wea_Shotgun"] = "霰弹枪",
-        ["ItemType.Wea_ShotgunDual"] = "双管霰弹枪",
-        ["ItemType.Wea_GrenadeLauncher"] = "榴弹发射器",
-        ["ItemType.Wea_Katana"] = "武士刀",
-        ["ItemType.Wea_Sword"] = "剑",
-        ["ItemType.Wea_LongBlade"] = "长刃",
-        ["ItemType.Wea_ShortBlade"] = "短刃",
-        ["ItemType.Wea_Knife"] = "刀",
-        ["ItemType.Wea_Machete"] = "砍刀",
-        ["ItemType.Wea_Axe"] = "斧",
-        ["ItemType.Wea_Chainsword"] = "链锯剑",
-        ["ItemType.Wea_Hammer"] = "锤",
-        ["ItemType.Wea_OneHandedClub"] = "单手钝器",
-        ["ItemType.Wea_TwoHandedClub"] = "双手钝器",
-        ["ItemType.Wea_Fists"] = "拳套",
-        ["ItemType.Wea_Melee"] = "近战武器",
-        ["ItemType.Con_Inhaler"] = "吸入器",
-        ["ItemType.Con_Injector"] = "注射器",
-        ["ItemType.Con_LongLasting"] = "增益药剂",
-        ["ItemType.Con_Ammo"] = "弹药",
-        ["ItemType.Cyb_MantisBlades"] = "螳螂刀",
-        ["ItemType.Cyb_NanoWires"] = "单分子线",
-        ["ItemType.Cyb_StrongArms"] = "大猩猩手臂",
-        ["ItemType.Cyb_Launcher"] = "射弹发射系统"
+        ["ItemType.Clo_Head"] = ("头部", "頭部", "Head"),
+        ["ItemType.Clo_Face"] = ("面部", "臉部", "Face"),
+        ["ItemType.Clo_OuterChest"] = ("外衣", "外搭", "Outer Torso"),
+        ["ItemType.Clo_InnerChest"] = ("内衣", "內搭", "Inner Torso"),
+        ["ItemType.Clo_Legs"] = ("下装", "腿部", "Legs"),
+        ["ItemType.Clo_Feet"] = ("鞋履", "腳部", "Feet"),
+        ["ItemType.Clo_Outfit"] = ("套装", "套裝", "Outfit"),
+        ["ItemType.Wea_Handgun"] = ("手枪", "手槍", "Handgun"),
+        ["ItemType.Wea_Revolver"] = ("左轮手枪", "左輪手槍", "Revolver"),
+        ["ItemType.Wea_Rifle"] = ("步枪", "步槍", "Rifle"),
+        ["ItemType.Wea_AssaultRifle"] = ("突击步枪", "突擊步槍", "Assault Rifle"),
+        ["ItemType.Wea_PrecisionRifle"] = ("精确步枪", "精準步槍", "Precision Rifle"),
+        ["ItemType.Wea_SniperRifle"] = ("狙击步枪", "狙擊步槍", "Sniper Rifle"),
+        ["ItemType.Wea_SubmachineGun"] = ("冲锋枪", "衝鋒槍", "Submachine Gun"),
+        ["ItemType.Wea_LightMachineGun"] = ("轻机枪", "輕機槍", "Light Machine Gun"),
+        ["ItemType.Wea_HeavyMachineGun"] = ("重机枪", "重機槍", "Heavy Machine Gun"),
+        ["ItemType.Wea_Shotgun"] = ("霰弹枪", "霰彈槍", "Shotgun"),
+        ["ItemType.Wea_ShotgunDual"] = ("双管霰弹枪", "雙管霰彈槍", "Double-Barrel Shotgun"),
+        ["ItemType.Wea_GrenadeLauncher"] = ("榴弹发射器", "榴彈發射器", "Grenade Launcher"),
+        ["ItemType.Wea_Katana"] = ("武士刀", "武士刀", "Katana"),
+        ["ItemType.Wea_Sword"] = ("剑", "劍", "Sword"),
+        ["ItemType.Wea_LongBlade"] = ("长刃", "長刃", "Long Blade"),
+        ["ItemType.Wea_ShortBlade"] = ("短刃", "短刃", "Short Blade"),
+        ["ItemType.Wea_Knife"] = ("刀", "小刀", "Knife"),
+        ["ItemType.Wea_Machete"] = ("砍刀", "開山刀", "Machete"),
+        ["ItemType.Wea_Axe"] = ("斧", "斧頭", "Axe"),
+        ["ItemType.Wea_Chainsword"] = ("链锯剑", "鏈鋸劍", "Chainsword"),
+        ["ItemType.Wea_Hammer"] = ("锤", "戰錘", "Hammer"),
+        ["ItemType.Wea_OneHandedClub"] = ("单手钝器", "單手棍棒", "One-Handed Club"),
+        ["ItemType.Wea_TwoHandedClub"] = ("双手钝器", "雙手棍棒", "Two-Handed Club"),
+        ["ItemType.Wea_Fists"] = ("拳套", "拳套", "Fists"),
+        ["ItemType.Wea_Melee"] = ("近战武器", "近戰武器", "Melee Weapon"),
+        ["ItemType.Con_Inhaler"] = ("吸入器", "吸入器", "Inhaler"),
+        ["ItemType.Con_Injector"] = ("注射器", "注射器", "Injector"),
+        ["ItemType.Con_LongLasting"] = ("增益药剂", "增益藥劑", "Booster"),
+        ["ItemType.Con_Ammo"] = ("弹药", "彈藥", "Ammo"),
+        ["ItemType.Cyb_MantisBlades"] = ("螳螂刀", "螳螂刀", "Mantis Blades"),
+        ["ItemType.Cyb_NanoWires"] = ("单分子线", "單分子線", "Monowire"),
+        ["ItemType.Cyb_StrongArms"] = ("大猩猩手臂", "大猩猩手臂", "Gorilla Arms"),
+        ["ItemType.Cyb_Launcher"] = ("射弹发射系统", "發射系統", "Projectile Launch System")
     };
 
     /// <summary>义体按安装部位（equipArea）细分。</summary>
-    private static readonly Dictionary<string, string> CyberwareAreas = new(StringComparer.Ordinal)
+    private static readonly Dictionary<string, (string Cn, string Tw, string En)> CyberwareAreas = new(StringComparer.Ordinal)
     {
-        ["EquipmentArea.FrontalCortexCW"] = "前额叶皮质",
-        ["EquipmentArea.EyesCW"] = "视觉系统",
-        ["EquipmentArea.CardiovascularSystemCW"] = "循环系统",
-        ["EquipmentArea.ImmuneSystemCW"] = "免疫系统",
-        ["EquipmentArea.NervousSystemCW"] = "神经系统",
-        ["EquipmentArea.IntegumentarySystemCW"] = "皮肤系统",
-        ["EquipmentArea.MusculoskeletalSystemCW"] = "骨骼系统",
-        ["EquipmentArea.SystemReplacementCW"] = "操作系统",
-        ["EquipmentArea.HandsCW"] = "手部",
-        ["EquipmentArea.ArmsCW"] = "手臂",
-        ["EquipmentArea.LegsCW"] = "腿部"
+        ["EquipmentArea.FrontalCortexCW"] = ("前额叶皮质", "前額葉皮質", "Frontal Cortex"),
+        ["EquipmentArea.EyesCW"] = ("视觉系统", "光學系統", "Ocular System"),
+        ["EquipmentArea.CardiovascularSystemCW"] = ("循环系统", "循環系統", "Circulatory System"),
+        ["EquipmentArea.ImmuneSystemCW"] = ("免疫系统", "免疫系統", "Immune System"),
+        ["EquipmentArea.NervousSystemCW"] = ("神经系统", "神經系統", "Nervous System"),
+        ["EquipmentArea.IntegumentarySystemCW"] = ("皮肤系统", "表皮系統", "Integumentary System"),
+        ["EquipmentArea.MusculoskeletalSystemCW"] = ("骨骼系统", "骨骼系統", "Skeleton"),
+        ["EquipmentArea.SystemReplacementCW"] = ("操作系统", "作業系統", "Operating System"),
+        ["EquipmentArea.HandsCW"] = ("手部", "手掌", "Hands"),
+        ["EquipmentArea.ArmsCW"] = ("手臂", "手臂", "Arms"),
+        ["EquipmentArea.LegsCW"] = ("腿部", "腿部", "Legs")
     };
 
-    private static string? TypeLabelOf(string kind, string? itemType, IReadOnlyList<string> tags, string? equipArea)
+    private static string PickLang((string Cn, string Tw, string En) tuple, string lang) => lang switch
+    {
+        "zh-tw" => tuple.Tw,
+        "en-us" => tuple.En,
+        _ => tuple.Cn
+    };
+
+    private static string? TypeLabelOf(string kind, string? itemType, IReadOnlyList<string> tags, string? equipArea, string lang = "zh-cn")
     {
         if (kind == GearKinds.Cyberware)
         {
             if (tags.Contains(CyberdeckTag, StringComparer.Ordinal))
-                return "网络接入仓";
-            return equipArea is not null && CyberwareAreas.TryGetValue(equipArea, out var area) ? area : null;
+                return PickLang(("网络接入仓", "網路接入倉", "Cyberdeck"), lang);
+            return equipArea is not null && CyberwareAreas.TryGetValue(equipArea, out var area) ? PickLang(area, lang) : null;
         }
         if (kind == GearKinds.Mod)
-            return itemType is not null && ModTypes.TryGetValue(itemType, out var mod) ? mod : null;
+            return itemType is not null && ModTypes.TryGetValue(itemType, out var mod) ? PickLang(mod, lang) : null;
         if (kind is GearKinds.Grenade or GearKinds.Quickhack)
             return null;
         if (kind == GearKinds.Currency)
-            return "货币";
+            return PickLang(("货币", "貨幣", "Currency"), lang);
         if (kind == GearKinds.Material)
-            return tags.Contains("QuickhackCraftingMaterials", StringComparer.Ordinal) ? "快速破解组件" : "制作组件";
+            return tags.Contains("QuickhackCraftingMaterials", StringComparer.Ordinal)
+                ? PickLang(("快速破解组件", "速駭組件", "Quickhack Components"), lang)
+                : PickLang(("制作组件", "製作組件", "Crafting Components"), lang);
         if (itemType == "ItemType.Con_Edible")
         {
             if (tags.Contains("Alcohol", StringComparer.Ordinal))
-                return "酒类";
+                return PickLang(("酒类", "酒類", "Alcohol"), lang);
             if (tags.Contains("Drink", StringComparer.Ordinal))
-                return "饮料";
-            return "食物";
+                return PickLang(("饮料", "飲料", "Drink"), lang);
+            return PickLang(("食物", "食物", "Food"), lang);
         }
 
-        return itemType is not null && TypeLabels.TryGetValue(itemType, out var label) ? label : null;
+        return itemType is not null && TypeLabels.TryGetValue(itemType, out var label) ? PickLang(label, lang) : null;
     }
 }

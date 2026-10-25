@@ -42,6 +42,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
     private int? _rootWatchDebounce;
     private bool _disposed;
     private volatile bool _helpShownInMemory;
+    private volatile string _languageInMemory = "zh-cn";
 
     /// <param name="saveRootOverride">命令行 --save-root（自检用），优先于设置文件。</param>
     /// <param name="settings">用户设置（D020）；桌面端必传，自检传临时文件，不碰真实设置。</param>
@@ -84,11 +85,13 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         _display = display ?? PathDisplay.Current;
         _version = string.IsNullOrWhiteSpace(appVersion) ? AppVersion.Current : appVersion.Trim();
         _urlLauncher = urlLauncher;
-        if (_settings is not null || _gameDirOverride is not null)
+        var lang = CurrentLanguage();
+        foreach (var adapter in registry.All)
         {
-            foreach (var adapter in registry.All)
+            if (adapter is IGamePathSetup setup)
             {
-                if (adapter is IGamePathSetup setup)
+                setup.UseLanguage(lang);
+                if (_settings is not null || _gameDirOverride is not null)
                     ApplyGameDirectory(setup, PathsOf(adapter).GameDir);
             }
         }
@@ -119,6 +122,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
                 "app.ping" => Ok(id, null, new { Ok = true }),
                 "app.info" => AppInfo(id),
                 "app.markHelpShown" => MarkHelpShown(id),
+                "app.setLanguage" => SetLanguage(id, parameters),
                 "app.openAuthorPage" => OpenAuthorPage(id),
                 "app.games" => Games(id),
                 "saves.list" => ListSaves(id, parameters),
@@ -258,6 +262,8 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         }
     }
 
+    private string CurrentLanguage() => _settings?.GetLanguage() ?? _languageInMemory;
+
     /// <summary>
     /// 程序信息（D022）：版本号，以及「说明」是否已经自动弹出过。标记存在设置文件里（程序级，不分游戏）；
     /// 没有设置文件时（命令行等）只记在内存里。
@@ -265,7 +271,8 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
     private string AppInfo(string? id) => Ok(id, null, new
     {
         Version = _version,
-        HelpShown = _settings?.GetHelpShown() ?? _helpShownInMemory
+        HelpShown = _settings?.GetHelpShown() ?? _helpShownInMemory,
+        Language = CurrentLanguage()
     });
 
     /// <summary>「说明」已经自动弹出过，以后不再自动弹出。</summary>
@@ -275,6 +282,23 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
             _helpShownInMemory = true;
         else
             _settings.SetHelpShown(true);
+        return AppInfo(id);
+    }
+
+    private string SetLanguage(string? id, JsonElement parameters)
+    {
+        var raw = parameters.ValueKind == JsonValueKind.Object ? ReadString(parameters, "language") : null;
+        var norm = SettingsStore.NormalizeLanguage(raw);
+        if (_settings is null)
+            _languageInMemory = norm;
+        else
+            _settings.SetLanguage(norm);
+        foreach (var adapter in _registry.All)
+        {
+            if (adapter is IGamePathSetup setup)
+                setup.UseLanguage(norm);
+        }
+
         return AppInfo(id);
     }
 

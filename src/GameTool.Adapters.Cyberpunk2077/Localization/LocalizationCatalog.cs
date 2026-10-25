@@ -10,6 +10,21 @@ public static partial class LocalizationCatalog
     public static string ArchivePath(string gameDirectory, string lang, string pack) =>
         Path.Combine(gameDirectory, "archive", "pc", pack, $"lang_{lang}_text.archive");
 
+    public static string ResolveArchivePath(string gameDirectory, string lang, string pack)
+    {
+        var primary = ArchivePath(gameDirectory, lang, pack);
+        if (File.Exists(primary))
+            return primary;
+        if (lang is "en-us" or "en")
+        {
+            var alt = ArchivePath(gameDirectory, lang == "en-us" ? "en" : "en-us", pack);
+            if (File.Exists(alt))
+                return alt;
+        }
+
+        return primary;
+    }
+
     public static string OodlePath(string gameDirectory)
     {
         var primary = Path.Combine(gameDirectory, "bin", "x64", "oo2ext_7_win64.dll");
@@ -35,12 +50,16 @@ public static partial class LocalizationCatalog
     public static IEnumerable<string> OnscreensPaths(string lang)
     {
         RequireLang(lang);
-        yield return $@"base\localization\{lang}\onscreens\onscreens.json";
-        yield return $@"ep1\localization\{lang}\onscreens\onscreens.json";
-        for (var n = 0; n <= 32; n++)
+        var codes = lang is "en" or "en-us" ? new[] { "en-us", "en" } : new[] { lang };
+        foreach (var code in codes)
         {
-            yield return $@"base\localization\{lang}\onscreens\onscreens_{n}.json";
-            yield return $@"ep1\localization\{lang}\onscreens\onscreens_{n}.json";
+            yield return $@"base\localization\{code}\onscreens\onscreens.json";
+            yield return $@"ep1\localization\{code}\onscreens\onscreens.json";
+            for (var n = 0; n <= 32; n++)
+            {
+                yield return $@"base\localization\{code}\onscreens\onscreens_{n}.json";
+                yield return $@"ep1\localization\{code}\onscreens\onscreens_{n}.json";
+            }
         }
     }
 
@@ -48,8 +67,8 @@ public static partial class LocalizationCatalog
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gameDirectory);
         RequireLang(lang);
-        var contentPath = ArchivePath(gameDirectory, lang, "content");
-        var expansionPath = ArchivePath(gameDirectory, lang, "ep1");
+        var contentPath = ResolveArchivePath(gameDirectory, lang, "content");
+        var expansionPath = ResolveArchivePath(gameDirectory, lang, "ep1");
         if (!File.Exists(contentPath))
             throw new InvalidDataException($"找不到本地化归档：{contentPath}");
         oodle ??= OodleNativeDecompressor.Load(OodlePath(gameDirectory));
