@@ -118,7 +118,7 @@ public class SettingsTests : IDisposable
     [Fact]
     public void AppVersion_IsOneZeroZero_WithoutCommitSuffix()
     {
-        Assert.Equal("1.0.1", AppVersion.Of(typeof(SettingsStore).Assembly));
+        Assert.Equal("1.0.2", AppVersion.Of(typeof(SettingsStore).Assembly));
         Assert.Equal("1.0.0", AppVersion.Clean("1.0.0+0123abcdef"));
         Assert.Equal("1.2.3-beta", AppVersion.Clean(" 1.2.3-beta "));
         Assert.Equal("", AppVersion.Clean(null));

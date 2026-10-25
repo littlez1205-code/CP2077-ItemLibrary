@@ -55,7 +55,7 @@ const glyphs = {
 };
 
 // T024：物品库分页，每页卡片数可选，记在本机（localStorage，读写失败就用默认值）。
-const PAGE_SIZES = [60, 120, 160];
+const PAGE_SIZES = [15, 30, 60];
 const PAGE_SIZE_KEY = "gametool.library.pageSize";
 const pending = new Map();
 let requestId = 0;
@@ -577,9 +577,9 @@ function groupHasTarget(group, target) {
 function readPageSize() {
   try {
     const value = Number(window.localStorage.getItem(PAGE_SIZE_KEY));
-    return PAGE_SIZES.includes(value) ? value : PAGE_SIZES[0];
+    return PAGE_SIZES.includes(value) ? value : 30;
   } catch (error) {
-    return PAGE_SIZES[0];
+    return 30;
   }
 }
 
@@ -796,6 +796,11 @@ function cardFor(group) {
   card.dataset.key = group.key;
   card.dataset.target = chosen.target;
   card.dataset.targets = group.variants.map((item) => item.target).join(" ");
+  const tips = [];
+  if (chosen.statBadges && chosen.statBadges.length > 0) tips.push("【基础常数】\n" + chosen.statBadges.join(" · "));
+  if (chosen.effectDesc) tips.push("【特殊效果】\n" + chosen.effectDesc);
+  if (chosen.description) tips.push("【说明】\n" + chosen.description);
+  if (tips.length > 0) card.title = tips.join("\n\n");
   const icon = element("div", "icon");
   icon.dataset.iconKey = chosen.recordName;
   icon.dataset.kind = group.kind;
@@ -809,6 +814,13 @@ function cardFor(group) {
   const name = element("h3", "name", group.label);
   name.title = group.label;
   const sub = element("p", "sub", subtitle(group));
+  let badgesRow = null;
+  if (chosen.statBadges && chosen.statBadges.length > 0) {
+    badgesRow = element("div", "card-badges");
+    for (const b of chosen.statBadges) {
+      badgesRow.append(element("span", "badge-mini", b));
+    }
+  }
   let rec;
   if (group.variants.length > 1) {
     rec = element("p", "rec count", variantCount(group));
@@ -820,11 +832,20 @@ function cardFor(group) {
   const foot = element("div", "foot");
   const heldAny = group.variants.some((item) => item.held != null);
   const state = element("span", "state" + (heldAny ? " held" : ""), groupState(group));
-  const button = element("button", "obtain", "获得");
-  button.type = "button";
-  button.addEventListener("click", () => openObtain(group));
-  foot.append(state, button);
-  card.append(icon, name, sub, rec, foot);
+  foot.append(state);
+  card.setAttribute("role", "button");
+  card.setAttribute("tabindex", "0");
+  card.addEventListener("click", () => openObtain(group));
+  card.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openObtain(group);
+    }
+  });
+  if (badgesRow)
+    card.append(icon, name, sub, badgesRow, rec, foot);
+  else
+    card.append(icon, name, sub, rec, foot);
   return card;
 }
 
@@ -985,6 +1006,9 @@ function openObtain(group, initialIndex) {
     confirmBody.append(picker);
   }
 
+  const detailsPanel = element("div", "item-details");
+  confirmBody.append(detailsPanel);
+
   const detail = element("div", "variant-detail");
   confirmBody.append(detail);
 
@@ -1046,6 +1070,13 @@ function openObtain(group, initialIndex) {
     const status = stateOf(item);
     const facts = [subtitle(item), tier, shortRecord(item.recordName), status].filter((part) => !!part);
     info.append(element("strong", null, nameOf(item)), element("small", null, facts.join(" · ")));
+    if (item.statBadges && item.statBadges.length > 0) {
+      const badgeRow = element("div", "preview-badges");
+      for (const badge of item.statBadges) {
+        badgeRow.append(element("span", "stat-badge", badge));
+      }
+      info.append(badgeRow);
+    }
     confirmPreview.append(thumb, info);
     segments.forEach((segment, position) => {
       segment.classList.toggle("active", position === index);
@@ -1053,6 +1084,24 @@ function openObtain(group, initialIndex) {
     });
     if (select)
       select.value = String(index);
+
+    detailsPanel.replaceChildren();
+    if (item.effectDesc || item.description) {
+      if (item.effectDesc) {
+        const effectBox = element("div", "detail-effect");
+        const title = element("span", "effect-title", "★ 特殊效果");
+        const text = element("p", "effect-text", item.effectDesc);
+        effectBox.append(title, text);
+        detailsPanel.append(effectBox);
+      }
+      if (item.description) {
+        const descBox = element("p", "detail-desc", item.description);
+        detailsPanel.append(descBox);
+      }
+      detailsPanel.hidden = false;
+    } else {
+      detailsPanel.hidden = true;
+    }
 
     detail.replaceChildren();
     input = null;
@@ -1679,7 +1728,7 @@ async function obtainThroughUi(target, quantity, kind) {
   const card = cardOf(target);
   if (!group || !card)
     throw new Error("界面上找不到 " + target);
-  card.querySelector(".obtain").click();
+  card.click();
   if (group.variants.length > 1)
     pickVariantThroughUi(target);
   const input = document.querySelector("#obtain-quantity");
@@ -1800,7 +1849,7 @@ async function runVariantSelfTest() {
   if (!card)
     throw new Error("界面上找不到卡片 " + group.key);
   const fallback = defaultVariant(group);
-  card.querySelector(".obtain").click();
+  card.click();
   const segments = document.querySelectorAll("#obtain-variants .seg").length;
   const dropdown = !!document.querySelector("#obtain-variant");
   const thumb = confirmPreview.querySelector(".thumb");
@@ -1852,11 +1901,12 @@ async function typeSearch(text) {
 }
 
 /**
- * 分页（T024）：选一个超过 120 张卡片的分类，每页改成 120（回到第 1 页），点翻页条上的「2」，
- * 界面上的卡片应正好是直接请求 skip=120、take=120 的那一页，结果区回到顶部。结束后还原每页数量（它记在本机）。
+ * 分页（T024）：选一个超过 30 张卡片的分类，每页改成 30（回到第 1 页），点翻页条上的「2」，
+ * 界面上的卡片应正好是直接请求 skip=30、take=30 的那一页，结果区回到顶部。结束后还原每页数量（它记在本机）。
  */
 async function runPagingSelfTest() {
-  const size = 120;
+  const original = library.size;
+  const size = original === PAGE_SIZES[0] ? PAGE_SIZES[1] : PAGE_SIZES[0];
   let kind = null;
   for (const item of library.kinds) {
     const probe = await call("library.catalog", { gameId, slot: selected.slot, kind: item.id, take: 1 });
@@ -1869,9 +1919,6 @@ async function runPagingSelfTest() {
     await step("library-paging", true, "skipped: 没有超过 " + size + " 张卡片的分类");
     return;
   }
-  const original = library.size;
-  if (original === size)
-    await choosePageSize(PAGE_SIZES[0]);
   chipOf(kind).click();
   await libraryIdle();
   await choosePageSize(size);

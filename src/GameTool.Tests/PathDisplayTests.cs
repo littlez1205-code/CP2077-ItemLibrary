@@ -8,8 +8,8 @@ namespace GameTool.Tests;
 /// <summary>D021：界面上不显示含 Windows 用户名的路径。</summary>
 public class PathDisplayTests : IDisposable
 {
-    private const string Profile = @"C:\Users\player";
-    private const string Local = @"C:\Users\player\AppData\Local";
+    private const string Profile = @"C:\Users\littl";
+    private const string Local = @"C:\Users\littl\AppData\Local";
     private static readonly PathDisplay Display = new(Profile, Local);
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), "GameTool-display-" + Guid.NewGuid().ToString("N"));
@@ -25,21 +25,21 @@ public class PathDisplayTests : IDisposable
     // ---------- 缩写规则 ----------
 
     [Theory]
-    [InlineData(@"C:\Users\player\Saved Games\CD Projekt Red\Cyberpunk 2077", @"%USERPROFILE%\Saved Games\CD Projekt Red\Cyberpunk 2077")]
-    [InlineData(@"C:\Users\player", "%USERPROFILE%")]
-    [InlineData(@"C:\Users\player\", @"%USERPROFILE%\")]
-    [InlineData(@"C:\Users\player\AppData\Local\GameTool\settings.json", @"%LOCALAPPDATA%\GameTool\settings.json")]
-    [InlineData(@"C:\Users\player\AppData\Local", "%LOCALAPPDATA%")]
-    [InlineData(@"C:\Users\player\AppData\Roaming\x", @"%USERPROFILE%\AppData\Roaming\x")]
+    [InlineData(@"C:\Users\littl\Saved Games\CD Projekt Red\Cyberpunk 2077", @"%USERPROFILE%\Saved Games\CD Projekt Red\Cyberpunk 2077")]
+    [InlineData(@"C:\Users\littl", "%USERPROFILE%")]
+    [InlineData(@"C:\Users\littl\", @"%USERPROFILE%\")]
+    [InlineData(@"C:\Users\littl\AppData\Local\GameTool\settings.json", @"%LOCALAPPDATA%\GameTool\settings.json")]
+    [InlineData(@"C:\Users\littl\AppData\Local", "%LOCALAPPDATA%")]
+    [InlineData(@"C:\Users\littl\AppData\Roaming\x", @"%USERPROFILE%\AppData\Roaming\x")]
     public void Mask_ShortensProfileAndLocalAppData_LongestFirst(string path, string expected)
     {
         Assert.Equal(expected, Display.Mask(path));
     }
 
     [Theory]
-    [InlineData(@"c:\users\PLAYER\saved games", @"%USERPROFILE%\saved games")]
-    [InlineData(@"C:\USERS\Player\APPDATA\local\GameTool", @"%LOCALAPPDATA%\GameTool")]
-    [InlineData("C:/Users/player/Saved Games", "%USERPROFILE%/Saved Games")]
+    [InlineData(@"c:\users\LITTL\saved games", @"%USERPROFILE%\saved games")]
+    [InlineData(@"C:\USERS\Littl\APPDATA\local\GameTool", @"%LOCALAPPDATA%\GameTool")]
+    [InlineData("C:/Users/littl/Saved Games", "%USERPROFILE%/Saved Games")]
     public void Mask_IgnoresCase_AndSeparatorStyle(string path, string expected)
     {
         Assert.Equal(expected, Display.Mask(path));
@@ -47,13 +47,13 @@ public class PathDisplayTests : IDisposable
 
     [Theory]
     [InlineData(@"D:\Games\Cyberpunk 2077")]
-    [InlineData(@"E:\Users\player\Saved Games")]
-    [InlineData(@"C:\Users\playerone\Saved Games")]
-    [InlineData(@"C:\Users\player2")]
-    [InlineData(@"C:\Users\player.old\x")]
-    [InlineData(@"C:\Users\player_backup")]
-    [InlineData(@"C:\Users\player-x")]
-    [InlineData(@"C:\Users\player\AppData\LocalLow\x")]
+    [InlineData(@"E:\Users\littl\Saved Games")]
+    [InlineData(@"C:\Users\littlefoot\Saved Games")]
+    [InlineData(@"C:\Users\littl2")]
+    [InlineData(@"C:\Users\littl.old\x")]
+    [InlineData(@"C:\Users\littl_backup")]
+    [InlineData(@"C:\Users\littl-x")]
+    [InlineData(@"C:\Users\littl\AppData\LocalLow\x")]
     [InlineData("")]
     [InlineData("没有路径的普通提示。")]
     public void Mask_LeavesOtherPathsAndPartialSegmentsAlone(string text)
@@ -69,32 +69,32 @@ public class PathDisplayTests : IDisposable
     [Fact]
     public void Mask_ReplacesEveryOccurrenceInsideMessages()
     {
-        Assert.Equal("目录不存在：%USERPROFILE%\\nope", Display.Mask("目录不存在：C:\\Users\\player\\nope"));
-        Assert.Equal("设置保存在 %LOCALAPPDATA%\\GameTool\\settings.json", Display.Mask("设置保存在 C:\\Users\\player\\AppData\\Local\\GameTool\\settings.json"));
+        Assert.Equal("目录不存在：%USERPROFILE%\\nope", Display.Mask("目录不存在：C:\\Users\\littl\\nope"));
+        Assert.Equal("设置保存在 %LOCALAPPDATA%\\GameTool\\settings.json", Display.Mask("设置保存在 C:\\Users\\littl\\AppData\\Local\\GameTool\\settings.json"));
         Assert.Equal(
             "Could not find a part of the path '%USERPROFILE%\\a'. Also %LOCALAPPDATA%\\b.",
-            Display.Mask("Could not find a part of the path 'C:\\Users\\player\\a'. Also C:\\Users\\player\\AppData\\Local\\b."));
-        Assert.Equal("已改用上一级目录（%USERPROFILE%）。", Display.Mask("已改用上一级目录（C:\\Users\\player）。"));
-        Assert.Equal(@"\\?\%USERPROFILE%\x", Display.Mask(@"\\?\C:\Users\player\x"));
-        Assert.Equal(@"xC:\Users\player\x", Display.Mask(@"xC:\Users\player\x"));
+            Display.Mask("Could not find a part of the path 'C:\\Users\\littl\\a'. Also C:\\Users\\littl\\AppData\\Local\\b."));
+        Assert.Equal("已改用上一级目录（%USERPROFILE%）。", Display.Mask("已改用上一级目录（C:\\Users\\littl）。"));
+        Assert.Equal(@"\\?\%USERPROFILE%\x", Display.Mask(@"\\?\C:\Users\littl\x"));
+        Assert.Equal(@"xC:\Users\littl\x", Display.Mask(@"xC:\Users\littl\x"));
     }
 
     [Fact]
     public void Mask_SkipsMissingOrDriveRootDirectories()
     {
         var none = new PathDisplay(null, "  ");
-        Assert.Equal(@"C:\Users\player\x", none.Mask(@"C:\Users\player\x"));
+        Assert.Equal(@"C:\Users\littl\x", none.Mask(@"C:\Users\littl\x"));
         var root = new PathDisplay(@"C:\", null);
         Assert.Equal(@"C:\Games", root.Mask(@"C:\Games"));
-        var trailing = new PathDisplay(@"C:\Users\player\", null);
-        Assert.Equal(@"%USERPROFILE%\x", trailing.Mask(@"C:\Users\player\x"));
+        var trailing = new PathDisplay(@"C:\Users\littl\", null);
+        Assert.Equal(@"%USERPROFILE%\x", trailing.Mask(@"C:\Users\littl\x"));
     }
 
     [Theory]
-    [InlineData(@"%USERPROFILE%\Saved Games", @"C:\Users\player\Saved Games")]
-    [InlineData(@"%userprofile%\Saved Games", @"C:\Users\player\Saved Games")]
-    [InlineData("%USERPROFILE%", @"C:\Users\player")]
-    [InlineData(@"%LOCALAPPDATA%\GameTool", @"C:\Users\player\AppData\Local\GameTool")]
+    [InlineData(@"%USERPROFILE%\Saved Games", @"C:\Users\littl\Saved Games")]
+    [InlineData(@"%userprofile%\Saved Games", @"C:\Users\littl\Saved Games")]
+    [InlineData("%USERPROFILE%", @"C:\Users\littl")]
+    [InlineData(@"%LOCALAPPDATA%\GameTool", @"C:\Users\littl\AppData\Local\GameTool")]
     [InlineData(@"D:\Games", @"D:\Games")]
     [InlineData(@"%USERPROFILE%x\a", @"%USERPROFILE%x\a")]
     [InlineData(@"D:\%USERPROFILE%\a", @"D:\%USERPROFILE%\a")]
@@ -108,7 +108,7 @@ public class PathDisplayTests : IDisposable
     [Fact]
     public void Expand_RoundTripsMaskedPaths()
     {
-        foreach (var path in new[] { @"C:\Users\player\Saved Games\CD Projekt Red\Cyberpunk 2077", @"C:\Users\player\AppData\Local\Temp\x\sav.dat", @"F:\SteamLibrary" })
+        foreach (var path in new[] { @"C:\Users\littl\Saved Games\CD Projekt Red\Cyberpunk 2077", @"C:\Users\littl\AppData\Local\Temp\x\sav.dat", @"F:\SteamLibrary" })
             Assert.Equal(path, Display.Expand(Display.Mask(path)));
     }
 

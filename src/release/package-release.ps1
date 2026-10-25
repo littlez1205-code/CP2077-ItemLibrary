@@ -54,8 +54,28 @@ try {
     # 1. Clean what earlier runs produced (only inside artifacts\release).
     New-Item -ItemType Directory -Force -Path $releaseRoot | Out-Null
     if (Test-Path -LiteralPath $buildDir) { Remove-Item -LiteralPath $buildDir -Recurse -Force }
+    $oldDir = Join-Path $releaseRoot '.old'
+    if (Test-Path -LiteralPath $oldDir) {
+        Get-ChildItem -LiteralPath $oldDir -File -ErrorAction SilentlyContinue |
+            ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+    }
     Get-ChildItem -LiteralPath $releaseRoot -Filter 'GameTool-CP2077-v*' | ForEach-Object {
-        Remove-Item -LiteralPath $_.FullName -Recurse -Force
+        if ($_.PSIsContainer) {
+            Get-ChildItem -LiteralPath $_.FullName -File -ErrorAction SilentlyContinue | ForEach-Object {
+                try {
+                    Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop
+                }
+                catch {
+                    New-Item -ItemType Directory -Force -Path $oldDir | Out-Null
+                    $bak = Join-Path $oldDir ('locked-' + [DateTime]::UtcNow.Ticks + '-' + $_.Name)
+                    Move-Item -LiteralPath $_.FullName -Destination $bak -Force
+                }
+            }
+            Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        else {
+            Remove-Item -LiteralPath $_.FullName -Force
+        }
     }
 
     # 2. Publish the self-contained single-file desktop app.

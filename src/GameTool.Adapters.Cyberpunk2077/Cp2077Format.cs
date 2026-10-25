@@ -23,9 +23,22 @@ public static class Cp2077Format
     /// <summary>块头 4 字节，磁盘序 34 5A 4C 58，即小端 u32 0x584C5A34。</summary>
     public const uint ChunkMagic = 0x584C5A34;
 
-    /// <summary>白名单：只接受这一对版本。游戏更新后先用 info 核对，再改这里。</summary>
-    public const uint SupportedSaveVersion = 269;
-    public const uint SupportedGameVersion = 2310;
+    /// <summary>白名单：支持 2.31 与 2.5。实测 2.31 为 269/2310，2.5 为 277/2500。</summary>
+    public const uint SaveVersion231 = 269;
+    public const uint GameVersion231 = 2310;
+
+    public const uint SaveVersion250 = 277;
+    public const uint GameVersion250 = 2500;
+
+    public const uint SupportedSaveVersion = SaveVersion231;
+    public const uint SupportedGameVersion = GameVersion231;
+
+    public const uint LatestSaveVersion = SaveVersion250;
+    public const uint LatestGameVersion = GameVersion250;
+
+    public static bool IsSupported(uint saveVersion, uint gameVersion) =>
+        (saveVersion == SaveVersion250 && gameVersion == GameVersion250) ||
+        (saveVersion == SaveVersion231 && gameVersion == GameVersion231);
 
     /// <summary>分块表槽位数。合法块数是 1..512。未用槽位原样保留，不再要求全 0。</summary>
     public const int ChunkSlotCount = 512;

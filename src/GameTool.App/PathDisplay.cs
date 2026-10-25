@@ -8,7 +8,7 @@ namespace GameTool.App;
 /// <para>
 /// <see cref="Mask"/> 处理任意文本（路径本身、校验提示、异常信息），在文本中任何位置找到这些目录就替换；
 /// 先比较较长的目录（本地应用数据目录在用户目录里面），不区分大小写，<c>\</c> 与 <c>/</c> 视为相同。
-/// 目录名必须完整匹配：<c>C:\Users\playerone</c> 不会被当成 <c>C:\Users\player</c>。
+/// 目录名必须完整匹配：<c>C:\Users\littlefoot</c> 不会被当成 <c>C:\Users\littl</c>。
 /// </para>
 /// <para><see cref="Expand"/> 把页面送回来的缩写路径还原成完整路径（只认开头的缩写）。</para>
 /// </summary>
@@ -114,7 +114,7 @@ public sealed class PathDisplay
 
     /// <summary>
     /// 目录名到这里结束：文本结束、路径分隔符、文件名里不能出现的字符、空白，或紧跟在路径后面的常见标点。
-    /// 字母、数字以及 .-_ 等能出现在文件名里的字符都不算结束，避免把 playerone 当成 player。
+    /// 字母、数字以及 .-_ 等能出现在文件名里的字符都不算结束，避免把 littlefoot 当成 littl。
     /// </summary>
     private static bool IsBoundary(string text, int index)
     {

@@ -457,7 +457,10 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             Quality = chosen.Quality,
             Plus = chosen.Plus,
             Iconic = chosen.Iconic,
-            TypeLabel = chosen.TypeLabel
+            TypeLabel = chosen.TypeLabel,
+            Description = chosen.Description,
+            EffectDesc = chosen.EffectDesc,
+            StatBadges = chosen.StatBadges
         };
     }
 
@@ -582,7 +585,10 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             Held = held,
             MaxQuantity = max,
             Plus = entry.Plus,
-            VariantLabel = entry.VariantLabel
+            VariantLabel = entry.VariantLabel,
+            Description = entry.Description,
+            EffectDesc = entry.EffectDesc,
+            StatBadges = entry.StatBadges
         };
     }
 

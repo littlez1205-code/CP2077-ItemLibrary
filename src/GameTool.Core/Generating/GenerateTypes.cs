@@ -48,6 +48,15 @@ public sealed record GenerateCatalogItem(
 
     /// <summary>同名合并后，这一条在确认框里的选项标签（如 传说+、原版、Neon）；所在卡片只有一条时为 null。</summary>
     public string? VariantLabel { get; init; }
+
+    /// <summary>物品的背景文本说明（官方本地化文本），没有时为 null。</summary>
+    public string? Description { get; init; }
+
+    /// <summary>物品的特殊效果/词条（如不朽武器特效、义体技能），没有时为 null。</summary>
+    public string? EffectDesc { get; init; }
+
+    /// <summary>物品的关键常数标签（如 [全自动]、[手枪弹药]、[义体容量 20]）。</summary>
+    public IReadOnlyList<string> StatBadges { get; init; } = [];
 }
 
 public sealed record GenerateCatalogPage(int Total, IReadOnlyList<GenerateCatalogItem> Items);
@@ -75,6 +84,12 @@ public sealed record GenerateCatalogGroup(
 
     public string? TypeLabel { get; init; }
 
+    public string? Description { get; init; }
+
+    public string? EffectDesc { get; init; }
+
+    public IReadOnlyList<string> StatBadges { get; init; } = [];
+
     /// <summary>每条目录项单独成卡（不支持合并的适配器用）。</summary>
     public static GenerateCatalogGroup Single(GenerateCatalogItem item)
     {
@@ -84,7 +99,10 @@ public sealed record GenerateCatalogGroup(
             Quality = item.Quality,
             Plus = item.Plus,
             Iconic = item.Iconic,
-            TypeLabel = item.TypeLabel
+            TypeLabel = item.TypeLabel,
+            Description = item.Description,
+            EffectDesc = item.EffectDesc,
+            StatBadges = item.StatBadges
         };
     }
 }

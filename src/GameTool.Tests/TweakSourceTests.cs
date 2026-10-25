@@ -268,4 +268,240 @@ public class TweakSourceTests
         Assert.Equal("LocKey#5", index.Find(TweakDbId.FromName("Items.Preset_Ajax_Neon"))!.DisplayName);
         Assert.Equal(4, index.Count);
     }
+
+    [Fact]
+    public void LocalizedDescription_And_EffectDescription()
+    {
+        var index = TweakSourceIndex.Parse(
+        [
+            ("a.tweak", """
+                package Items
+                using RTDB
+
+                BaseGun
+                {
+                    displayName = "LocKey#1";
+                    localizedDescription = "LocKey#100";
+                    primaryTriggerMode = "TriggerMode.FullAuto";
+                    ammo = "Ammo.RifleAmmo";
+                }
+
+                Preset_Gun_Iconic : BaseGun
+                {
+                    displayName = "LocKey#2";
+                    slotPartListPreset =
+                    [
+                        {
+                            slot = "AttachmentSlots.IconicWeaponModLegendary";
+                            itemPartPreset = "Items.GunIconicMod";
+                        }
+                    ];
+                }
+
+                GunIconicMod
+                {
+                    OnAttach = [ "Items.GunIconicModAbility" ];
+                }
+
+                GunIconicModAbility
+                {
+                    UIData =
+                    {
+                        localizedDescription = "LocKey#200";
+                    };
+                }
+
+                CyberwareBase
+                {
+                    displayName = "LocKey#3";
+                    localizedDescription = "LocKey#300";
+                    variants = [ "Variants.Humanity15Cost" ];
+                    OnEquip =
+                    [
+                        {
+                            UIData =
+                            {
+                                localizedDescription = "LocKey#301";
+                            };
+                        }
+                    ];
+                }
+                """)
+        ]);
+
+        Assert.Equal("LocKey#100", index.LocalizedDescriptionOf("Items.Preset_Gun_Iconic"));
+        Assert.Equal("LocKey#200", index.EffectDescriptionOf("Items.Preset_Gun_Iconic"));
+        Assert.Equal("TriggerMode.FullAuto", index.FieldOf("Items.Preset_Gun_Iconic", "primaryTriggerMode"));
+        Assert.Equal("Ammo.RifleAmmo", index.FieldOf("Items.Preset_Gun_Iconic", "ammo"));
+
+        Assert.Equal("LocKey#300", index.LocalizedDescriptionOf("Items.CyberwareBase"));
+        Assert.Equal("LocKey#301", index.EffectDescriptionOf("Items.CyberwareBase"));
+    }
+
+    [Fact]
+    public void StatModifiers_And_WeaponConstants()
+    {
+        var index = TweakSourceIndex.Parse(
+        [
+            ("weapons.tweak", """
+                package Items
+                using RTDB
+
+                BaseGun
+                {
+                    evolution = "WeaponEvolution.Power";
+                    baseReloadTime = 1.35f;
+                    statModifierGroups = [ "Items.GunHandlingStats" ];
+                }
+
+                GunHandlingStats
+                {
+                    statModifiers =
+                    [
+                        {
+                            value = 0.25f;
+                        } : CycleTimeModifier,
+                        {
+                            value = 15.f;
+                        } : MagazineCapacityModifier,
+                        {
+                            value = 8.f;
+                        } : ProjectilesPerShotModifier
+                    ];
+                }
+
+                Preset_MyGun : BaseGun
+                {
+                }
+
+                BaseSword
+                {
+                    statModifierGroups = [ "Items.SwordStats" ];
+                }
+
+                SwordStats
+                {
+                    statModifiers =
+                    [
+                        {
+                            statType = "BaseStats.MeleeAttackDuration";
+                            modifierType = "Additive";
+                            value = 0.45f;
+                        } : ConstantStatModifier
+                    ];
+                }
+                """)
+        ]);
+
+        Assert.Equal("WeaponEvolution.Power", index.FieldOf("Items.Preset_MyGun", "evolution"));
+        Assert.Equal("1.35", index.FieldOf("Items.Preset_MyGun", "baseReloadTime"));
+        Assert.Equal("0.25", index.StatModifierValueOf("Items.Preset_MyGun", "CycleTime"));
+        Assert.Equal("15", index.StatModifierValueOf("Items.Preset_MyGun", "MagazineCapacity"));
+        Assert.Equal("8", index.StatModifierValueOf("Items.Preset_MyGun", "ProjectilesPerShot"));
+
+        Assert.Equal("0.45", index.StatModifierValueOf("Items.BaseSword", "MeleeAttackDuration"));
+    }
+
+    [Fact]
+    public void EffectInfo_And_PlaceholderInterpolation()
+    {
+        var index = TweakSourceIndex.Parse(
+        [
+            ("gadgets.tweak", """
+                package Items
+                using RTDB
+
+                GrenadeFlashBase
+                {
+                    displayName = "LocKey#5166";
+                    localizedDescription = "LocKey#5182";
+                }
+
+                GrenadeFlashRegular : GrenadeFlashBase
+                {
+                    OnEquip =
+                    [
+                        {
+                            UIData =
+                            {
+                                localizedDescription = "LocKey#34280";
+                                intValues =
+                                [
+                                    3
+                                ];
+                            };
+                        }
+                    ];
+                }
+
+                GrenadeFlashCommonPlus : GrenadeFlashRegular
+                {
+                    OnEquip =
+                    [
+                        {
+                            UIData =
+                            {
+                                localizedDescription = "LocKey#34280";
+                                intValues =
+                                [
+                                    4
+                                ];
+                            };
+                        }
+                    ];
+                }
+
+                Preset_Satara_Brick
+                {
+                    slotPartListPreset =
+                    [
+                        {
+                            slot = "AttachmentSlots.IconicWeaponMod";
+                            itemPartPreset = "Items.BrickSataraWeaponMod";
+                        }
+                    ];
+                }
+
+                BrickSataraWeaponMod
+                {
+                    OnAttach =
+                    [
+                        "Items.BrickSataraWeaponModAbility"
+                    ];
+                }
+
+                BrickSataraWeaponModAbility
+                {
+                    UIData =
+                    {
+                        localizedDescription = "LocKey#84936";
+                        floatValues =
+                        [
+                            66
+                        ];
+                    };
+                }
+                """)
+        ]);
+
+        var flashInfo = index.EffectInfoOf("Items.GrenadeFlashCommonPlus");
+        Assert.NotNull(flashInfo);
+        Assert.Equal("LocKey#34280", flashInfo.LocKey);
+        Assert.Equal("4", flashInfo.IntValues);
+
+        var formattedFlash = GearCatalog.FormatEffectText("施加失明效果，持续 {int_0} 秒。", flashInfo.IntValues, flashInfo.FloatValues);
+        Assert.Equal("施加失明效果，持续 4 秒。", formattedFlash);
+
+        var brickInfo = index.EffectInfoOf("Items.Preset_Satara_Brick");
+        Assert.NotNull(brickInfo);
+        Assert.Equal("LocKey#84936", brickInfo.LocKey);
+        Assert.Equal("66", brickInfo.FloatValues);
+
+        var formattedBrick = GearCatalog.FormatEffectText("充能可以达到 {float_0}%，并且可以在更短的时间内完成充能。", brickInfo.IntValues, brickInfo.FloatValues);
+        Assert.Equal("充能可以达到 66%，并且可以在更短的时间内完成充能。", formattedBrick);
+
+        // 测试格式化边界：带空格的 {float_0 }、未提供数值的残留清理
+        var formattedKiroshi = GearCatalog.FormatEffectText("高亮 {float_0 } 米内的敌人。持续 {int_0} 秒。未提供: {int_1} {stat_0}。", "5", "8.5");
+        Assert.Equal("高亮 8.5 米内的敌人。持续 5 秒。未提供: 。", formattedKiroshi);
+    }
 }
