@@ -55,11 +55,25 @@ public sealed class ItemNameCatalog
             return new ItemNameCatalog(null, false, scan.ElapsedMilliseconds, 0);
 
         var localization = System.Diagnostics.Stopwatch.StartNew();
-        var text = LocalizationCatalog.Load(gameDirectory, lang, oodle);
+        var actualLang = ResolveAvailableLang(gameDirectory, lang);
+        var text = LocalizationCatalog.Load(gameDirectory, actualLang, oodle);
         localization.Stop();
         var catalog = new ItemNameCatalog(index, true, scan.ElapsedMilliseconds, localization.ElapsedMilliseconds);
         catalog.IndexText(text.Entries);
         return catalog;
+    }
+
+    private static string ResolveAvailableLang(string gameDirectory, string preferredLang)
+    {
+        if (File.Exists(LocalizationCatalog.ArchivePath(gameDirectory, preferredLang, "content")))
+            return preferredLang;
+        foreach (var fallback in new[] { "zh-cn", "zh-tw", "en-us" })
+        {
+            if (File.Exists(LocalizationCatalog.ArchivePath(gameDirectory, fallback, "content")))
+                return fallback;
+        }
+
+        return preferredLang;
     }
 
     public static ItemNameCatalog FromParts(TweakSourceIndex index, IReadOnlyList<LocEntry> entries)

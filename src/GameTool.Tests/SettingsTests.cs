@@ -118,7 +118,7 @@ public class SettingsTests : IDisposable
     [Fact]
     public void AppVersion_IsOneZeroZero_WithoutCommitSuffix()
     {
-        Assert.Equal("1.0.2", AppVersion.Of(typeof(SettingsStore).Assembly));
+        Assert.Equal("1.0.3", AppVersion.Of(typeof(SettingsStore).Assembly));
         Assert.Equal("1.0.0", AppVersion.Clean("1.0.0+0123abcdef"));
         Assert.Equal("1.2.3-beta", AppVersion.Clean(" 1.2.3-beta "));
         Assert.Equal("", AppVersion.Clean(null));
@@ -187,6 +187,53 @@ public class SettingsTests : IDisposable
         Assert.True(check.Ok);
         Assert.Equal(saves, check.Path);
         Assert.Contains("上一级", check.Message);
+    }
+
+    [Fact]
+    public void SaveRoot_WithStraySavDat_AndOuterParents_AreAccepted()
+    {
+        // 粉丝实测场景：存档根目录底下除了有 ManualSave-0 等正常子文件夹外，还散落了一个单独的 sav.dat。
+        var profile = Path.Combine(_root, "user");
+        var saves = Path.Combine(profile, "Saved Games", "CD Projekt Red", "Cyberpunk 2077");
+        Directory.CreateDirectory(Path.Combine(saves, "ManualSave-0"));
+        File.WriteAllBytes(Path.Combine(saves, "ManualSave-0", "sav.dat"), [1, 2, 3]);
+        File.WriteAllBytes(Path.Combine(saves, "sav.dat"), [1, 2, 3]);
+
+        // 1) 选单个槽位改用上一级后，再校验上一级本身必须同样通过（不被根目录散落的 sav.dat 误导）。
+        var fromSlot = Cp2077Paths.CheckSaveRoot(Path.Combine(saves, "ManualSave-0"));
+        Assert.True(fromSlot.Ok);
+        Assert.Equal(saves, fromSlot.Path);
+
+        var direct = Cp2077Paths.CheckSaveRoot(saves);
+        Assert.True(direct.Ok);
+        Assert.Equal(saves, direct.Path);
+
+        // 2) 选到外层 Saved Games 或 CD Projekt Red 或用户目录时，自动向下定位到 Cyberpunk 2077。
+        Assert.Equal(saves, Cp2077Paths.CheckSaveRoot(Path.Combine(profile, "Saved Games", "CD Projekt Red")).Path);
+        Assert.Equal(saves, Cp2077Paths.CheckSaveRoot(Path.Combine(profile, "Saved Games")).Path);
+        Assert.Equal(saves, Cp2077Paths.CheckSaveRoot(profile).Path);
+    }
+
+    [Fact]
+    public void GameDir_OuterSteamAndSwappedPaths_AreHandledClearly()
+    {
+        var game = MakeGame("Cyberpunk 2077", redmod: true);
+        var steamapps = Path.GetDirectoryName(Path.GetDirectoryName(game))!;
+        var library = Path.GetDirectoryName(steamapps)!;
+
+        // 选到 steamapps 或 SteamLibrary 根目录都能自动向下找到 Cyberpunk 2077。
+        Assert.Equal(game, Cp2077Paths.CheckGameDirectory(steamapps).Path);
+        Assert.Equal(game, Cp2077Paths.CheckGameDirectory(library).Path);
+
+        // 把游戏目录填进存档目录、或把存档目录填进游戏目录时，给出明确纠偏提示。
+        var saves = MakeSaves("saves-swap", "ManualSave-0");
+        var gameInSave = Cp2077Paths.CheckSaveRoot(game);
+        Assert.False(gameInSave.Ok);
+        Assert.Contains("游戏安装目录", gameInSave.Message);
+
+        var saveInGame = Cp2077Paths.CheckGameDirectory(saves);
+        Assert.False(saveInGame.Ok);
+        Assert.Contains("存档目录", saveInGame.Message);
     }
 
     [Fact]

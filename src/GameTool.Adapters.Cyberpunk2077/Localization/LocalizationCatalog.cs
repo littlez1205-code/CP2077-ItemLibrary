@@ -10,8 +10,27 @@ public static partial class LocalizationCatalog
     public static string ArchivePath(string gameDirectory, string lang, string pack) =>
         Path.Combine(gameDirectory, "archive", "pc", pack, $"lang_{lang}_text.archive");
 
-    public static string OodlePath(string gameDirectory) =>
-        Path.Combine(gameDirectory, "bin", "x64", "oo2ext_7_win64.dll");
+    public static string OodlePath(string gameDirectory)
+    {
+        var primary = Path.Combine(gameDirectory, "bin", "x64", "oo2ext_7_win64.dll");
+        if (File.Exists(primary))
+            return primary;
+        try
+        {
+            var binDir = Path.Combine(gameDirectory, "bin", "x64");
+            if (Directory.Exists(binDir))
+            {
+                var alt = Directory.EnumerateFiles(binDir, "oo2ext_*_win64.dll").FirstOrDefault();
+                if (alt is not null)
+                    return alt;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+
+        return primary;
+    }
 
     public static IEnumerable<string> OnscreensPaths(string lang)
     {

@@ -37,8 +37,8 @@ public static class Cp2077Format
     public const uint LatestGameVersion = GameVersion250;
 
     public static bool IsSupported(uint saveVersion, uint gameVersion) =>
-        (saveVersion == SaveVersion250 && gameVersion == GameVersion250) ||
-        (saveVersion == SaveVersion231 && gameVersion == GameVersion231);
+        saveVersion is >= SaveVersion231 and <= SaveVersion250
+        && gameVersion is >= 2300 and <= GameVersion250;
 
     /// <summary>分块表槽位数。合法块数是 1..512。未用槽位原样保留，不再要求全 0。</summary>
     public const int ChunkSlotCount = 512;
