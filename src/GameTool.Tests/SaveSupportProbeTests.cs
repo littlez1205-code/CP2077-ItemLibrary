@@ -25,17 +25,22 @@ public class SaveSupportProbeTests
             Assert.Contains("重新存档", support.Reason);
 
             // 游戏更新后的新存档：不能靠重新存档解决，要等工具适配（D024）。
-            BinaryPrimitives.WriteUInt32LittleEndian(head.AsSpan(4), 270);
-            BinaryPrimitives.WriteUInt32LittleEndian(head.AsSpan(8), 2320);
+            BinaryPrimitives.WriteUInt32LittleEndian(head.AsSpan(4), 280);
+            BinaryPrimitives.WriteUInt32LittleEndian(head.AsSpan(8), 2600);
             File.WriteAllBytes(path, head);
             var newer = adapter.Probe(path);
             Assert.False(newer.Supported);
-            Assert.Contains("2.32", newer.Reason);
+            Assert.Contains("2.6", newer.Reason);
             Assert.Contains("等待工具适配", newer.Reason);
             Assert.DoesNotContain("重新存档", newer.Reason);
 
             BinaryPrimitives.WriteUInt32LittleEndian(head.AsSpan(4), 269);
             BinaryPrimitives.WriteUInt32LittleEndian(head.AsSpan(8), 2310);
+            File.WriteAllBytes(path, head);
+            Assert.True(adapter.Probe(path).Supported);
+
+            BinaryPrimitives.WriteUInt32LittleEndian(head.AsSpan(4), 277);
+            BinaryPrimitives.WriteUInt32LittleEndian(head.AsSpan(8), 2500);
             File.WriteAllBytes(path, head);
             Assert.True(adapter.Probe(path).Supported);
         }

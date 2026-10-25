@@ -169,16 +169,16 @@ public sealed class Cp2077Adapter : IGameAdapter, ISaveSupportProbe, IThemeProvi
                 return new SaveSupport(false, "不是可识别的存档。");
             var saveVersion = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(head.AsSpan(4));
             var gameVersion = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(head.AsSpan(8));
-            if (saveVersion == Cp2077Format.SupportedSaveVersion && gameVersion == Cp2077Format.SupportedGameVersion)
+            if (Cp2077Format.IsSupported(saveVersion, gameVersion))
                 return new SaveSupport(true, null);
-            // 比 2.31 新的存档（游戏更新后）不能靠重新存档解决，只能等工具适配（D024）。
-            if (saveVersion > Cp2077Format.SupportedSaveVersion || gameVersion > Cp2077Format.SupportedGameVersion)
+            // 比 2.5 新的存档（游戏更新后）不能靠重新存档解决，只能等工具适配（D024）。
+            if (saveVersion > Cp2077Format.LatestSaveVersion || gameVersion > Cp2077Format.LatestGameVersion)
                 return new SaveSupport(
                     false,
-                    $"游戏 {FormatGameVersion(gameVersion)} 版本的存档（存档格式 {saveVersion}），比本工具支持的 2.31 更新；需要等待工具适配新版本");
+                    $"游戏 {FormatGameVersion(gameVersion)} 版本的存档（存档格式 {saveVersion}），比本工具支持的 2.5 更新；需要等待工具适配新版本");
             return new SaveSupport(
                 false,
-                $"游戏 {FormatGameVersion(gameVersion)} 版本的存档（存档格式 {saveVersion}），本工具只支持 2.31；在游戏里读取后重新存档即可升级");
+                $"游戏 {FormatGameVersion(gameVersion)} 版本的存档（存档格式 {saveVersion}），本工具支持 2.31 与 2.5；在游戏里读取后重新存档即可升级");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

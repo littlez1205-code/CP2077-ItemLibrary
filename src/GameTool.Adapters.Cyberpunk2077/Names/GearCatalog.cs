@@ -56,7 +56,7 @@ public static partial class GearQuality
     public const string Epic = "Epic";
     public const string Legendary = "Legendary";
 
-    private static readonly string[] Known = [Common, Uncommon, Rare, Epic, Legendary];
+    public static readonly string[] Known = [Common, Uncommon, Rare, Epic, Legendary];
 
     public static string? Normalize(string? tweakValue)
     {
@@ -195,6 +195,15 @@ public sealed record GearEntry(string RecordName, ulong TweakDbId, string Label,
     /// <summary>同名合并后在确认框里的选项标签；只有一条时为 null。</summary>
     public string? VariantLabel { get; init; }
 
+    /// <summary>物品的背景说明文本。</summary>
+    public string? Description { get; init; }
+
+    /// <summary>物品的特殊技能/词条说明（如不朽专属效果、义体技能）。</summary>
+    public string? EffectDesc { get; init; }
+
+    /// <summary>物品的关键常数标签（如 [全自动]、[手枪弹药]、[义体容量 20]）。</summary>
+    public IReadOnlyList<string> StatBadges { get; init; } = [];
+
     public bool Stackable => GearKinds.IsStackable(Kind);
 
     public int Rank => GearQuality.Rank(Quality, Plus);
@@ -314,7 +323,12 @@ public sealed partial class GearCatalog
     /// hasIcon：记录能否解析到背包图标。给了它，带 notQueryable 的标志性远程武器（见 <see cref="IsObtainableIconic"/>）也进目录；
     /// 不给就和以前一样排除所有 notQueryable。
     /// </summary>
-    public static GearCatalog Build(TweakSourceIndex index, Func<ulong, ItemName> resolve, Func<string?, bool> isInternal, Func<string, bool>? hasIcon = null)
+    public static GearCatalog Build(
+        TweakSourceIndex index,
+        Func<ulong, ItemName> resolve,
+        Func<string?, bool> isInternal,
+        Func<string, bool>? hasIcon = null,
+        Func<string?, string?>? resolveText = null)
     {
         ArgumentNullException.ThrowIfNull(index);
         ArgumentNullException.ThrowIfNull(resolve);
@@ -406,7 +420,7 @@ public sealed partial class GearCatalog
                 continue;
             if (exception && !hasIcon!(record))
                 continue;
-            var described = Describe(index, record, id, text, kind, tags, crafted, crafted is not null && kindByRecord.TryGetValue(crafted, out var made) ? made : null);
+            var described = Describe(index, record, id, text, kind, tags, crafted, crafted is not null && kindByRecord.TryGetValue(crafted, out var made) ? made : null, resolveText);
             (isExpansion ? hidden : picked).Add(described);
         }
 
@@ -444,7 +458,16 @@ public sealed partial class GearCatalog
     /// quality 是 Random 等不固定品质且名字里也没有品阶的保持 null（中性色）。
     /// 配方：名字和前缀都没有品阶时看产物的记录名和 quality（如 ShotgunMod3_Epic_Recipe → ShotgunMod3_Epic）。
     /// </summary>
-    private static GearEntry Describe(TweakSourceIndex index, string record, ulong id, string label, string kind, IReadOnlyList<string> tags, string? crafted, string? craftedKind)
+    private static GearEntry Describe(
+        TweakSourceIndex index,
+        string record,
+        ulong id,
+        string label,
+        string kind,
+        IReadOnlyList<string> tags,
+        string? crafted,
+        string? craftedKind,
+        Func<string?, string?>? resolveText)
     {
         var nameTier = GearQuality.FromNameSuffix(record);
         var prefixTier = GearQuality.FromPrefix(record);
@@ -460,6 +483,56 @@ public sealed partial class GearCatalog
         var fieldPlus = Math.Max(GearQuality.PlusOf(fieldValue), ProgramPlus(crafted ?? record));
         var fieldTier = field is null ? null : field + PlusWord(fieldPlus);
         var quality = nameTier ?? PrefixQuality(record);
+
+        var descKey = index.LocalizedDescriptionOf(record);
+        if (string.IsNullOrEmpty(descKey) && crafted is not null)
+            descKey = index.LocalizedDescriptionOf(crafted);
+        var description = CleanText(resolveText?.Invoke(descKey));
+
+        var effectInfo = index.EffectInfoOf(record);
+        if (effectInfo is null && crafted is not null)
+            effectInfo = index.EffectInfoOf(crafted);
+
+        var itemQuality = quality?.Quality ?? field;
+        var itemPlus = quality?.Plus ?? (field is null ? 0 : fieldPlus);
+        var qualityTier = itemQuality is not null ? Array.IndexOf(GearQuality.Known, itemQuality) : 0;
+        if (qualityTier < 0) qualityTier = 0;
+        if (qualityTier == 4 && itemPlus == 2) qualityTier = 5;
+
+        IReadOnlyList<string?>? statValues = null;
+        if (!string.IsNullOrEmpty(effectInfo?.Stats))
+        {
+            var statNames = effectInfo.Stats.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var computed = new string?[statNames.Length];
+            var targetRecord = effectInfo.SourceRecord ?? crafted ?? record;
+            for (var i = 0; i < statNames.Length; i++)
+            {
+                var statName = statNames[i];
+                var val = index.StatValueAtQuality(targetRecord, statName, qualityTier);
+                if (val is null && targetRecord != record)
+                    val = index.StatValueAtQuality(record, statName, qualityTier);
+
+                if (val is not null)
+                {
+                    computed[i] = val.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+                else
+                {
+                    var shortName = statName.StartsWith("BaseStats.", StringComparison.Ordinal) ? statName["BaseStats.".Length..] : statName;
+                    var directMod = index.StatModifierValueOf(targetRecord, shortName) ?? index.StatModifierValueOf(targetRecord, statName);
+                    computed[i] = directMod;
+                }
+            }
+            statValues = computed;
+        }
+
+        var effectDesc = FormatEffectText(resolveText?.Invoke(effectInfo?.LocKey), effectInfo?.IntValues, effectInfo?.FloatValues, statValues);
+
+        if (description == effectDesc)
+            description = null;
+
+        var statBadges = BuildStatBadges(index, record, kind, crafted);
+
         return new GearEntry(record, id, label, kind, false)
         {
             Quality = quality?.Quality ?? field,
@@ -473,8 +546,238 @@ public sealed partial class GearCatalog
                 ? (craftedKind is null ? null : GearKinds.Label(craftedKind) + "配方")
                 : TypeLabelOf(kind, index.FieldOf(record, "itemType"), tags, index.FieldOf(record, "equipArea")),
             RootSlot = kind is GearKinds.Quickhack or GearKinds.Mod ? index.ListOf(record, "placementSlots").FirstOrDefault() : null,
-            CraftedItem = crafted
+            CraftedItem = crafted,
+            Description = description,
+            EffectDesc = effectDesc,
+            StatBadges = statBadges
         };
+    }
+
+    public static string? FormatEffectText(string? text, string? intValuesStr, string? floatValuesStr, IReadOnlyList<string?>? statValues = null)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var result = System.Text.RegularExpressions.Regex.Replace(
+            text,
+            @"\s*<Image[^>]*q000_tutorial_icon_boss[^>]*>(?:</>)?\s*",
+            "骷髅头");
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"<[^>]+>", "");
+        result = result.Replace("\\n", "\n").Trim();
+
+        var intValues = string.IsNullOrEmpty(intValuesStr)
+            ? []
+            : intValuesStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        var floatValues = string.IsNullOrEmpty(floatValuesStr)
+            ? []
+            : floatValuesStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        // 1. 替换 {int_0}, {int_0 }, {int_1}, ...
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\{int_(\d+)\s*\}", m =>
+        {
+            if (int.TryParse(m.Groups[1].Value, out var idx) && idx >= 0 && idx < intValues.Length)
+                return intValues[idx];
+            return "";
+        }, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // 2. 替换 {float_0}, {float_0 }, {float_1}, ...
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\{float_(\d+)\s*\}", m =>
+        {
+            if (int.TryParse(m.Groups[1].Value, out var idx) && idx >= 0 && idx < floatValues.Length)
+                return floatValues[idx];
+            return "";
+        }, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // 3. 替换 {stat_0}, {stat_1}, ...
+        if (statValues is { Count: > 0 })
+        {
+            result = System.Text.RegularExpressions.Regex.Replace(result, @"\{stat_(\d+)\s*\}(%?)", m =>
+            {
+                if (int.TryParse(m.Groups[1].Value, out var idx) && idx >= 0 && idx < statValues.Count && statValues[idx] is not null)
+                {
+                    var raw = statValues[idx]!;
+                    var hasPercent = m.Groups[2].Success && m.Groups[2].Length > 0;
+                    if (double.TryParse(raw, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var num))
+                    {
+                        if (hasPercent && Math.Abs(num) > 0 && Math.Abs(num) < 1.0)
+                            num *= 100.0;
+                        var absNum = Math.Abs(num);
+                        var formatted = absNum % 1 == 0
+                            ? ((long)Math.Round(absNum)).ToString()
+                            : absNum.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+                        return formatted + (hasPercent ? "%" : "");
+                    }
+                    return raw + (hasPercent ? "%" : "");
+                }
+                return m.Value;
+            }, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+
+        // 4. 通用占位符 {value}, {value_0}, {value_1}, ...
+        var primaryVal = floatValues.Length > 0 ? floatValues[0] : (intValues.Length > 0 ? intValues[0] : null);
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\{value(?:_(\d+))?\s*\}", m =>
+        {
+            if (m.Groups[1].Success && int.TryParse(m.Groups[1].Value, out var idx))
+            {
+                if (idx >= 0 && idx < floatValues.Length) return floatValues[idx];
+                if (idx >= 0 && idx < intValues.Length) return intValues[idx];
+            }
+            return primaryVal ?? "";
+        }, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // 5. 数字占位符 {0}, {1}, ...
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\{(\d+)\s*\}", m =>
+        {
+            if (int.TryParse(m.Groups[1].Value, out var idx))
+            {
+                if (idx >= 0 && idx < floatValues.Length) return floatValues[idx];
+                if (idx >= 0 && idx < intValues.Length) return intValues[idx];
+            }
+            return "";
+        });
+
+        // 6. 清理义体同调（attunements）的当前运行时总量行（静态物品库中无需展示未装备时的动态总量计算）
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"(?m)^\s*当前总量[：:][^\r\n]*\r?\n?", "");
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"当前总量[：:][^\r\n]*", "");
+
+        // 7. 清理残留的未匹配代码占位符（如未提供具体数值的 {int_0}、{float_0}、{stat} 等），避免向玩家展示底层代码 token
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\{\s*(?:int|float|value|VALUE|stat)\w*\s*\}", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // 8. 清理未匹配数值导致的裸露百分号（如 +%、-%、% 中毒几率）
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"(?<!\d)[+-]?\s*%", "");
+
+        // 9. 清理空行与多余空格
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"[ \t]{2,}", " ");
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"(?m)^\s+$", "");
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"(\r?\n){3,}", "\n\n");
+
+        return string.IsNullOrWhiteSpace(result) ? null : result.Trim();
+    }
+
+    private static string? CleanText(string? text) => FormatEffectText(text, null, null);
+
+    private static IReadOnlyList<string> BuildStatBadges(TweakSourceIndex index, string record, string kind, string? crafted)
+    {
+        var badges = new List<string>();
+        var targetRecord = crafted ?? record;
+
+        if (kind is GearKinds.Ranged or GearKinds.Melee)
+        {
+            // 武器机制（动能 / 技术 / 智能）
+            var evo = index.FieldOf(targetRecord, "evolution");
+            if (!string.IsNullOrEmpty(evo))
+            {
+                var evoName = evo.StartsWith("WeaponEvolution.", StringComparison.Ordinal) ? evo["WeaponEvolution.".Length..] : evo;
+                var evoCn = evoName switch
+                {
+                    "Power" => "动能",
+                    "Tech" => "技术",
+                    "Smart" => "智能",
+                    _ => null
+                };
+                if (evoCn is not null)
+                    badges.Add(evoCn);
+            }
+
+            // 击发模式（全自动 / 半自动 / 连发 / 充能 / 蓄力）
+            var mode = index.FieldOf(targetRecord, "primaryTriggerMode");
+            if (!string.IsNullOrEmpty(mode))
+            {
+                var modeName = mode.StartsWith("TriggerMode.", StringComparison.Ordinal) ? mode["TriggerMode.".Length..] : mode;
+                var modeCn = modeName switch
+                {
+                    "FullAuto" => "全自动",
+                    "SemiAuto" => "半自动",
+                    "Burst" => "连发",
+                    "Charge" => "充能",
+                    "Windup" => "蓄力",
+                    _ => modeName
+                };
+                badges.Add(modeCn);
+            }
+
+            // 射速 / 攻速、弹匣、装弹
+            if (kind == GearKinds.Ranged)
+            {
+                var cycleStr = index.StatModifierValueOf(targetRecord, "CycleTime");
+                if (float.TryParse(cycleStr, System.Globalization.CultureInfo.InvariantCulture, out var cycle) && cycle > 0f)
+                {
+                    var rate = 1.0f / cycle;
+                    badges.Add($"射速 {rate:0.#}发/秒");
+                }
+
+                // 弹丸数（如霰弹枪 8 弹丸）
+                var projStr = index.StatModifierValueOf(targetRecord, "ProjectilesPerShot");
+                if (float.TryParse(projStr, System.Globalization.CultureInfo.InvariantCulture, out var proj) && proj > 1.1f)
+                {
+                    badges.Add($"{(int)Math.Round(proj)}弹丸");
+                }
+
+                // 弹匣容量
+                var magStr = index.StatModifierValueOf(targetRecord, "MagazineCapacity");
+                if (float.TryParse(magStr, System.Globalization.CultureInfo.InvariantCulture, out var mag) && mag > 0f && mag < 9999f)
+                {
+                    badges.Add($"弹匣 {(int)Math.Round(mag)}");
+                }
+
+                // 装弹时间
+                var reloadStr = index.FieldOf(targetRecord, "baseReloadTime") ?? index.StatModifierValueOf(targetRecord, "ReloadTime");
+                if (float.TryParse(reloadStr, System.Globalization.CultureInfo.InvariantCulture, out var reload) && reload > 0f)
+                {
+                    badges.Add($"装弹 {reload:0.##}秒");
+                }
+
+                // 弹药类型
+                var ammo = index.FieldOf(targetRecord, "ammo");
+                if (!string.IsNullOrEmpty(ammo))
+                {
+                    var ammoName = ammo.StartsWith("Ammo.", StringComparison.Ordinal) ? ammo["Ammo.".Length..] : ammo;
+                    var ammoCn = ammoName switch
+                    {
+                        "HandgunAmmo" => "手枪弹药",
+                        "RifleAmmo" => "步枪弹药",
+                        "ShotgunAmmo" => "霰弹弹药",
+                        "SniperRifleAmmo" => "狙击弹药",
+                        _ => null
+                    };
+                    if (ammoCn is not null)
+                        badges.Add(ammoCn);
+                }
+            }
+            else // 近战武器
+            {
+                var meleeDurStr = index.StatModifierValueOf(targetRecord, "MeleeAttackDuration");
+                if (float.TryParse(meleeDurStr, System.Globalization.CultureInfo.InvariantCulture, out var meleeDur) && meleeDur > 0f)
+                {
+                    var speed = 1.0f / meleeDur;
+                    badges.Add($"攻速 {speed:0.#}次/秒");
+                }
+                else
+                {
+                    var apsStr = index.StatModifierValueOf(targetRecord, "AttacksPerSecond");
+                    if (float.TryParse(apsStr, System.Globalization.CultureInfo.InvariantCulture, out var aps) && aps > 0f)
+                    {
+                        badges.Add($"攻速 {aps:0.#}次/秒");
+                    }
+                }
+            }
+        }
+        else if (kind is GearKinds.Cyberware or GearKinds.ArmCyberware)
+        {
+            var variants = index.ListOf(targetRecord, "variants");
+            foreach (var v in variants)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(v, @"Humanity(\d+)Cost");
+                if (match.Success)
+                {
+                    badges.Add($"义体容量 {match.Groups[1].Value}");
+                    break;
+                }
+            }
+        }
+
+        return badges;
     }
 
     private static string PlusWord(int plus) => plus switch { 2 => "PlusPlus", 1 => "Plus", _ => "" };

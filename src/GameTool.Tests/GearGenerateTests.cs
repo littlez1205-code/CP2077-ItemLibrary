@@ -827,6 +827,99 @@ public class GearGenerateTests : IDisposable
         return path;
     }
 
+    [Fact]
+    public void CatalogItem_Includes_Description_EffectDesc_And_StatBadges()
+    {
+        const string customTweaks = """
+            package RTDB
+
+            Item
+            {
+            }
+
+            WeaponItem : Item
+            {
+            }
+
+            Cyberware : Item
+            {
+            }
+
+            package Items
+            using RTDB
+
+            TestIconicRifle : WeaponItem
+            {
+                displayName = "LocKey#10";
+                localizedDescription = "LocKey#11";
+                evolution = "WeaponEvolution.Power";
+                primaryTriggerMode = "TriggerMode.FullAuto";
+                ammo = "Ammo.RifleAmmo";
+                baseReloadTime = 0.9f;
+                statModifierGroups =
+                [
+                    "Items.TestRifleStats"
+                ];
+                slotPartListPreset =
+                [
+                    { slot = "AttachmentSlots.Receiver"; itemPartPreset = "Items.Rcv"; },
+                    { slot = "AttachmentSlots.IconicWeaponModLegendary"; itemPartPreset = "Items.TestIconicMod"; }
+                ];
+            }
+
+            TestRifleStats
+            {
+                statModifiers =
+                [
+                    {
+                        value = 0.125f;
+                    } : CycleTimeModifier,
+                    {
+                        value = 20.f;
+                    } : MagazineCapacityModifier
+                ];
+            }
+
+            Rcv : Item
+            {
+                slot = "AttachmentSlots.Receiver";
+            }
+
+            TestIconicMod
+            {
+                OnAttach = [ "Items.TestIconicModAbility" ];
+            }
+
+            TestIconicModAbility
+            {
+                UIData =
+                {
+                    localizedDescription = "LocKey#12";
+                };
+            }
+            """;
+
+        var index = TweakSourceIndex.Parse([("test.tweak", customTweaks)]);
+        var entries = new LocEntry[]
+        {
+            new(10, "", "", "测试不朽步枪"),
+            new(11, "", "", "这是一把强力的试验型步枪。"),
+            new(12, "", "", "全自动射击时造成致命爆头伤害。")
+        };
+        var names = Cp2077ItemNames.FromCatalog(ItemNameCatalog.FromParts(index, entries));
+        var item = names.Gear.FirstOrDefault(entry => entry.RecordName == "Items.TestIconicRifle");
+        Assert.NotNull(item);
+        Assert.Equal("测试不朽步枪", item.Label);
+        Assert.Equal("这是一把强力的试验型步枪。", item.Description);
+        Assert.Equal("全自动射击时造成致命爆头伤害。", item.EffectDesc);
+        Assert.Contains("动能", item.StatBadges);
+        Assert.Contains("全自动", item.StatBadges);
+        Assert.Contains("射速 8发/秒", item.StatBadges);
+        Assert.Contains("弹匣 20", item.StatBadges);
+        Assert.Contains("装弹 0.9秒", item.StatBadges);
+        Assert.Contains("步枪弹药", item.StatBadges);
+    }
+
     private static void Node(List<byte> buffer, string name, int next, int child, int payloadOffset, int length)
     {
         WriteCompact(buffer, -Encoding.ASCII.GetByteCount(name));

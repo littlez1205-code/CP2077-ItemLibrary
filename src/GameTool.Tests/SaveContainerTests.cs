@@ -22,6 +22,24 @@ public class SaveContainerTests
     }
 
     [Fact]
+    public void RoundTrip_Version250_IsSupportedAndByteIdentical()
+    {
+        var container = SaveContainer.Create(
+            saveVersion: Cp2077Format.SaveVersion250,
+            gameVersion: Cp2077Format.GameVersion250,
+            timestamp: 0x1122_3344_5566_7788,
+            archiveVersion: 11,
+            decompressedChunks: [Pattern(64, 1), Pattern(64, 2), Pattern(64, 3)],
+            nodeTable: [.. Cp2077Format.Node.ToArray(), 1, 2, 3, 4]);
+        var bytes = container.ToArray();
+        var loaded = SaveContainer.Read(bytes);
+
+        Assert.Equal(bytes, loaded.ToArray());
+        Assert.Equal(Cp2077Format.SaveVersion250, loaded.SaveVersion);
+        Assert.Equal(Cp2077Format.GameVersion250, loaded.GameVersion);
+    }
+
+    [Fact]
     public void Rejects_VersionOutsideWhitelist()
     {
         var bytes = SaveContainer.Create(

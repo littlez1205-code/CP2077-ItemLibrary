@@ -7,6 +7,8 @@ public sealed record TweakRecord(string FullName, ulong TweakDbId, string? Displ
 
 public sealed record TweakPresetPart(string Slot, string Item);
 
+public sealed record EffectInfo(string LocKey, string? IntValues, string? FloatValues, string? Stats = null, string? SourceRecord = null);
+
 /// <summary>
 /// slotPartListPreset 里的一个原始条目：内联 <c>{ slot; itemPartPreset; } [: 模板]</c>，或裸字符串引用一条 SlotItemPartPreset 记录。
 /// 解析阶段只记原文，缺的 slot / itemPartPreset 在 <see cref="TweakSourceIndex.FindPresetParts"/> 里按模板或被引用的记录补齐。
@@ -190,12 +192,14 @@ public sealed partial class TweakSourceIndex
         return InheritedParts(recordName, new HashSet<string>(StringComparer.Ordinal));
     }
 
-    /// <summary>索引里记下的深度 1 简单字段（物品图标用到外观名、实体名和 UIIcon 的图集路径与部件名）。</summary>
+    /// <summary>索引里记下的深度 1 简单字段（物品图标用到外观名、实体名和 UIIcon 的图集路径与部件名；描述与关键属性）。</summary>
     public static readonly string[] ScalarFields =
     [
         "quality", "isSingleInstance", "itemType", "itemCategory", "iconPath",
         "appearanceName", "appearanceResourceName", "entityName", "atlasResourcePath", "atlasPartName",
-        "slot", "itemPartPreset", "equipArea", "nextUpgradeItem"
+        "slot", "itemPartPreset", "equipArea", "nextUpgradeItem",
+        "localizedDescription", "primaryTriggerMode", "ammo",
+        "evolution", "baseReloadTime", "baseEmptyReloadTime"
     ];
 
     /// <summary>
@@ -204,8 +208,11 @@ public sealed partial class TweakSourceIndex
     /// </summary>
     public const string CraftingResultItem = "craftingResult.item";
 
+    /// <summary>嵌套在 UIData 或技能块里的效果文本 LocKey。</summary>
+    public const string UiDataLocalizedDescription = "UIData.localizedDescription";
+
     /// <summary>索引里记下的深度 1 字符串列表字段，沿继承链按 = 覆盖、+= 追加合并。</summary>
-    public static readonly string[] ListFields = ["tags", "visualTags", "appearanceSuffixes", "placementSlots"];
+    public static readonly string[] ListFields = ["tags", "visualTags", "appearanceSuffixes", "placementSlots", "OnAttach", "OnEquip", "variants", "statModifierGroups"];
 
     /// <summary>
     /// 沿继承链取深度 1 的简单字段（只记 <see cref="ScalarFields"/> 里的几个），自身没写就看父记录；值去掉引号。
@@ -251,6 +258,317 @@ public sealed partial class TweakSourceIndex
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(recordName);
         return Ancestors(recordName).Any(name => _records[name].MentionsIconic);
+    }
+
+    /// <summary>沿继承链获取物品的官方背景说明 LocKey（自身或父类记录中定义的 localizedDescription）。</summary>
+    public string? LocalizedDescriptionOf(string recordName) => FieldOf(recordName, "localizedDescription");
+
+    /// <summary>
+    /// 获取物品的特殊技能/词条说明 LocKey（如不朽武器专属特效、义体技能、插件效果）。
+    /// 支持自身 UIData、挂载技能包（OnAttach/OnEquip）以及预设配件中的不朽插件。
+    /// </summary>
+    public string? EffectDescriptionOf(string recordName) => EffectInfoOf(recordName)?.LocKey;
+
+    /// <summary>
+    /// 获取物品的特殊技能/词条说明信息（含 LocKey 与 UIData 中的 intValues / floatValues 实参）。
+    /// </summary>
+    public EffectInfo? EffectInfoOf(string recordName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(recordName);
+        if (!_records.ContainsKey(recordName))
+            return null;
+
+        var direct = FieldOf(recordName, UiDataLocalizedDescription);
+        if (!string.IsNullOrEmpty(direct))
+        {
+            return new EffectInfo(
+                direct,
+                FieldOf(recordName, "UIData.intValues"),
+                FieldOf(recordName, "UIData.floatValues"),
+                FieldOf(recordName, "UIData.stats"),
+                recordName);
+        }
+
+        var uiTemplate = FieldOf(recordName, "UIData.template");
+        if (!string.IsNullOrEmpty(uiTemplate))
+        {
+            var tplKey = ResolveExistingName(uiTemplate, recordName);
+            if (tplKey is not null)
+            {
+                var tplLoc = FieldOf(tplKey, UiDataLocalizedDescription) ?? FieldOf(tplKey, "localizedDescription");
+                if (!string.IsNullOrEmpty(tplLoc))
+                {
+                    return new EffectInfo(
+                        tplLoc,
+                        FieldOf(recordName, "UIData.intValues") ?? FieldOf(tplKey, "UIData.intValues"),
+                        FieldOf(recordName, "UIData.floatValues") ?? FieldOf(tplKey, "UIData.floatValues"),
+                        FieldOf(recordName, "UIData.stats") ?? FieldOf(tplKey, "UIData.stats"),
+                        recordName);
+                }
+            }
+        }
+
+        var abilities = ListOf(recordName, "OnAttach").Concat(ListOf(recordName, "OnEquip"));
+        foreach (var ability in abilities)
+        {
+            var key = ResolveExistingName(ability, recordName);
+            if (key is null)
+                continue;
+            var loc = FieldOf(key, UiDataLocalizedDescription) ?? FieldOf(key, "localizedDescription");
+            if (!string.IsNullOrEmpty(loc))
+            {
+                return new EffectInfo(
+                    loc,
+                    FieldOf(key, "UIData.intValues") ?? FieldOf(recordName, "UIData.intValues"),
+                    FieldOf(key, "UIData.floatValues") ?? FieldOf(recordName, "UIData.floatValues"),
+                    FieldOf(key, "UIData.stats") ?? FieldOf(recordName, "UIData.stats"),
+                    key);
+            }
+        }
+
+        var parts = FindPresetParts(recordName);
+        if (parts is not null)
+        {
+            foreach (var part in parts)
+            {
+                if (part.Slot.Contains("IconicWeaponMod", StringComparison.OrdinalIgnoreCase)
+                    || part.Slot.Contains("IconicMeleeWeaponMod", StringComparison.OrdinalIgnoreCase)
+                    || part.Item.Contains("Iconic", StringComparison.OrdinalIgnoreCase)
+                    || part.Item.EndsWith("WeaponMod", StringComparison.OrdinalIgnoreCase))
+                {
+                    var modRecord = ResolveExistingName(part.Item, recordName) ?? part.Item;
+                    var modDirect = FieldOf(modRecord, UiDataLocalizedDescription);
+                    if (!string.IsNullOrEmpty(modDirect))
+                    {
+                        return new EffectInfo(
+                            modDirect,
+                            FieldOf(modRecord, "UIData.intValues") ?? FieldOf(recordName, "UIData.intValues"),
+                            FieldOf(modRecord, "UIData.floatValues") ?? FieldOf(recordName, "UIData.floatValues"),
+                            FieldOf(modRecord, "UIData.stats") ?? FieldOf(recordName, "UIData.stats"),
+                            modRecord);
+                    }
+
+                    var modAbilities = ListOf(modRecord, "OnAttach").Concat(ListOf(modRecord, "OnEquip"));
+                    foreach (var ability in modAbilities)
+                    {
+                        var key = ResolveExistingName(ability, modRecord);
+                        if (key is null)
+                            continue;
+                        var loc = FieldOf(key, UiDataLocalizedDescription) ?? FieldOf(key, "localizedDescription");
+                        if (!string.IsNullOrEmpty(loc))
+                        {
+                            return new EffectInfo(
+                                loc,
+                                FieldOf(key, "UIData.intValues") ?? FieldOf(modRecord, "UIData.intValues") ?? FieldOf(recordName, "UIData.intValues"),
+                                FieldOf(key, "UIData.floatValues") ?? FieldOf(modRecord, "UIData.floatValues") ?? FieldOf(recordName, "UIData.floatValues"),
+                                FieldOf(key, "UIData.stats") ?? FieldOf(modRecord, "UIData.stats") ?? FieldOf(recordName, "UIData.stats"),
+                                modRecord);
+                        }
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>记录直接或继承获得的属性修正组（statModifierGroups）。</summary>
+    public IReadOnlyList<string> StatModifierGroupsOf(string recordName) => ListOf(recordName, "statModifierGroups");
+
+    /// <summary>
+    /// 沿继承链和关联的 statModifierGroups 查找特定常数修正值（如 CycleTime、MagazineCapacity、ProjectilesPerShot、MeleeAttackDuration、AttacksPerSecond、ReloadTime）。
+    /// </summary>
+    public string? StatModifierValueOf(string recordName, string statKey)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(recordName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(statKey);
+
+        foreach (var ancestor in Ancestors(recordName))
+        {
+            var direct = OwnFieldOf(ancestor, statKey);
+            if (!string.IsNullOrEmpty(direct))
+                return direct;
+
+            var groups = ListOf(ancestor, "statModifierGroups");
+            for (var i = groups.Count - 1; i >= 0; i--)
+            {
+                var group = groups[i];
+                var resolved = ResolveExistingName(group, ancestor) ?? group;
+                var val = FieldOf(resolved, statKey);
+                if (!string.IsNullOrEmpty(val))
+                    return val;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 获取物品或词条在指定品质档次下的属性值。
+    /// 支持常数修正、按 Quality 线性缩放（CombinedStatModifier）、官方品质曲线（CurveStatModifier）以及基于其它属性乘算的复合修正。
+    /// </summary>
+    public double? StatValueAtQuality(string recordName, string statName, int qualityTier, int depth = 0)
+    {
+        if (depth > 5) return null;
+        ArgumentException.ThrowIfNullOrWhiteSpace(recordName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(statName);
+
+        var shortName = statName.StartsWith("BaseStats.", StringComparison.Ordinal)
+            ? statName["BaseStats.".Length..]
+            : statName;
+
+        var chain = Ancestors(recordName);
+        var found = false;
+        var total = 0.0;
+
+        for (var i = chain.Count - 1; i >= 0; i--)
+        {
+            var ancestor = chain[i];
+
+            if (OwnFieldOf(ancestor, $"StatZero.{shortName}") is not null)
+            {
+                total = 0.0;
+                found = true;
+            }
+
+            var curveCol = OwnFieldOf(ancestor, $"StatCurve.{shortName}");
+            if (curveCol is not null && TryEvalQualityCurve(curveCol, qualityTier, out var curveVal))
+            {
+                total += curveVal;
+                found = true;
+            }
+
+            var baseStr = OwnFieldOf(ancestor, $"StatBase.{shortName}");
+            var stepStr = OwnFieldOf(ancestor, $"StatQualityStep.{shortName}");
+            if (baseStr is not null || stepStr is not null)
+            {
+                var baseVal = double.TryParse(baseStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var b) ? b : 0.0;
+                var stepVal = double.TryParse(stepStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 0.0;
+                total += baseVal + qualityTier * stepVal;
+                found = true;
+            }
+
+            var refStr = OwnFieldOf(ancestor, $"StatRef.{shortName}");
+            if (refStr is not null)
+            {
+                foreach (var entry in refStr.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var parts = entry.Split('|');
+                    if (parts.Length == 3)
+                    {
+                        var refStat = parts[0];
+                        if (refStat is "DamagePerHit" or "StunApplicationRate")
+                            continue;
+                        var op = parts[1];
+                        if (double.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var factor))
+                        {
+                            var refVal = StatValueAtQuality(recordName, refStat, qualityTier, depth + 1);
+                            if (refVal is not null)
+                            {
+                                total += op == "*" ? refVal.Value * factor : refVal.Value + factor;
+                                found = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!found && _records.TryGetValue(ancestor, out var rec) && rec.Lists.TryGetValue("statModifierGroups", out var ownGroups))
+            {
+                foreach (var group in ownGroups.Values)
+                {
+                    var resolved = ResolveExistingName(group, ancestor) ?? group;
+                    var groupCurve = FieldOf(resolved, $"StatCurve.{shortName}");
+                    if (groupCurve is not null && TryEvalQualityCurve(groupCurve, qualityTier, out var gcVal))
+                    {
+                        total += gcVal;
+                        found = true;
+                    }
+                }
+            }
+        }
+
+        if (found)
+            return total;
+
+        // 兜底：近战/手臂义体元素异常施加几率曲线（Common: 15%, Uncommon: 20%, Rare: 25%, Epic: 30%, Legendary: 35%, Legendary++: 40%）
+        if (shortName is "PoisonedApplicationRate" or "BurningApplicationRate"
+            or "BleedingApplicationRate" or "ElectrocutedApplicationRate")
+        {
+            var tier = Math.Clamp(qualityTier, 0, 5);
+            return 15 + tier * 5;
+        }
+
+        return null;
+    }
+
+    private static readonly Dictionary<string, double[]> QualityCurves = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["hgmod1_stacks"] = [2, 3, 4, 5, 5, 5],
+        ["throwmod1_returnchance"] = [20, 25, 30, 40, 50, 50],
+        ["hgmod2_critchance"] = [5, 5, 10, 10, 15, 15],
+        ["hgmod2_spread"] = [10, 15, 15, 20, 20, 20],
+        ["hgmod2_swap"] = [15, 20, 20, 25, 25, 25],
+        ["smartmod2_armor_pene"] = [0.1, 0.135, 0.17, 0.21, 0.25, 0.25],
+        ["powermod2_armor_pene"] = [0.1, 0.1, 0.1, 0.2, 0.3, 0.3],
+        ["powermod2_stamina_cost"] = [25, 25, 20, 20, 15, 15],
+        ["meleemod3_crit_damage"] = [0, 0, 0, 25, 50, 50],
+        ["meleemod3_crit_chance"] = [20, 30, 40, 50, 100, 100],
+        ["bluntmod3_stun_chance"] = [0, 0, 0, 15, 30, 30],
+        ["smartmod3_locktime"] = [-20, -20, -20, -10, -10, -10],
+        ["smartmod1_locktime"] = [20, 20, 20, 20, 30, 30],
+        ["prsrmod3_hitreaction"] = [-0.35, -0.35, -0.35, -0.15, -0.15, -0.15],
+        ["prsrmod3_armor_pene_potency"] = [40, 30, 30, 20, 20, 20],
+        ["bluntmod1_stamina_cost"] = [-0.25, -0.25, -0.2, -0.2, -0.1, -0.1],
+        ["bluntmod1_knockback"] = [15, 22, 25, 32, 40, 40],
+        ["rangedmod2_reload"] = [0.25, 0.25, 0.25, 0.15, 0.15, 0.15],
+        ["powermod1_dmg_convert_mult"] = [-0.895, -0.86, -0.825, -0.79, -0.65, -0.65],
+        ["shotgunmod3_dmg"] = [-20, -15, -15, -10, -10, -10],
+        ["shotgunmod3_spread"] = [15, 15, 20, 20, 25, 25],
+        ["techmod2_pierce_dmg"] = [-0.2, -0.2, -0.25, -0.25, -0.3, -0.3],
+        ["techmod2_pierce_threshold"] = [-0.2, -0.25, -0.25, -0.3, -0.35, -0.35],
+        ["meleemod2_stacks"] = [2, 3, 4, 5, 7, 7],
+        ["prsrmod1_handling"] = [12, 16, 20, 25, 30, 30],
+        ["throwmod2_range"] = [10, 10, 10, 25, 50, 50],
+        ["meleemod1_critchance"] = [10, 13, 16, 20, 25, 25],
+        ["meleemod1_critdamage"] = [20, 30, 40, 55, 70, 70],
+        ["quality_to_strong_arm_skillcheck_bonus"] = [0, 1, 2, 4, 6, 6],
+        ["quality_to_debuff_application_rate_on_melee"] = [15, 20, 25, 30, 35, 40],
+        ["quality_to_debuff_application_rate_on_fists"] = [15, 20, 25, 30, 35, 40],
+        ["quality_to_debuff_application_rate_on_ranged"] = [5, 7, 9, 12, 15, 18],
+        ["sfe09_quality_to_reveal"] = [0, -0.01, -0.02, -0.04, -0.06, -0.06],
+        ["ife16_quality_to_enemy_hack_upload"] = [5, 7, 9, 12, 15, 15],
+        ["ife14_quality_to_healing_recharge"] = [0.01, 0.017, 0.024, 0.032, 0.04, 0.04]
+    };
+
+    private static bool TryEvalQualityCurve(string column, int qualityTier, out double value)
+    {
+        if (QualityCurves.TryGetValue(column, out var pts) && pts.Length > 0)
+        {
+            var idx = Math.Clamp(qualityTier, 0, pts.Length - 1);
+            value = pts[idx];
+            return true;
+        }
+
+        value = 0;
+        return false;
+    }
+
+    private string? ResolveExistingName(string raw, string contextRecord)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+        if (_records.ContainsKey(raw))
+            return raw;
+        if (_records.TryGetValue(contextRecord, out var ctx))
+        {
+            var resolved = ResolveName(raw, ctx, _records);
+            if (resolved is not null)
+                return resolved;
+        }
+        if (!raw.Contains('.') && _records.ContainsKey("Items." + raw))
+            return "Items." + raw;
+        return null;
     }
 
     private List<string> InheritedList(string name, string field, HashSet<string> seen)
@@ -366,6 +684,16 @@ public sealed partial class TweakSourceIndex
         var listOpened = false;
         var attributes = new List<string>();
         var currentAttributes = Array.Empty<string>();
+        string? pendingStatType = null;
+        string? pendingModifierVal = null;
+        string? pendingRefStat = null;
+        string? pendingOpSymbol = null;
+        string? pendingColumn = null;
+        string? pendingModifierKind = null;
+        string? currentUiList = null;
+        List<string>? currentUiInts = null;
+        List<string>? currentUiFloats = null;
+        List<string>? currentUiStats = null;
         // 字段级 [ EP1 ]（只在 gateExpansionFields 时处理）：紧跟的那条语句（含多行列表、内联块）整条跳过。
         var gatePending = false;
         var gated = false;
@@ -433,6 +761,16 @@ public sealed partial class TweakSourceIndex
                     list = null;
                     gatePending = false;
                     gated = false;
+                    pendingStatType = null;
+                    pendingModifierVal = null;
+                    pendingRefStat = null;
+                    pendingOpSymbol = null;
+                    pendingColumn = null;
+                    pendingModifierKind = null;
+                    currentUiList = null;
+                    currentUiInts = null;
+                    currentUiFloats = null;
+                    currentUiStats = null;
                     depth = 1;
                     pendingName = null;
                     continue;
@@ -492,6 +830,184 @@ public sealed partial class TweakSourceIndex
                     fields[CraftingResultItem] = item.Groups[1].Value;
             }
 
+            if (depth >= 1 || list is not null)
+            {
+                if (depth > 1 || list is not null)
+                {
+                    var loc = LocDescriptionPattern().Match(line);
+                    if (loc.Success && !fields.ContainsKey(UiDataLocalizedDescription))
+                        fields[UiDataLocalizedDescription] = loc.Groups[1].Value.Trim().Trim('"');
+                }
+
+                var uiListMatch = UiListPattern().Match(line);
+                if (uiListMatch.Success)
+                {
+                    currentUiList = uiListMatch.Groups[1].Value;
+                    var rest = uiListMatch.Groups[3].Value;
+                    if (currentUiList == "stats")
+                    {
+                        if (rest.Contains('{'))
+                        {
+                            currentUiList = null;
+                        }
+                        else
+                        {
+                            currentUiStats ??= [];
+                            if (!string.IsNullOrEmpty(rest))
+                            {
+                                foreach (Match m in StringPattern().Matches(rest))
+                                    currentUiStats.Add(m.Groups[1].Value);
+                                if (rest.Contains(']'))
+                                {
+                                    if (!fields.ContainsKey("UIData.stats") && currentUiStats.Count > 0)
+                                        fields["UIData.stats"] = string.Join(",", currentUiStats);
+                                    currentUiList = null;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var target = currentUiList == "intValues" ? (currentUiInts ??= []) : (currentUiFloats ??= []);
+                        if (!string.IsNullOrEmpty(rest))
+                        {
+                            ExtractNumbers(rest, target);
+                            if (rest.Contains(']'))
+                            {
+                                if (currentUiList == "intValues" && !fields.ContainsKey("UIData.intValues") && currentUiInts?.Count > 0)
+                                    fields["UIData.intValues"] = string.Join(",", currentUiInts);
+                                else if (currentUiList == "floatValues" && !fields.ContainsKey("UIData.floatValues") && currentUiFloats?.Count > 0)
+                                    fields["UIData.floatValues"] = string.Join(",", currentUiFloats);
+                                currentUiList = null;
+                            }
+                        }
+                    }
+                }
+                else if (currentUiList is not null)
+                {
+                    if (currentUiList == "stats")
+                    {
+                        if (line.Contains('{') || line.Contains('='))
+                        {
+                            currentUiStats?.Clear();
+                            currentUiList = null;
+                        }
+                        else
+                        {
+                            currentUiStats ??= [];
+                            foreach (Match m in StringPattern().Matches(line))
+                                currentUiStats.Add(m.Groups[1].Value);
+                            if (line.Contains(']'))
+                            {
+                                if (!fields.ContainsKey("UIData.stats") && currentUiStats.Count > 0)
+                                    fields["UIData.stats"] = string.Join(",", currentUiStats);
+                                currentUiList = null;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var target = currentUiList == "intValues" ? (currentUiInts ??= []) : (currentUiFloats ??= []);
+                        ExtractNumbers(line, target);
+                        if (line.Contains(']'))
+                        {
+                            if (currentUiList == "intValues" && !fields.ContainsKey("UIData.intValues") && currentUiInts?.Count > 0)
+                                fields["UIData.intValues"] = string.Join(",", currentUiInts);
+                            else if (currentUiList == "floatValues" && !fields.ContainsKey("UIData.floatValues") && currentUiFloats?.Count > 0)
+                                fields["UIData.floatValues"] = string.Join(",", currentUiFloats);
+                            currentUiList = null;
+                        }
+                    }
+                }
+            }
+
+            var statTypeMatch = StatTypePattern().Match(line);
+            if (statTypeMatch.Success)
+                pendingStatType = statTypeMatch.Groups[1].Value;
+
+            var modKindMatch = ModifierKindPattern().Match(line);
+            if (modKindMatch.Success)
+                pendingModifierKind = modKindMatch.Groups[1].Value;
+
+            var valMatch = ModifierValuePattern().Match(line);
+            if (valMatch.Success)
+                pendingModifierVal = valMatch.Groups[1].Value.TrimEnd('f', '.');
+
+            var refStatMatch = RefStatPattern().Match(line);
+            if (refStatMatch.Success)
+                pendingRefStat = refStatMatch.Groups[1].Value;
+
+            var opSymbolMatch = OpSymbolPattern().Match(line);
+            if (opSymbolMatch.Success)
+                pendingOpSymbol = opSymbolMatch.Groups[1].Value;
+
+            var colMatch = ColumnPattern().Match(line);
+            if (colMatch.Success)
+                pendingColumn = colMatch.Groups[1].Value;
+
+            var modMatch = ModifierTypePattern().Match(line);
+            if (modMatch.Success)
+            {
+                var modType = modMatch.Groups[1].Value;
+                if (modType.EndsWith("UIData", StringComparison.Ordinal) && !fields.ContainsKey("UIData.template"))
+                {
+                    fields["UIData.template"] = modType;
+                }
+                else if (modType == "CurveStatModifier")
+                {
+                    if (pendingStatType is not null && pendingColumn is not null)
+                        fields[$"StatCurve.{pendingStatType}"] = pendingColumn;
+                }
+                else if (pendingModifierVal is not null)
+                {
+                    if (modType == "CycleTimeModifier")
+                        fields["CycleTime"] = pendingModifierVal;
+                    else if (modType == "MagazineCapacityModifier")
+                        fields["MagazineCapacity"] = pendingModifierVal;
+                    else if (modType == "ProjectilesPerShotModifier")
+                        fields["ProjectilesPerShot"] = pendingModifierVal;
+                    else if (modType == "ReloadTimeModifier")
+                        fields["ReloadTime"] = pendingModifierVal;
+                    else if (pendingStatType == "MeleeAttackDuration")
+                        fields["MeleeAttackDuration"] = pendingModifierVal;
+                    else if (pendingStatType == "AttacksPerSecond")
+                        fields["AttacksPerSecond"] = pendingModifierVal;
+
+                    if (pendingStatType is not null)
+                    {
+                        if (modType == "ConstantStatModifier")
+                        {
+                            if (pendingModifierKind == "Multiplier" && (pendingModifierVal == "0" || pendingModifierVal == "0.0"))
+                                fields[$"StatZero.{pendingStatType}"] = "1";
+                            else
+                                fields[$"StatBase.{pendingStatType}"] = pendingModifierVal;
+                        }
+                        else if (modType == "CombinedStatModifier")
+                        {
+                            if (pendingRefStat == "Quality")
+                            {
+                                fields[$"StatQualityStep.{pendingStatType}"] = pendingModifierVal;
+                            }
+                            else if (pendingRefStat is not null)
+                            {
+                                var entry = $"{pendingRefStat}|{pendingOpSymbol ?? "*"}|{pendingModifierVal}";
+                                if (fields.TryGetValue($"StatRef.{pendingStatType}", out var existing))
+                                    fields[$"StatRef.{pendingStatType}"] = existing + ";" + entry;
+                                else
+                                    fields[$"StatRef.{pendingStatType}"] = entry;
+                            }
+                        }
+                    }
+                }
+
+                pendingStatType = null;
+                pendingModifierVal = null;
+                pendingRefStat = null;
+                pendingOpSymbol = null;
+                pendingColumn = null;
+                pendingModifierKind = null;
+            }
+
             if (list is not null)
             {
                 list.Append('\n').Append(line);
@@ -512,7 +1028,7 @@ public sealed partial class TweakSourceIndex
                     ownDisplay = display.Groups[1].Value;
                 var scalar = ScalarPattern().Match(line);
                 if (scalar.Success)
-                    fields[scalar.Groups[1].Value] = scalar.Groups[2].Value.Trim().Trim('"');
+                    fields[scalar.Groups[1].Value] = scalar.Groups[2].Value.Trim().Trim('"').TrimEnd('f');
                 var parts = PartListPattern().Match(line);
                 var strings = parts.Success ? Match.Empty : StringListPattern().Match(line);
                 if (parts.Success || strings.Success)
@@ -551,6 +1067,13 @@ public sealed partial class TweakSourceIndex
 
         void EndRecord()
         {
+            if (currentUiInts is { Count: > 0 } && !fields.ContainsKey("UIData.intValues"))
+                fields["UIData.intValues"] = string.Join(",", currentUiInts);
+            if (currentUiFloats is { Count: > 0 } && !fields.ContainsKey("UIData.floatValues"))
+                fields["UIData.floatValues"] = string.Join(",", currentUiFloats);
+            if (currentUiStats is { Count: > 0 } && !fields.ContainsKey("UIData.stats"))
+                fields["UIData.stats"] = string.Join(",", currentUiStats);
+
             records.Add(new RawRecord(current!, package, pendingParent, usings, ownDisplay, TweakDbId.FromName(current!), ownParts, appendParts, currentAttributes)
             {
                 Fields = fields,
@@ -562,6 +1085,16 @@ public sealed partial class TweakSourceIndex
             current = null;
             pendingParent = null;
             list = null;
+            pendingStatType = null;
+            pendingModifierVal = null;
+            pendingRefStat = null;
+            pendingOpSymbol = null;
+            pendingColumn = null;
+            pendingModifierKind = null;
+            currentUiList = null;
+            currentUiInts = null;
+            currentUiFloats = null;
+            currentUiStats = null;
             gatePending = false;
             gated = false;
         }
@@ -721,14 +1254,59 @@ public sealed partial class TweakSourceIndex
     private static List<string> ReadStrings(string text) =>
         StringPattern().Matches(text).Select(match => match.Groups[1].Value).ToList();
 
+    private static void ExtractNumbers(string text, List<string> target)
+    {
+        var code = text;
+        var commentIdx = text.IndexOf("//", StringComparison.Ordinal);
+        if (commentIdx >= 0)
+            code = text[..commentIdx];
+
+        foreach (Match m in NumberPattern().Matches(code))
+        {
+            var num = m.Groups[1].Value.TrimEnd('.');
+            if (!string.IsNullOrEmpty(num))
+                target.Add(num);
+        }
+    }
+
+    [GeneratedRegex("(?<![A-Za-z0-9_])(intValues|floatValues|stats)\\s*(\\+?=)\\s*(.*)$", RegexOptions.CultureInvariant)]
+    private static partial Regex UiListPattern();
+
+    [GeneratedRegex("refStat\\s*=\\s*\"BaseStats\\.([A-Za-z0-9_]+)\"", RegexOptions.CultureInvariant)]
+    private static partial Regex RefStatPattern();
+
+    [GeneratedRegex("opSymbol\\s*=\\s*\"([^\"]+)\"", RegexOptions.CultureInvariant)]
+    private static partial Regex OpSymbolPattern();
+
+    [GeneratedRegex("column\\s*=\\s*\"([^\"]+)\"", RegexOptions.CultureInvariant)]
+    private static partial Regex ColumnPattern();
+
+    [GeneratedRegex("modifierType\\s*=\\s*\"([^\"]+)\"", RegexOptions.CultureInvariant)]
+    private static partial Regex ModifierKindPattern();
+
+    [GeneratedRegex("([-+]?[0-9]+(?:\\.[0-9]*)?)[fF]?", RegexOptions.CultureInvariant)]
+    private static partial Regex NumberPattern();
+
     [GeneratedRegex("\"([^\"]*)\"", RegexOptions.CultureInvariant)]
     private static partial Regex StringPattern();
 
-    [GeneratedRegex("(?:^|[\\s>\\]])(tags|visualTags|appearanceSuffixes|placementSlots)\\s*(\\+?=)\\s*(.*)$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("(?:^|[\\s>\\]])(tags|visualTags|appearanceSuffixes|placementSlots|OnAttach|OnEquip|variants|statModifierGroups)\\s*(\\+?=)\\s*(.*)$", RegexOptions.CultureInvariant)]
     private static partial Regex StringListPattern();
 
-    [GeneratedRegex("^(?:[^=]*\\s)?(quality|isSingleInstance|itemType|itemCategory|iconPath|appearanceName|appearanceResourceName|entityName|atlasResourcePath|atlasPartName|slot|itemPartPreset|equipArea|nextUpgradeItem)\\s*=\\s*([^;]*);\\s*$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^(?:[^=]*\\s)?(quality|isSingleInstance|itemType|itemCategory|iconPath|appearanceName|appearanceResourceName|entityName|atlasResourcePath|atlasPartName|slot|itemPartPreset|equipArea|nextUpgradeItem|localizedDescription|primaryTriggerMode|ammo|evolution|baseReloadTime|baseEmptyReloadTime)\\s*=\\s*([^;]*);\\s*$", RegexOptions.CultureInvariant)]
     private static partial Regex ScalarPattern();
+
+    [GeneratedRegex("statType\\s*=\\s*\"BaseStats\\.([A-Za-z0-9_]+)\"", RegexOptions.CultureInvariant)]
+    private static partial Regex StatTypePattern();
+
+    [GeneratedRegex("(?:float\\s+)?value\\s*=\\s*([0-9.-]+)f?;", RegexOptions.CultureInvariant)]
+    private static partial Regex ModifierValuePattern();
+
+    [GeneratedRegex("\\}\\s*:\\s*([A-Za-z0-9_]+)", RegexOptions.CultureInvariant)]
+    private static partial Regex ModifierTypePattern();
+
+    [GeneratedRegex("^(?:[^=]*\\s)?localizedDescription\\s*=\\s*\"([^\"]*)\"\\s*;", RegexOptions.CultureInvariant)]
+    private static partial Regex LocDescriptionPattern();
 
     [GeneratedRegex("^(?:[^=]*\\s)?craftingResult\\s*=", RegexOptions.CultureInvariant)]
     private static partial Regex CraftingPattern();

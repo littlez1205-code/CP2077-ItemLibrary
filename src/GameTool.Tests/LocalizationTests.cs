@@ -305,4 +305,92 @@ public class LocalizationTests
             return payload;
         }
     }
+
+    [Fact]
+    public void Test_Catalog_Effect_Placeholders()
+    {
+        var game = @"D:\steam\steamapps\common\Cyberpunk 2077";
+        if (!Directory.Exists(game)) return;
+        var names = GameTool.Adapters.Cyberpunk2077.Names.Cp2077ItemNames.ForGame(game);
+        if (!names.Available) return;
+
+        var flash = names.Gear.FirstOrDefault(g => g.RecordName == "Items.GrenadeFlashCommonPlus");
+        Assert.NotNull(flash);
+        Assert.NotNull(flash.EffectDesc);
+        Assert.DoesNotContain("{int_0}", flash.EffectDesc);
+        Assert.Contains("4", flash.EffectDesc);
+
+        var brick = names.Gear.FirstOrDefault(g => g.RecordName == "Items.Preset_Satara_Brick");
+        Assert.NotNull(brick);
+        Assert.NotNull(brick.EffectDesc);
+        Assert.DoesNotContain("{float_0}", brick.EffectDesc);
+        Assert.Contains("66", brick.EffectDesc);
+
+        // 剧毒单分子线等手臂义体：解析官方阶位异常施加几率（Uncommon = 20%），杜绝显示 naked "% 中毒几率"
+        var nanowire = names.Gear.FirstOrDefault(g => g.RecordName == "Items.AdvancedNanoWiresChemicalUncommon");
+        Assert.NotNull(nanowire);
+        Assert.NotNull(nanowire.EffectDesc);
+        Assert.Contains("20% 中毒几率", nanowire.EffectDesc);
+        Assert.DoesNotContain("\n% 中毒几率", nanowire.EffectDesc);
+
+        // 武器插件：ShotgunMod1（Common：20% 肢解几率，持续 3 秒；Uncommon：40% 肢解几率，持续 3.5 秒）
+        var modCommon = names.Gear.FirstOrDefault(g => g.RecordName == "Items.ShotgunMod1_Common");
+        Assert.NotNull(modCommon);
+        Assert.NotNull(modCommon.EffectDesc);
+        Assert.Contains("20% 肢解几率", modCommon.EffectDesc);
+        Assert.Contains("持续 3 秒", modCommon.EffectDesc);
+
+        var modUncommon = names.Gear.FirstOrDefault(g => g.RecordName == "Items.ShotgunMod1_Uncommon");
+        Assert.NotNull(modUncommon);
+        Assert.NotNull(modUncommon.EffectDesc);
+        Assert.Contains("40% 肢解几率", modUncommon.EffectDesc);
+        Assert.Contains("持续 3.5 秒", modUncommon.EffectDesc);
+
+        // 义体同调词条：静态目录清理未装备时的动态运行时 "当前总量：+%"
+        var healOnKill = names.Gear.FirstOrDefault(g => g.RecordName == "Items.AdvancedHealOnKillRare");
+        Assert.NotNull(healOnKill);
+        Assert.NotNull(healOnKill.EffectDesc);
+        Assert.DoesNotContain("当前总量", healOnKill.EffectDesc);
+
+        // 武器插件 CurveStatModifier（weapon_mods.curveset）+ CombinedStatModifier 解析
+        var throwMod1 = names.Gear.FirstOrDefault(g => g.RecordName == "Items.ThrowMod1_Common");
+        Assert.NotNull(throwMod1);
+        Assert.Contains("20% 的几率立即回收武器", throwMod1.EffectDesc);
+
+        var shotgunMod3 = names.Gear.FirstOrDefault(g => g.RecordName == "Items.ShotgunMod3_Common");
+        Assert.NotNull(shotgunMod3);
+        Assert.Contains("+15% 弹丸散射收束", shotgunMod3.EffectDesc);
+        Assert.Contains("-20% 每颗弹丸伤害", shotgunMod3.EffectDesc);
+
+        // 武器插件内联 UIData 模板继承（PowerMod1UIData / HGMod1UIData）与多源 CombinedStatModifier 累加
+        var powerMod1 = names.Gear.FirstOrDefault(g => g.RecordName == "Items.PowerMod1_Common");
+        Assert.NotNull(powerMod1);
+        Assert.Contains("15% 转化为热能伤害", powerMod1.EffectDesc);
+        Assert.Contains("3% 的几率施加燃烧效果", powerMod1.EffectDesc);
+
+        var hgMod1 = names.Gear.FirstOrDefault(g => g.RecordName == "Items.HGMod1_Common");
+        Assert.NotNull(hgMod1);
+        Assert.Contains("-4% 子弹散射，持续 5 秒。可以叠加 2 次。", hgMod1.EffectDesc);
+
+        // 精英/首领图标标签 <Image id="UIIcon.q000_tutorial_icon_boss" ...> 转换为文字
+        var rangedMod3 = names.Gear.FirstOrDefault(g => g.RecordName == "Items.RangedMod3_Common");
+        Assert.NotNull(rangedMod3);
+        Assert.Contains("对骷髅头敌人 +4% 伤害", rangedMod3.EffectDesc);
+
+        // 全库检查：EffectDesc 与 Description 中绝不包含未解析的代码占位符或裸露百分号
+        var brokenEffect = names.Gear.Where(g => g.EffectDesc?.Contains("{int_") == true
+            || g.EffectDesc?.Contains("{float_") == true
+            || g.EffectDesc?.Contains("{stat_") == true).ToList();
+        Assert.Empty(brokenEffect);
+
+        var brokenDesc = names.Gear.Where(g => g.Description?.Contains("{int_") == true
+            || g.Description?.Contains("{float_") == true
+            || g.Description?.Contains("{stat_") == true).ToList();
+        Assert.Empty(brokenDesc);
+
+        var danglingPercent = names.Gear
+            .Where(g => g.EffectDesc is not null && System.Text.RegularExpressions.Regex.IsMatch(g.EffectDesc, @"(?<!\d)%"))
+            .ToList();
+        Assert.Empty(danglingPercent);
+    }
 }

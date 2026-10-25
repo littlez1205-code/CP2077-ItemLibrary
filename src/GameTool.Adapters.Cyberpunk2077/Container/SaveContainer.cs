@@ -252,12 +252,12 @@ public sealed class SaveContainer
                 $"块数 {count} 超出安全范围 1..{Cp2077Format.ChunkSlotCount}。");
         }
 
-        if (saveVersion != Cp2077Format.SupportedSaveVersion || gameVersion != Cp2077Format.SupportedGameVersion)
+        if (!Cp2077Format.IsSupported(saveVersion, gameVersion))
         {
             throw new UnsupportedSaveException(
                 saveVersion,
                 gameVersion,
-                $"存档版本 {saveVersion}、游戏版本 {gameVersion} 不在白名单内。安全范围：存档版本 {Cp2077Format.SupportedSaveVersion}，游戏版本 {Cp2077Format.SupportedGameVersion}。");
+                $"存档版本 {saveVersion}、游戏版本 {gameVersion} 不在白名单内。支持范围：v2.31（存档 269，游戏 2310）或 v2.5（存档 277，游戏 2500）。");
         }
 
         var plains = new byte[count][];

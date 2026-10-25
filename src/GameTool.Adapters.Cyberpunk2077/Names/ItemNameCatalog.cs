@@ -23,7 +23,7 @@ public sealed class ItemNameCatalog
     {
         _index = index;
         _icons = new Lazy<ItemIconResolver?>(() => _index is null ? null : ItemIconResolver.Build(_index));
-        _gear = new Lazy<GearCatalog?>(() => Available && _index is not null ? GearCatalog.Build(_index, Resolve, IsInternalRecord, HasIcon) : null);
+        _gear = new Lazy<GearCatalog?>(() => Available && _index is not null ? GearCatalog.Build(_index, Resolve, IsInternalRecord, HasIcon, ResolveText) : null);
         Available = available;
         TweakScanMilliseconds = tweakScanMilliseconds;
         LocalizationMilliseconds = localizationMilliseconds;
@@ -148,6 +148,13 @@ public sealed class ItemNameCatalog
             if (!string.IsNullOrEmpty(entry.SecondaryKey))
                 _bySecondary[entry.SecondaryKey] = text;
         }
+    }
+
+    public string? ResolveText(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return null;
+        return Lookup(key);
     }
 
     private string? Lookup(string displayName)

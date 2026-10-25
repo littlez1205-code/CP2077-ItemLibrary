@@ -89,6 +89,8 @@ public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
 
     public bool IsInternal(string? recordName) => ItemNameCatalog.IsInternalRecord(recordName);
 
+    public string? ResolveText(string? key) => Available ? _catalog?.ResolveText(key) : null;
+
     private static Cp2077ItemNames Create(string? game)
     {
         if (string.IsNullOrWhiteSpace(game))
