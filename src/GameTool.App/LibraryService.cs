@@ -15,7 +15,8 @@ public sealed record ObtainReport(
     long? After,
     bool Inserted,
     string? TemplateLabel,
-    long ElapsedMilliseconds);
+    long ElapsedMilliseconds,
+    bool ToStash = false);
 
 /// <summary>
 /// 物品库（D013）：确认框里点「获得」的唯一入口。
@@ -37,7 +38,7 @@ public sealed class LibraryService
         _enable = enable;
     }
 
-    public ObtainReport Obtain(IGameAdapter adapter, string saveFilePath, string target, long? quantity)
+    public ObtainReport Obtain(IGameAdapter adapter, string saveFilePath, string target, long? quantity, bool toStash = false)
     {
         ArgumentNullException.ThrowIfNull(adapter);
         ArgumentException.ThrowIfNullOrWhiteSpace(saveFilePath);
@@ -53,13 +54,17 @@ public sealed class LibraryService
                 throw new PatchRejectedException(document.GenerateMessage ?? "物品库不可用。");
             var item = document.FindGeneratable(target)
                 ?? throw new PatchRejectedException(document.HiddenReason(target) ?? $"物品库里没有 {target}。");
-            return item.Stackable
-                ? ObtainStack(adapter, saveFilePath, document, item, quantity ?? 1, clock)
-                : ObtainGear(adapter, saveFilePath, item, quantity ?? 1, clock);
+            if (item.Stackable)
+            {
+                if (toStash)
+                    throw new PatchRejectedException("堆叠物品不支持直接存入储藏箱。");
+                return ObtainStack(adapter, saveFilePath, document, item, quantity ?? 1, clock);
+            }
+            return ObtainGear(adapter, saveFilePath, item, quantity ?? 1, clock, toStash);
         }
     }
 
-    private ObtainReport ObtainGear(IGameAdapter adapter, string saveFilePath, GenerateCatalogItem item, long quantity, System.Diagnostics.Stopwatch clock)
+    private ObtainReport ObtainGear(IGameAdapter adapter, string saveFilePath, GenerateCatalogItem item, long quantity, System.Diagnostics.Stopwatch clock, bool toStash = false)
     {
         var isMod = item.Kind == "mod";
         if (isMod)
@@ -73,8 +78,8 @@ public sealed class LibraryService
         }
 
         var copies = (int)quantity;
-        var report = GenerateService.Run(adapter, saveFilePath, new GenerateRequest(item.Target, copies), backupFirst: false, _backups, _enable);
-        return new ObtainReport(item.Target, item.Label, false, copies, null, null, false, report.TemplateLabel, clock.ElapsedMilliseconds);
+        var report = GenerateService.Run(adapter, saveFilePath, new GenerateRequest(item.Target, copies, toStash), backupFirst: false, _backups, _enable);
+        return new ObtainReport(item.Target, item.Label, false, copies, null, null, false, report.TemplateLabel, clock.ElapsedMilliseconds, toStash);
     }
 
     private ObtainReport ObtainStack(

@@ -2,6 +2,7 @@ using System.Text.Json;
 using GameTool.Adapters.Cyberpunk2077;
 using GameTool.Adapters.Cyberpunk2077.Localization;
 using GameTool.Adapters.Cyberpunk2077.Names;
+using GameTool.Adapters.Cyberpunk2077.Nodes;
 using GameTool.App;
 using GameTool.Core;
 
@@ -327,6 +328,39 @@ public class LibraryTests : IDisposable
         Assert.Equal(6, new LibraryService(backups, enable).Obtain(_adapter, path, Food, 1).After);
         Assert.Equal(manual.Id, Assert.Single(backups.List(_adapter.GameId)).Id);
         Assert.False(Directory.Exists(Path.Combine(_root, "backups", _adapter.GameId, "ManualSave-1")));
+    }
+
+    [Fact]
+    public async Task Obtain_ToStash_PutsGearInStash_AndRejectsStackable()
+    {
+        var saves = Path.Combine(_root, "stash-saves");
+        var path = GearGenerateTests.WriteSaveAt(
+            saves,
+            "ManualSave-0",
+            (1UL, GearGenerateTests.Clothing("Items.Jacket_01_basic_01", generic: true)),
+            (ItemInserter.StashBagId, GearGenerateTests.Clothing("Items.SQ031_Samurai_Jacket", generic: true)));
+        var backups = new BackupStore(Path.Combine(_root, "stash-backups"));
+        await using var enable = new EnableService(backups, _ => { });
+        var library = new LibraryService(backups, enable);
+
+        var docBefore = (Cp2077SaveDocument)_adapter.Load(path);
+        var initialPlayerCount = docBefore.PlayerItemCount;
+        var initialStashCount = docBefore.StashItemCount;
+        Assert.Equal(1, initialStashCount);
+
+        // 堆叠物品不支持存入储藏箱
+        var stackRejected = Assert.Throws<PatchRejectedException>(() => library.Obtain(_adapter, path, "Items.money", 10, toStash: true));
+        Assert.Contains("堆叠物品不支持直接存入储藏箱", stackRejected.Message);
+
+        // 装备存入储藏箱
+        var report = library.Obtain(_adapter, path, "Items.Jacket_Twin", null, toStash: true);
+        Assert.True(report.ToStash);
+        Assert.False(report.Stackable);
+        Assert.Equal(1, report.Quantity);
+
+        var docAfter = (Cp2077SaveDocument)_adapter.Load(path);
+        Assert.Equal(initialPlayerCount, docAfter.PlayerItemCount);
+        Assert.Equal(initialStashCount + 1, docAfter.StashItemCount);
     }
 
     [Fact]

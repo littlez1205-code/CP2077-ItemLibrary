@@ -624,12 +624,14 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
             throw new BridgeArgumentException("缺少 target。");
         var copies = ReadInt(parameters, "copies", 1);
         var backupFirst = !parameters.TryGetProperty("backupFirst", out var backup) || backup.ValueKind != JsonValueKind.False;
-        var report = GenerateService.Run(adapter, slot, new GenerateRequest(target, copies), backupFirst, _backups, _enable);
+        var toStash = parameters.TryGetProperty("toStash", out var stashProp) && stashProp.ValueKind is JsonValueKind.True;
+        var report = GenerateService.Run(adapter, slot, new GenerateRequest(target, copies, toStash), backupFirst, _backups, _enable);
         return Ok(id, adapter.GameId, new
         {
             report.Patch.Outcome,
             Target = target,
             Copies = copies,
+            ToStash = toStash,
             report.Seeds,
             report.AddedBytes,
             report.TemplateKey,
@@ -652,8 +654,9 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
                 throw new BridgeArgumentException("quantity 必须是整数。");
             quantity = parsed;
         }
+        var toStash = parameters.TryGetProperty("toStash", out var stashProp) && stashProp.ValueKind is JsonValueKind.True;
 
-        return Ok(id, adapter.GameId, _library.Obtain(adapter, slot, target, quantity));
+        return Ok(id, adapter.GameId, _library.Obtain(adapter, slot, target, quantity, toStash));
     }
 
     // ---------- 路径设置（D020） ----------

@@ -146,7 +146,7 @@ public static class ItemGenerator
     /// 每件的根种子和新配件的种子都是新的：不是 0/1/2，不在存档里出现，彼此不重复
     /// （义体的 GenericItemRoot 种子固定为 2、手雷的根种子固定为 2，都不算新种子）。
     /// </summary>
-    public static GenerateApplyResult Generate(SaveContainer container, string targetRecord, int copies, IGearCatalog gear)
+    public static GenerateApplyResult Generate(SaveContainer container, string targetRecord, int copies, IGearCatalog gear, bool toStash = false)
     {
         ArgumentNullException.ThrowIfNull(container);
         ArgumentException.ThrowIfNullOrWhiteSpace(targetRecord);
@@ -177,8 +177,18 @@ public static class ItemGenerator
             _ => (root, _, _) => root
         };
         var layout = ItemInserter.Layout.Read(container);
-        if (layout.PlayerItems.Count == 0)
-            throw new InvalidDataException("玩家背包是空的。");
+        if (toStash)
+        {
+            if (layout.StashCountOffset is null || layout.StashItems.Count == 0)
+                throw new InvalidDataException("存档中暂无储藏箱记录，请在游戏内先使用一次载具后备箱或公寓储藏处。");
+            if (grenade)
+                throw new InvalidDataException("手雷不支持存入储藏箱。");
+        }
+        else
+        {
+            if (layout.PlayerItems.Count == 0)
+                throw new InvalidDataException("玩家背包是空的。");
+        }
         if (grenade)
         {
             // 手雷的 ItemID 固定为「记录 + 种子 2 + 结构 3」，玩家背包里同一种手雷只有一份（按数量叠加），不能重复插入同一 ID。
@@ -213,7 +223,7 @@ public static class ItemGenerator
                     return value;
                 },
                 quantityItem: grenade);
-            var insertion = ItemInserter.Apply(container, current, choice.Item, built.Header, built.Body, targetRecord, quantity: null, built.Seed);
+            var insertion = ItemInserter.Apply(container, current, choice.Item, built.Header, built.Body, targetRecord, quantity: null, built.Seed, toStash);
             if (firstNode < 0)
                 firstNode = insertion.NodeIndex;
             added += insertion.AddedBytes;
@@ -221,7 +231,7 @@ public static class ItemGenerator
             records.Add(new GeneratedRecord(built.Header, built.Body, built.Seed, seeds));
         }
 
-        return new GenerateApplyResult(targetRecord, copies, added, firstNode, previous, choice.Key, null, records);
+        return new GenerateApplyResult(targetRecord, copies, added, firstNode, previous, choice.Key, null, records, toStash);
     }
 
     /// <summary>远程武器（T030）在没有同类模板时也回退到前缀来源，所以和近战武器、义体等用同一句说明。</summary>

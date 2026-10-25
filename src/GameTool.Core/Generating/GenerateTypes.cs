@@ -1,7 +1,7 @@
 namespace GameTool.Core;
 
-/// <summary>凭目录里的目标 ID 生成新物品。Target 是适配器目录里的键，内核不解析。</summary>
-public sealed record GenerateRequest(string Target, int Copies);
+/// <summary>凭目录里的目标 ID 生成新物品。Target 是适配器目录里的键，内核不解析。ToStash 为 true 时追加到储藏室，否则追加到玩家背包。</summary>
+public sealed record GenerateRequest(string Target, int Copies, bool ToStash = false);
 
 /// <summary>
 /// 可生成目录的分类。Id 由适配器定义（如 clothing），Label 给界面显示。
@@ -121,7 +121,8 @@ public sealed record GenerateApplyResult(
     int PreviousPlayerCount,
     string TemplateKey,
     string? TemplateLabel,
-    IReadOnlyList<GeneratedRecord> Records)
+    IReadOnlyList<GeneratedRecord> Records,
+    bool ToStash = false)
 {
     public IReadOnlyList<uint> Seeds => Records.Select(record => record.Seed).ToArray();
 }
@@ -137,6 +138,8 @@ public sealed record GenerateReport(
 public interface IItemGenerateCapable
 {
     int PlayerItemCount { get; }
+
+    int StashItemCount => 0;
 
     bool GenerateAvailable { get; }
 

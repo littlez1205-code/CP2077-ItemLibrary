@@ -6,19 +6,22 @@ public sealed record ItemStack(ulong TweakDbId, long Quantity, int QuantityOffse
 
 public sealed class InventorySnapshot
 {
-    public InventorySnapshot(int playerItemCount, IReadOnlyList<ItemStack> playerStacks)
+    public InventorySnapshot(int playerItemCount, IReadOnlyList<ItemStack> playerStacks, int stashItemCount = 0)
     {
         PlayerItemCount = playerItemCount;
         PlayerStacks = playerStacks;
+        StashItemCount = stashItemCount;
     }
 
     public int PlayerItemCount { get; }
     public IReadOnlyList<ItemStack> PlayerStacks { get; }
+    public int StashItemCount { get; }
 }
 
 public static class InventoryReader
 {
     private const ulong PlayerBagId = 1;
+    public const ulong StashBagId = 1_000_000;
     private const int StackItemLength = 29;
     private const int QuantityOffset = 25;
     private const int MaxSubInventories = 10_000;
@@ -41,6 +44,7 @@ public static class InventoryReader
             throw new InvalidDataException($"子背包数 {subCount} 超出安全范围 0..{MaxSubInventories}。");
 
         int? playerItemCount = null;
+        int stashItemCount = 0;
         var stacks = new List<ItemStack>();
         var child = inventory.Child;
         for (var sub = 0; sub < subCount; sub++)
@@ -54,6 +58,10 @@ public static class InventoryReader
                 if (playerItemCount is not null)
                     throw new InvalidDataException("玩家背包 ID=1 出现了多次。");
                 playerItemCount = checked((int)itemCount);
+            }
+            else if (bagId == StashBagId)
+            {
+                stashItemCount = checked((int)itemCount);
             }
 
             for (var item = 0; item < itemCount; item++)
@@ -102,7 +110,7 @@ public static class InventoryReader
                 $"inventory 游标 {cursor} 与节点末尾 {end} 相差 {cursor - end}。");
         }
 
-        return new InventorySnapshot(playerItemCount.Value, stacks);
+        return new InventorySnapshot(playerItemCount.Value, stacks, stashItemCount);
     }
 
     private static int ReadInt32(ReadOnlySpan<byte> payload, ref int cursor)

@@ -110,7 +110,12 @@ const I18N = {
     },
     ownedNote: "存档里已经有这一件，获得后会再多一件。",
     gearQtyNote: (value, limit) => "独立物品，单次最多添加 " + limit + " 件",
-    toastObtained: (label, amount) => "已获得 " + label + amount + "，读档后生效",
+    destLabel: "存放位置",
+    destBackpack: "放入个人背包",
+    destStash: "放入储藏室（载具后备箱 / 公寓）",
+    destIconicTip: "💡 推荐存入储藏室：进游戏后从车后备箱或公寓储藏点取出，可直接触发官方等级校准并升阶至 5++！",
+    destIconicBackpackWarn: "⚠️ 注意：直接放入背包的不朽武器受游戏机制限制最高只能升至 5 阶；存入储藏室取出可升至 5++。",
+    toastObtained: (label, amount, toStash) => (toStash ? "已存入储藏室：" : "已放入背包：") + label + amount + "，读档后生效",
     skinTitle: "外观",
     skinDropText: "选择图片，或把图片拖到这里",
     skinClear: "清除背景",
@@ -212,7 +217,12 @@ const I18N = {
     },
     ownedNote: "存檔裡已經有這一件，獲得後會再多一件。",
     gearQtyNote: (value, limit) => "獨立物品，單次最多新增 " + limit + " 件",
-    toastObtained: (label, amount) => "已獲得 " + label + amount + "，讀檔後生效",
+    destLabel: "存放位置",
+    destBackpack: "放入個人背包",
+    destStash: "放入儲藏室（載具後備箱 / 公寓）",
+    destIconicTip: "💡 推薦存入儲藏室：進遊戲後從車後備箱或公寓儲藏點取出，可直接啟動官方等級校準並升階至 5++！",
+    destIconicBackpackWarn: "⚠️ 注意：直接放入背包的不朽武器受遊戲機制限制最高只能升至 5 階；存入儲藏室取出可升至 5++。",
+    toastObtained: (label, amount, toStash) => (toStash ? "已存入儲藏室：" : "已放入個人背包：") + label + amount + "，讀檔後生效",
     skinTitle: "外觀",
     skinDropText: "選擇圖片，或把圖片拖到這裡",
     skinClear: "清除背景",
@@ -314,7 +324,12 @@ const I18N = {
     },
     ownedNote: "Already owned in this save; obtaining will add another copy.",
     gearQtyNote: (value, limit) => "Individual item, max " + limit + " per request",
-    toastObtained: (label, amount) => "Obtained " + label + amount + "; reload save in game",
+    destLabel: "Storage Destination",
+    destBackpack: "Personal Backpack",
+    destStash: "Stash (Vehicle Trunk / Apartment)",
+    destIconicTip: "💡 Recommended to store in Stash: retrieving it from vehicle trunk or apartment stash triggers game level-scaling up to Tier 5++!",
+    destIconicBackpackWarn: "⚠️ Note: Iconic weapons placed directly in backpack cannot upgrade past Tier 5 due to game mechanics; storing in Stash allows upgrading to Tier 5++.",
+    toastObtained: (label, amount, toStash) => (toStash ? "Stored in Stash: " : "Added to backpack: ") + label + amount + "; reload save in game",
     skinTitle: "Theme",
     skinDropText: "Choose an image or drag it here",
     skinClear: "Clear Background",
@@ -1321,6 +1336,7 @@ function openObtain(group, initialIndex) {
   let input = null;
   let after = null;
   let limit = 1;
+  let selectedDest = null;
 
   function current() {
     return variants[index];
@@ -1441,6 +1457,46 @@ function openObtain(group, initialIndex) {
     } else if (item.owned) {
       detail.append(element("p", "dialog-note", t().ownedNote));
     }
+
+    if (!item.stackable) {
+      const destBox = element("div", "dest-box");
+      const caption = element("p", "dest-caption", t().destLabel);
+      const row = element("div", "segmented", null);
+      row.id = "obtain-destination";
+      row.setAttribute("role", "radiogroup");
+
+      const isStash = selectedDest != null ? selectedDest === "stash" : Boolean(item.iconic);
+
+      const btnBackpack = element("button", "seg" + (!isStash ? " active" : ""), t().destBackpack);
+      btnBackpack.type = "button";
+      btnBackpack.setAttribute("role", "radio");
+      btnBackpack.setAttribute("aria-checked", !isStash ? "true" : "false");
+
+      const btnStash = element("button", "seg" + (isStash ? " active" : ""), t().destStash);
+      btnStash.type = "button";
+      btnStash.setAttribute("role", "radio");
+      btnStash.setAttribute("aria-checked", isStash ? "true" : "false");
+
+      btnBackpack.addEventListener("click", () => {
+        selectedDest = "backpack";
+        paintVariant();
+      });
+
+      btnStash.addEventListener("click", () => {
+        selectedDest = "stash";
+        paintVariant();
+      });
+
+      row.append(btnBackpack, btnStash);
+      destBox.append(caption, row);
+
+      if (item.iconic) {
+        const tipText = isStash ? t().destIconicTip : t().destIconicBackpackWarn;
+        destBox.append(element("p", "dest-tip", tipText));
+      }
+
+      detail.append(destBox);
+    }
     paintAfter();
   }
 
@@ -1471,8 +1527,9 @@ function openObtain(group, initialIndex) {
     run.textContent = t().obtainWriting;
     confirmError.hidden = true;
     let outcome;
+    const isStash = !item.stackable && (selectedDest != null ? selectedDest === "stash" : Boolean(item.iconic));
     try {
-      const result = await call("library.obtain", { gameId, slot: slot.slot, target: item.target, quantity: input ? value : null });
+      const result = await call("library.obtain", { gameId, slot: slot.slot, target: item.target, quantity: input ? value : null, toStash: isStash });
       outcome = { ok: true, result, target: item.target };
       closeDialog();
       applyObtained(group, item, result);
@@ -1517,7 +1574,7 @@ function applyObtained(group, item, result) {
   replaceCard(group);
   const amount = result.stackable ? " ×" + formatNumber(result.quantity) : (result.quantity > 1 ? " ×" + result.quantity : "");
   const label = group.variants.length > 1 && item.variantLabel ? group.label + " · " + item.variantLabel : group.label;
-  showToast(t().toastObtained(label, amount));
+  showToast(t().toastObtained(label, amount, result.toStash));
   refreshQuietly().catch(showError);
 }
 
@@ -1648,6 +1705,15 @@ const HELP_PANES_HTML = {
         </dd>
         <dt>怎麼備份和還原？</dt>
         <dd>選取存檔後點「加入備份區」；在「備份區」頁籤裡可以查看、還原或刪除備份。獲得物品不會自動備份。</dd>
+        <dt>為什麼獲得不朽武器推薦選「放入儲藏室」？升階到 5++ 的機制是什麼？</dt>
+        <dd>
+          這是由於《賽博朋克 2077》2.0+ 官方腳本的<strong>等級校準機制</strong>（<code>RescaleStashedIconicsToPlayerLevel</code>）：
+          <ul class="help-list">
+            <li>遊戲機制規定：不朽武器升階到 5++（傳說++）需要角色達到 51 級以上並擁有《自由幻局》，且武器的掉落等級必須經過遊戲引擎校準。</li>
+            <li>直接放入背包的注入武器缺少掉落時的時間戳校準，在工坊升到 5 階後會無法繼續升級到 5++。</li>
+            <li><strong>解決方案</strong>：選擇<strong>「放入儲藏室」</strong>，修改後進遊戲從載具後備箱或公寓儲藏點將武器取出，遊戲原生腳本就會自動觸發等級校準，使其完美解鎖 5++ 升階！</li>
+          </ul>
+        </dd>
         <dt>會不會把存檔改壞？</dt>
         <dd>每次寫入前都會逐位元組校驗：除了新增或修改的物品，其他內容只要有任何變化就放棄寫入，原存檔保持不變。</dd>
       </dl>`,
@@ -1705,6 +1771,15 @@ const HELP_PANES_HTML = {
           <ul class="help-list">
             <li><strong>Older game save</strong>: Load and re-save it once in game (2.31 / 2.5) to upgrade the format.</li>
             <li><strong>Newer game update</strong>: Wait for a tool update (safety lock to protect your save).</li>
+          </ul>
+        </dd>
+        <dt>Why is "Stash" recommended for Iconic weapons? How does Tier 5++ upgrading work?</dt>
+        <dd>
+          This is due to Cyberpunk 2077's native script <strong>level scaling mechanism</strong> (<code>RescaleStashedIconicsToPlayerLevel</code>):
+          <ul class="help-list">
+            <li>Under REDengine 2.0+, upgrading iconic weapons to Tier 5++ requires Phantom Liberty, player level 51+, and engine-calibrated loot tier data.</li>
+            <li>Injected iconic weapons directly placed into personal backpack lack the game's drop loot calibration, capping manual crafting upgrades at Tier 5.</li>
+            <li><strong>Solution</strong>: Choose <strong>"Stash (Vehicle Trunk / Apartment)"</strong>. Upon retrieving the weapon from your car trunk or apartment stash in game, the game's native script triggers level calibration, unlocking upgrades up to Tier 5++!</li>
           </ul>
         </dd>
         <dt>Will this corrupt my save file?</dt>
