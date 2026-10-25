@@ -14,12 +14,14 @@ public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
     private static Lazy<Cp2077ItemNames>? _shared;
 
     private readonly ItemNameCatalog? _catalog;
+    private readonly string? _diagnosticReason;
 
     private readonly Lazy<Cp2077ItemIcons> _icons;
 
-    private Cp2077ItemNames(ItemNameCatalog? catalog, string? gameDirectory)
+    private Cp2077ItemNames(ItemNameCatalog? catalog, string? gameDirectory, string? diagnosticReason = null)
     {
         _catalog = catalog;
+        _diagnosticReason = diagnosticReason;
         GameDirectory = gameDirectory;
         _icons = new Lazy<Cp2077ItemIcons>(() => new Cp2077ItemIcons(() => IconResolver, GameDirectory));
     }
@@ -60,7 +62,11 @@ public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
 
     public bool Available => _catalog?.Available == true;
 
-    public string? UnavailableMessage => Available ? null : ItemNameCatalog.RedmodUnavailable;
+    public string? UnavailableMessage => Available
+        ? null
+        : string.IsNullOrWhiteSpace(_diagnosticReason)
+            ? ItemNameCatalog.RedmodUnavailable
+            : ItemNameCatalog.RedmodUnavailable + "（诊断详情：" + _diagnosticReason + "）";
 
     public IReadOnlyList<GearEntry> Gear => Available ? _catalog!.Gear?.Entries ?? [] : [];
 
@@ -97,12 +103,21 @@ public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
             return new Cp2077ItemNames(null, null);
         try
         {
-            return new Cp2077ItemNames(ItemNameCatalog.Load(game), game);
+            var catalog = ItemNameCatalog.Load(game);
+            string? reason = null;
+            if (!catalog.Available)
+            {
+                var tweaksDir = Path.Combine(game, Cp2077Paths.TweaksRelative);
+                reason = Directory.Exists(tweaksDir)
+                    ? "tools\\redmod\\tweaks 文件夹内没有找到 .tweak 数据文件，请确认 REDmod DLC 已完整下载"
+                    : null;
+            }
+            return new Cp2077ItemNames(catalog, game, reason);
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException or DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
         {
-            // 名字表只影响显示；读不出来时按不可用处理，复制功能照常。
-            return new Cp2077ItemNames(null, null);
+            // 名字表只影响显示；读不出来时按不可用处理，复制功能照常，但保留具体诊断原因方便排查。
+            return new Cp2077ItemNames(null, game, ex.Message);
         }
     }
 }
