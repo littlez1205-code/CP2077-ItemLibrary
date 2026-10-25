@@ -24,7 +24,7 @@ public sealed class Cp2077Adapter : IGameAdapter, ISaveSupportProbe, IThemeProvi
     {
         _game = new GameDirectoryHolder();
         var game = _game;
-        _names = () => Cp2077ItemNames.ForGame(game.Value);
+        _names = () => Cp2077ItemNames.ForGame(game.Value, game.Language);
         Resources = LoadResources();
     }
 
@@ -69,6 +69,11 @@ public sealed class Cp2077Adapter : IGameAdapter, ISaveSupportProbe, IThemeProvi
 
     public void UseGameDirectory(string? gameDirectory) =>
         _game.Value = string.IsNullOrWhiteSpace(gameDirectory) ? null : gameDirectory;
+
+    public string Language => _game.Language;
+
+    public void UseLanguage(string? language) =>
+        _game.Language = GearKinds.NormalizeLang(language);
 
     public SaveWatchSpec WatchSpec => new(DefaultSaveRoot, ["QuickSave-*/sav.dat"], DebounceMilliseconds);
 
@@ -248,15 +253,22 @@ public sealed class Cp2077Adapter : IGameAdapter, ISaveSupportProbe, IThemeProvi
         return Cp2077SaveDocument.Open(SaveContainer.Read(saveFilePath), Resources, CanInsert, _names, _names);
     }
 
-    /// <summary>同一个适配器及其 <see cref="WithResources"/> 副本共用的游戏目录。</summary>
+    /// <summary>同一个适配器及其 <see cref="WithResources"/> 副本共用的游戏目录与语言。</summary>
     private sealed class GameDirectoryHolder
     {
         private volatile string? _value;
+        private volatile string _language = "zh-cn";
 
         public string? Value
         {
             get => _value;
             set => _value = value;
+        }
+
+        public string Language
+        {
+            get => _language;
+            set => _language = value;
         }
     }
 }

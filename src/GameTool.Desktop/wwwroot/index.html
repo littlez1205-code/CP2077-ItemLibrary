@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <title>游戏工具</title>
-  <link rel="stylesheet" href="app.css?v=14" />
+  <link rel="stylesheet" href="app.css?v=15" />
 </head>
 <body>
   <div id="backdrop"></div>
@@ -11,6 +11,11 @@
   <header>
     <h1 id="title">游戏工具</h1>
     <div class="head-actions">
+      <div id="lang-switch" class="lang-switch" role="group" aria-label="语言">
+        <button class="lang-btn active" type="button" data-lang="zh-cn" title="简体中文">简</button>
+        <button class="lang-btn" type="button" data-lang="zh-tw" title="繁體中文">繁</button>
+        <button class="lang-btn" type="button" data-lang="en-us" title="English">EN</button>
+      </div>
       <button id="help-open" class="ghost" type="button">说明</button>
       <button id="skin-open" class="ghost" type="button">外观</button>
       <button id="settings-open" class="ghost icon-button" type="button" title="设置路径" aria-label="设置路径">
@@ -35,7 +40,7 @@
       <h2 id="setup-title">设置路径</h2>
       <p id="setup-intro" class="setup-intro"></p>
       <div class="setup-row">
-        <div class="setup-label">存档目录</div>
+        <div id="setup-save-label" class="setup-label">存档目录</div>
         <div class="setup-line">
           <span id="setup-save-path" class="setup-path"></span>
           <button id="setup-save-pick" class="ghost small" type="button">选择文件夹</button>
@@ -44,7 +49,7 @@
         <p id="setup-save-status" class="setup-status" hidden></p>
       </div>
       <div class="setup-row">
-        <div class="setup-label">游戏目录</div>
+        <div id="setup-game-label" class="setup-label">游戏目录</div>
         <div class="setup-line">
           <span id="setup-game-path" class="setup-path"></span>
           <button id="setup-game-pick" class="ghost small" type="button">选择文件夹</button>
@@ -86,7 +91,7 @@
         <div id="chips" class="chips"></div>
         <div class="lib-bar">
           <div id="lib-meta" class="lib-meta"></div>
-          <label class="page-size">每页
+          <label class="page-size"><span id="page-size-label">每页</span>
             <select id="page-size">
               <option value="15">15</option>
               <option value="30">30</option>
@@ -107,15 +112,15 @@
     </section>
   </main>
   <div id="skin-panel" class="card skin-panel" hidden>
-    <h2>外观</h2>
+    <h2 id="skin-title">外观</h2>
     <label id="skin-drop" class="drop">
-      选择图片，或把图片拖到这里
+      <span id="skin-drop-text">选择图片，或把图片拖到这里</span>
       <input id="skin-file" type="file" accept="image/png,image/jpeg,image/webp" hidden />
     </label>
     <div class="actions">
       <button id="skin-clear" class="ghost" type="button">清除背景</button>
     </div>
-    <label class="overlay-label">遮罩 <span id="skin-opacity-label">50%</span>
+    <label class="overlay-label"><span id="skin-mask-label">遮罩</span> <span id="skin-opacity-label">50%</span>
       <input id="skin-opacity" type="range" min="0" max="80" value="50" />
     </label>
   </div>
@@ -245,6 +250,6 @@
     <div class="edge" data-edge="bottomLeft"></div>
     <div class="edge" data-edge="bottomRight"></div>
   </div>
-  <script src="app.js?v=15"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>

@@ -332,18 +332,20 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         VerifyInsertedStructure(before, after, diff, added, applied.AddedBytes, []);
     }
 
-    private static readonly GenerateKind[] Kinds = GearKinds.Order
-        .Select(kind => new GenerateKind(kind, GearKinds.Label(kind), GearKinds.IsStackable(kind)))
-        .ToArray();
-
     private static readonly Dictionary<string, string> QualityWords = new(StringComparer.Ordinal)
     {
-        [GearQuality.Common] = "普通",
-        [GearQuality.Uncommon] = "罕见",
-        [GearQuality.Rare] = "稀有",
-        [GearQuality.Epic] = "史诗",
-        [GearQuality.Legendary] = "传说 传奇"
+        [GearQuality.Common] = "普通 Common",
+        [GearQuality.Uncommon] = "罕见 罕見 Uncommon",
+        [GearQuality.Rare] = "稀有 Rare",
+        [GearQuality.Epic] = "史诗 史詩 Epic",
+        [GearQuality.Legendary] = "传说 传奇 傳說 傳奇 Legendary"
     };
+
+    private static readonly string[] ChinesePrefixes =
+    [
+        "普通", "罕见", "罕見", "稀有", "史诗", "史詩",
+        "传说", "传奇", "傳說", "傳奇", "标志性", "標誌性", "不朽"
+    ];
 
     /// <summary>堆叠物品不在 resources.json 里时的数量上限（与制作材料一致）。</summary>
     public const long DefaultStackMax = 99999;
@@ -359,8 +361,12 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         {
             if (!GenerateAvailable)
                 return [];
+            var lang = Gear!.Language;
             var present = Catalog().Select(entry => entry.Kind).ToHashSet(StringComparer.Ordinal);
-            return Kinds.Where(kind => present.Contains(kind.Id)).ToArray();
+            return GearKinds.Order
+                .Where(present.Contains)
+                .Select(kind => new GenerateKind(kind, GearKinds.Label(kind, lang), GearKinds.IsStackable(kind)))
+                .ToArray();
         }
     }
 
@@ -488,11 +494,12 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         {
             if (!GenerateAvailable)
                 return [];
-            var hidden = Gear!.HiddenGroups;
+            var lang = Gear!.Language;
+            var hidden = Gear.HiddenGroups;
             return GearKinds.Order
                 .Select(kind => (Kind: kind, Groups: hidden.Where(group => group.Kind == kind).ToArray()))
                 .Where(item => item.Groups.Length > 0)
-                .Select(item => new GenerateHiddenKind(item.Kind, GearKinds.Label(item.Kind), item.Groups.Length, item.Groups.Sum(group => group.Variants.Count)))
+                .Select(item => new GenerateHiddenKind(item.Kind, GearKinds.Label(item.Kind, lang), item.Groups.Length, item.Groups.Sum(group => group.Variants.Count)))
                 .ToArray();
         }
     }
@@ -532,11 +539,10 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     {
         if (string.IsNullOrWhiteSpace(query))
             return [];
-        var prefixes = QualityWords.Values.SelectMany(value => value.Split(' ')).Append("标志性").ToArray();
         var words = new List<string>();
         foreach (var word in query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            var prefix = prefixes.FirstOrDefault(item => word.Length > item.Length && word.StartsWith(item, StringComparison.Ordinal));
+            var prefix = ChinesePrefixes.FirstOrDefault(item => word.Length > item.Length && word.StartsWith(item, StringComparison.Ordinal));
             if (prefix is null)
             {
                 words.Add(word);
@@ -552,9 +558,11 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
 
     private static string Haystack(GearEntry entry)
     {
-        var kind = GearKinds.Label(entry.Kind);
+        var kindCn = GearKinds.Label(entry.Kind, "zh-cn");
+        var kindTw = GearKinds.Label(entry.Kind, "zh-tw");
+        var kindEn = GearKinds.Label(entry.Kind, "en-us");
         var quality = entry.Quality is not null && QualityWords.TryGetValue(entry.Quality, out var word) ? word : "";
-        return string.Join(' ', entry.Label, entry.RecordName, entry.TypeLabel, kind, quality, entry.Iconic ? "标志性" : "", entry.VariantLabel);
+        return string.Join(' ', entry.Label, entry.RecordName, entry.TypeLabel, kindCn, kindTw, kindEn, quality, entry.Iconic ? "标志性 標誌性 不朽 Iconic" : "", entry.VariantLabel);
     }
 
     private GenerateCatalogItem ToItem(GearEntry entry, HashSet<ulong> ownedGear)

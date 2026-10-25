@@ -28,14 +28,320 @@ const confirmError = document.querySelector("#confirm-error");
 const confirmActions = document.querySelector("#confirm-actions");
 const toastEl = document.querySelector("#toast");
 
-const groups = [
-  ["quick", "快速"],
-  ["manual", "手动"],
-  ["auto", "自动"],
-  ["other", "其他"]
-];
+let uiLang = "zh-cn";
 
-const qualityNames = { Legendary: "传说", Epic: "史诗", Rare: "稀有", Uncommon: "罕见", Common: "普通" };
+const I18N = {
+  "zh-cn": {
+    titleSuffix: " · 物品库",
+    helpOpen: "说明",
+    skinOpen: "外观",
+    settingsOpen: "设置路径",
+    winMin: "最小化",
+    winMax: "最大化",
+    winRestore: "还原",
+    winClose: "关闭",
+    tabSaves: "当前存档",
+    tabBackups: "备份区",
+    groups: [["quick", "快速"], ["manual", "手动"], ["auto", "自动"], ["other", "其他"]],
+    qualityNames: { Legendary: "传说", Epic: "史诗", Rare: "稀有", Uncommon: "罕见", Common: "普通" },
+    iconicBadge: "标志性",
+    unsupportedBadge: "不支持",
+    unsupportedHint: "如果是游戏更新后的新版本存档，需要等待工具适配新版本，暂时不能修改（这是保护存档的安全设计），最新版本请关注作者 B 站动态。",
+    emptyBackups: "备份区是空的。选中存档后点「加入备份区」，把它的当前状态存一份到这里。",
+    noSlot: "未选择存档",
+    backupAdd: "加入备份区",
+    backupTitlePrefix: "备份：",
+    backupRowCompare: (b, c) => "备份 " + b + " ｜ 当前 " + c,
+    restoreBtn: "恢复到存档",
+    deleteBtn: "删除备份",
+    toastBackupAdded: (n) => "已把 " + n + " 存入备份区",
+    restoreDialogTitle: "恢复备份",
+    restoreDialogText: (n) => "将用这份备份覆盖 " + n + " 的当前存档。",
+    restoreConfirm: "恢复",
+    cancel: "取消",
+    toastRestored: (n) => "已恢复 " + n + "，读档后生效",
+    deleteDialogTitle: "删除备份",
+    deleteDialogText: (n, t) => "删除 " + n + " 在 " + t + " 的备份？",
+    deleteConfirm: "删除",
+    searchPlaceholder: "输入物品名，如 阿贾克斯、夹克、传说组件、网络接入仓、配方",
+    pageSizeLabel: "每页",
+    stateHeld: (n) => "持有 " + n,
+    stateNotHeld: "未持有",
+    stateOwned: "已拥有",
+    stateGroupHeld: (h, t) => "持有 " + h + "/" + t,
+    stateGroupOwned: (h, t) => "已拥有 " + h + "/" + t,
+    variantCount: (len, noun) => {
+      const n = noun || "品阶";
+      return len + (n === "款式" ? " 种" : " 个") + n;
+    },
+    cardTipStats: "【基础常数】",
+    cardTipEffect: "【特殊效果】",
+    cardTipDesc: "【说明】",
+    libUnavailable: "物品库不可用。",
+    libEmptyKind: "这个分类里没有物品。",
+    libEmptyOtherKind: (q) => "这个分类里没有与「" + q + "」匹配的物品，看看标签上带数字的分类。",
+    libEmptyQuery: (q) => "没有找到与「" + q + "」匹配的物品。",
+    libLoading: "加载中…",
+    libMeta: (total, itemTotal, page, pages) => {
+      const merged = itemTotal > total ? "（含不同品阶和款式共 " + formatNumber(itemTotal) + " 条）" : "";
+      const where = pages > 1 ? (merged ? "" : " ") + "· 第 " + page + " / " + pages + " 页" : "";
+      return "共 " + formatNumber(total) + " 件" + merged + where;
+    },
+    prevPage: "上一页",
+    nextPage: "下一页",
+    jumpPrefix: "跳到第",
+    jumpSuffix: "页",
+    obtainTitle: "获得物品",
+    obtainPickCaption: (noun, len) => "选择" + (noun || "品阶") + "（" + len + "）",
+    obtainBtn: "获得",
+    obtainWriting: "写入中…",
+    obtainRetry: "重试",
+    obtainNotWritten: (msg) => "未写入：" + msg,
+    obtainSummary: (slotName, itemName) => "将向〈" + slotName + "〉添加〈" + itemName + "〉，读档后生效。",
+    effectHeading: "★ 特殊效果",
+    qtyLabel: "数量",
+    qtyNote: (heldOrNull, value, limit) => {
+      const prefix = heldOrNull != null ? "当前持有 " + formatNumber(heldOrNull) : "当前未持有，将新增一个堆叠";
+      if (!Number.isSafeInteger(value) || value < 1)
+        return prefix + "。请输入至少为 1 的整数。";
+      if (value > limit)
+        return prefix + "。最多还能获得 " + formatNumber(limit) + "。";
+      return prefix + "，获得后为 " + formatNumber((heldOrNull || 0) + value) + "。";
+    },
+    ownedNote: "存档里已经有这一件，获得后会再多一件。",
+    gearQtyNote: (value, limit) => "独立物品，单次最多添加 " + limit + " 件",
+    toastObtained: (label, amount) => "已获得 " + label + amount + "，读档后生效",
+    skinTitle: "外观",
+    skinDropText: "选择图片，或把图片拖到这里",
+    skinClear: "清除背景",
+    skinMask: "遮罩",
+    setupTitle: "设置路径",
+    setupSaveLabel: "存档目录",
+    setupGameLabel: "游戏目录",
+    setupPickBtn: "选择文件夹",
+    setupUnset: "未选择",
+    setupHintPrefix: "常见位置：",
+    setupIntroFirst: "第一次使用，请先选择存档目录和游戏目录。两项都通过检查后就能开始使用，以后可以点右上角的齿轮修改。",
+    setupIntroEdit: "修改后点「保存」，存档列表、物品目录和图标会按新路径重新加载。",
+    setupDoneFirst: "开始使用",
+    setupDoneSave: "保存",
+    setupFilePrefix: "设置保存在 ",
+    toastSetupFirst: "设置完成",
+    toastSetupSaved: "路径已保存，已按新路径重新加载",
+    helpTitle: "说明",
+    helpTabStart: "快速上手",
+    helpTabFaq: "常见问题",
+    helpTabAbout: "关于"
+  },
+  "zh-tw": {
+    titleSuffix: " · 物品庫",
+    helpOpen: "說明",
+    skinOpen: "外觀",
+    settingsOpen: "設定路徑",
+    winMin: "最小化",
+    winMax: "最大化",
+    winRestore: "還原",
+    winClose: "關閉",
+    tabSaves: "目前存檔",
+    tabBackups: "備份區",
+    groups: [["quick", "快速"], ["manual", "手動"], ["auto", "自動"], ["other", "其他"]],
+    qualityNames: { Legendary: "傳說", Epic: "史詩", Rare: "稀有", Uncommon: "罕見", Common: "普通" },
+    iconicBadge: "標誌性",
+    unsupportedBadge: "不支援",
+    unsupportedHint: "如果是遊戲更新後的新版本存檔，需要等待工具適配新版本，暫時不能修改（這是保護存檔的安全設計），最新版本請關注作者 B 站動態。",
+    emptyBackups: "備份區是空的。選取存檔後點「加入備份區」，把它的目前狀態存一份到這裡。",
+    noSlot: "未選擇存檔",
+    backupAdd: "加入備份區",
+    backupTitlePrefix: "備份：",
+    backupRowCompare: (b, c) => "備份 " + b + " ｜ 目前 " + c,
+    restoreBtn: "還原到存檔",
+    deleteBtn: "刪除備份",
+    toastBackupAdded: (n) => "已把 " + n + " 存入備份區",
+    restoreDialogTitle: "還原備份",
+    restoreDialogText: (n) => "將用這份備份覆蓋 " + n + " 的目前存檔。",
+    restoreConfirm: "還原",
+    cancel: "取消",
+    toastRestored: (n) => "已還原 " + n + "，讀檔後生效",
+    deleteDialogTitle: "刪除備份",
+    deleteDialogText: (n, t) => "刪除 " + n + " 在 " + t + " 的備份？",
+    deleteConfirm: "刪除",
+    searchPlaceholder: "輸入物品名，如 阿賈克斯、夾克、傳說組件、網路接入倉、配方",
+    pageSizeLabel: "每頁",
+    stateHeld: (n) => "持有 " + n,
+    stateNotHeld: "未持有",
+    stateOwned: "已擁有",
+    stateGroupHeld: (h, t) => "持有 " + h + "/" + t,
+    stateGroupOwned: (h, t) => "已擁有 " + h + "/" + t,
+    variantCount: (len, noun) => {
+      const n = noun || "品階";
+      return len + (n === "款式" ? " 種" : " 個") + n;
+    },
+    cardTipStats: "【基礎常數】",
+    cardTipEffect: "【特殊效果】",
+    cardTipDesc: "【說明】",
+    libUnavailable: "物品庫不可用。",
+    libEmptyKind: "這個分類裡沒有物品。",
+    libEmptyOtherKind: (q) => "這個分類裡沒有與「" + q + "」相符的物品，看看標籤上帶數字的分類。",
+    libEmptyQuery: (q) => "沒有找到與「" + q + "」相符的物品。",
+    libLoading: "載入中…",
+    libMeta: (total, itemTotal, page, pages) => {
+      const merged = itemTotal > total ? "（含不同品階和款式共 " + formatNumber(itemTotal) + " 條）" : "";
+      const where = pages > 1 ? (merged ? "" : " ") + "· 第 " + page + " / " + pages + " 頁" : "";
+      return "共 " + formatNumber(total) + " 件" + merged + where;
+    },
+    prevPage: "上一頁",
+    nextPage: "下一頁",
+    jumpPrefix: "跳到第",
+    jumpSuffix: "頁",
+    obtainTitle: "獲得物品",
+    obtainPickCaption: (noun, len) => "選擇" + (noun || "品階") + "（" + len + "）",
+    obtainBtn: "獲得",
+    obtainWriting: "寫入中…",
+    obtainRetry: "重試",
+    obtainNotWritten: (msg) => "未寫入：" + msg,
+    obtainSummary: (slotName, itemName) => "將向〈" + slotName + "〉添加〈" + itemName + "〉，讀檔後生效。",
+    effectHeading: "★ 特殊效果",
+    qtyLabel: "數量",
+    qtyNote: (heldOrNull, value, limit) => {
+      const prefix = heldOrNull != null ? "目前持有 " + formatNumber(heldOrNull) : "目前未持有，將新增一個堆疊";
+      if (!Number.isSafeInteger(value) || value < 1)
+        return prefix + "。請輸入至少為 1 的整數。";
+      if (value > limit)
+        return prefix + "。最多還能獲得 " + formatNumber(limit) + "。";
+      return prefix + "，獲得後為 " + formatNumber((heldOrNull || 0) + value) + "。";
+    },
+    ownedNote: "存檔裡已經有這一件，獲得後會再多一件。",
+    gearQtyNote: (value, limit) => "獨立物品，單次最多新增 " + limit + " 件",
+    toastObtained: (label, amount) => "已獲得 " + label + amount + "，讀檔後生效",
+    skinTitle: "外觀",
+    skinDropText: "選擇圖片，或把圖片拖到這裡",
+    skinClear: "清除背景",
+    skinMask: "遮罩",
+    setupTitle: "設定路徑",
+    setupSaveLabel: "存檔目錄",
+    setupGameLabel: "遊戲目錄",
+    setupPickBtn: "選擇資料夾",
+    setupUnset: "未選擇",
+    setupHintPrefix: "常見位置：",
+    setupIntroFirst: "第一次使用，請先選擇存檔目錄和遊戲目錄。兩項都通過檢查後就能開始使用，以後可以點右上角的齒輪修改。",
+    setupIntroEdit: "修改後點「儲存」，存檔列表、物品目錄和圖示會按新路徑重新載入。",
+    setupDoneFirst: "開始使用",
+    setupDoneSave: "儲存",
+    setupFilePrefix: "設定保存在 ",
+    toastSetupFirst: "設定完成",
+    toastSetupSaved: "路徑已儲存，已按新路徑重新載入",
+    helpTitle: "說明",
+    helpTabStart: "快速上手",
+    helpTabFaq: "常見問題",
+    helpTabAbout: "關於"
+  },
+  "en-us": {
+    titleSuffix: " · Item Library",
+    helpOpen: "Help",
+    skinOpen: "Theme",
+    settingsOpen: "Path Settings",
+    winMin: "Minimize",
+    winMax: "Maximize",
+    winRestore: "Restore",
+    winClose: "Close",
+    tabSaves: "Saves",
+    tabBackups: "Backups",
+    groups: [["quick", "Quick"], ["manual", "Manual"], ["auto", "Auto"], ["other", "Other"]],
+    qualityNames: { Legendary: "Legendary", Epic: "Epic", Rare: "Rare", Uncommon: "Uncommon", Common: "Common" },
+    iconicBadge: "Iconic",
+    unsupportedBadge: "Unsupported",
+    unsupportedHint: "If this save is from a newer game update, please wait for a tool update (safety lock to protect your save).",
+    emptyBackups: "No backups yet. Select a save and click 'Add Backup' to save a snapshot here.",
+    noSlot: "No save selected",
+    backupAdd: "Add Backup",
+    backupTitlePrefix: "Backup: ",
+    backupRowCompare: (b, c) => "Backup " + b + " ｜ Current " + c,
+    restoreBtn: "Restore Save",
+    deleteBtn: "Delete Backup",
+    toastBackupAdded: (n) => "Backed up " + n,
+    restoreDialogTitle: "Restore Backup",
+    restoreDialogText: (n) => "Overwrite current save " + n + " with this backup?",
+    restoreConfirm: "Restore",
+    cancel: "Cancel",
+    toastRestored: (n) => "Restored " + n + "; reload save in game",
+    deleteDialogTitle: "Delete Backup",
+    deleteDialogText: (n, t) => "Delete backup of " + n + " from " + t + "?",
+    deleteConfirm: "Delete",
+    searchPlaceholder: "Search items, e.g. Ajax, Jacket, Legendary, Cyberdeck, Recipe",
+    pageSizeLabel: "Per page",
+    stateHeld: (n) => "Held " + n,
+    stateNotHeld: "Not held",
+    stateOwned: "Owned",
+    stateGroupHeld: (h, t) => "Held " + h + "/" + t,
+    stateGroupOwned: (h, t) => "Owned " + h + "/" + t,
+    variantCount: (len, noun) => {
+      const isStyle = noun === "Style" || noun === "款式";
+      return len + " " + (isStyle ? "styles" : "tiers");
+    },
+    cardTipStats: "[Base Stats]",
+    cardTipEffect: "[Special Effect]",
+    cardTipDesc: "[Description]",
+    libUnavailable: "Item library unavailable.",
+    libEmptyKind: "No items in this category.",
+    libEmptyOtherKind: (q) => "No matches for \"" + q + "\" in this category; check categories with counts above.",
+    libEmptyQuery: (q) => "No items matching \"" + q + "\".",
+    libLoading: "Loading…",
+    libMeta: (total, itemTotal, page, pages) => {
+      const merged = itemTotal > total ? " (" + formatNumber(itemTotal) + " variants)" : "";
+      const where = pages > 1 ? " · Page " + page + " / " + pages : "";
+      return formatNumber(total) + " items" + merged + where;
+    },
+    prevPage: "Prev",
+    nextPage: "Next",
+    jumpPrefix: "Go to",
+    jumpSuffix: "",
+    obtainTitle: "Get Item",
+    obtainPickCaption: (noun, len) => "Select " + (noun || "Tier") + " (" + len + ")",
+    obtainBtn: "Get",
+    obtainWriting: "Saving…",
+    obtainRetry: "Retry",
+    obtainNotWritten: (msg) => "Not saved: " + msg,
+    obtainSummary: (slotName, itemName) => "Add 〈" + itemName + "〉 to 〈" + slotName + "〉; reload save in game to apply.",
+    effectHeading: "★ Special Effect",
+    qtyLabel: "Qty",
+    qtyNote: (heldOrNull, value, limit) => {
+      const prefix = heldOrNull != null ? "Currently held: " + formatNumber(heldOrNull) : "Not held yet (will add stack)";
+      if (!Number.isSafeInteger(value) || value < 1)
+        return prefix + ". Please enter an integer of at least 1.";
+      if (value > limit)
+        return prefix + ". Max additional: " + formatNumber(limit) + ".";
+      return prefix + "; after adding: " + formatNumber((heldOrNull || 0) + value) + ".";
+    },
+    ownedNote: "Already owned in this save; obtaining will add another copy.",
+    gearQtyNote: (value, limit) => "Individual item, max " + limit + " per request",
+    toastObtained: (label, amount) => "Obtained " + label + amount + "; reload save in game",
+    skinTitle: "Theme",
+    skinDropText: "Choose an image or drag it here",
+    skinClear: "Clear Background",
+    skinMask: "Overlay",
+    setupTitle: "Path Settings",
+    setupSaveLabel: "Save Directory",
+    setupGameLabel: "Game Directory",
+    setupPickBtn: "Browse...",
+    setupUnset: "Not selected",
+    setupHintPrefix: "Default path: ",
+    setupIntroFirst: "First-time setup: please select your Save Directory and Game Directory. Once both pass validation, click Get Started.",
+    setupIntroEdit: "Click 'Save' after making changes to reload saves, item catalog, and icons from the new paths.",
+    setupDoneFirst: "Get Started",
+    setupDoneSave: "Save",
+    setupFilePrefix: "Settings saved at ",
+    toastSetupFirst: "Setup complete",
+    toastSetupSaved: "Paths saved and reloaded",
+    helpTitle: "Help",
+    helpTabStart: "Quick Start",
+    helpTabFaq: "FAQ",
+    helpTabAbout: "About"
+  }
+};
+
+function t() {
+  return I18N[uiLang] || I18N["zh-cn"];
+}
 
 // 图标占位：按分类画线条图形（24×24）。有游戏图标时由 attachArt 叠一张图上去，加载失败就留着占位。
 const glyphs = {
@@ -112,11 +418,9 @@ window.chrome.webview.addEventListener("message", (event) => {
 });
 
 // D024：存档版本不在白名单内（「不支持」）时，补一句游戏更新后的处理和更新渠道。
-const unsupportedHint = "如果是游戏更新后的新版本存档，需要等待工具适配新版本，暂时不能修改（这是保护存档的安全设计），最新版本请关注作者 B 站动态。";
-
 function withUnsupportedHint(text) {
-  const base = String(text || "不支持的存档").replace(/[。；;.\s]+$/, "");
-  return base + "。" + unsupportedHint;
+  const base = String(text || t().unsupportedBadge).replace(/[。；;.\s]+$/, "");
+  return base + (uiLang === "en-us" ? ". " : "。") + t().unsupportedHint;
 }
 
 function messageOf(error) {
@@ -201,7 +505,7 @@ function attachArt(holder, recordName) {
 
 function renderSlots() {
   savesPane.replaceChildren();
-  for (const [id, label] of groups) {
+  for (const [id, label] of t().groups) {
     const members = slots.filter((slot) => (slot.group || "other") === id);
     if (members.length === 0)
       continue;
@@ -228,7 +532,7 @@ function slotButton(slot) {
   const title = element("strong", null, slot.name);
   if (slot.supported === false) {
     button.classList.add("unsupported");
-    title.append(element("span", "badge warn", "不支持"));
+    title.append(element("span", "badge warn", t().unsupportedBadge));
   }
   button.append(title, element("small", null, formatTime(slot.time)));
   button.addEventListener("click", () => selectSlot(slot).catch(showError));
@@ -238,7 +542,7 @@ function slotButton(slot) {
 function renderBackups() {
   backupsPane.replaceChildren();
   if (backups.length === 0)
-    backupsPane.append(element("p", "muted empty", "备份区是空的。选中存档后点「加入备份区」，把它的当前状态存一份到这里。"));
+    backupsPane.append(element("p", "muted empty", t().emptyBackups));
   for (const backup of backups) {
     const row = element("button", "backup" + (selectedBackup && selectedBackup.id === backup.id ? " active" : ""));
     row.type = "button";
@@ -372,7 +676,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 function showNoSlot() {
-  slotNameEl.textContent = "未选择存档";
+  slotNameEl.textContent = t().noSlot;
   slotTimeEl.textContent = "";
   libraryEl.hidden = true;
   backupViewEl.hidden = true;
@@ -427,7 +731,7 @@ async function selectBackup(backup) {
 }
 
 function renderBackupDetail(detail) {
-  slotNameEl.textContent = "备份：" + detail.slotName;
+  slotNameEl.textContent = t().backupTitlePrefix + detail.slotName;
   slotTimeEl.textContent = formatTime(detail.timeUtc);
   backupRowsEl.replaceChildren();
   for (const resource of detail.resources) {
@@ -435,14 +739,14 @@ function renderBackupDetail(detail) {
     const row = element("div", "backup-row" + (differs ? " changed" : ""));
     const current = resource.currentQuantity == null ? "—" : formatNumber(resource.currentQuantity);
     const backed = resource.backupQuantity == null ? "—" : formatNumber(resource.backupQuantity);
-    row.append(element("span", null, resource.nameZh), element("span", "values", "备份 " + backed + " ｜ 当前 " + current));
+    row.append(element("span", null, resource.nameZh), element("span", "values", t().backupRowCompare(backed, current)));
     backupRowsEl.append(row);
   }
   backupActionsEl.replaceChildren();
-  const restore = element("button", null, "恢复到存档");
+  const restore = element("button", null, t().restoreBtn);
   restore.type = "button";
   restore.addEventListener("click", () => restoreBackup(selectedBackup));
-  const remove = element("button", "danger", "删除备份");
+  const remove = element("button", "danger", t().deleteBtn);
   remove.type = "button";
   remove.addEventListener("click", () => deleteBackup(selectedBackup));
   backupActionsEl.append(restore, remove);
@@ -469,7 +773,7 @@ backupAddEl.addEventListener("click", async () => {
     await call("backup.add", { gameId, slot: selected.slot });
     backups = await call("backup.list", { gameId });
     renderBackups();
-    showToast("已把 " + selected.name + " 存入备份区");
+    showToast(t().toastBackupAdded(selected.name));
     showError(null);
   } catch (error) {
     showError(error);
@@ -477,15 +781,15 @@ backupAddEl.addEventListener("click", async () => {
 });
 
 async function restoreBackup(backup) {
-  const choice = await ask("恢复备份", "将用这份备份覆盖 " + backup.slotName + " 的当前存档。", [
-    { label: "恢复", value: "ok" },
-    { label: "取消", value: "cancel", ghost: true }
+  const choice = await ask(t().restoreDialogTitle, t().restoreDialogText(backup.slotName), [
+    { label: t().restoreConfirm, value: "ok" },
+    { label: t().cancel, value: "cancel", ghost: true }
   ]);
   if (choice !== "ok")
     return;
   try {
     await call("backup.restore", { gameId, backupId: backup.id });
-    showToast("已恢复 " + backup.slotName + "，读档后生效");
+    showToast(t().toastRestored(backup.slotName));
     selectedBackup = null;
     await refresh();
     showTab("saves");
@@ -496,9 +800,9 @@ async function restoreBackup(backup) {
 }
 
 async function deleteBackup(backup) {
-  const choice = await ask("删除备份", "删除 " + backup.slotName + " 在 " + formatTime(backup.timeUtc) + " 的备份？", [
-    { label: "删除", value: "ok", danger: true },
-    { label: "取消", value: "cancel", ghost: true }
+  const choice = await ask(t().deleteDialogTitle, t().deleteDialogText(backup.slotName, formatTime(backup.timeUtc)), [
+    { label: t().deleteConfirm, value: "ok", danger: true },
+    { label: t().cancel, value: "cancel", ghost: true }
   ]);
   if (choice !== "ok")
     return;
@@ -507,7 +811,7 @@ async function deleteBackup(backup) {
     backups = await call("backup.list", { gameId });
     selectedBackup = null;
     backupViewEl.hidden = true;
-    slotNameEl.textContent = "备份区";
+    slotNameEl.textContent = t().tabBackups;
     slotTimeEl.textContent = "";
     renderBackups();
   } catch (error) {
@@ -541,14 +845,14 @@ function qualityClass(item) {
 
 /** 品质名加 Plus 档：传说、史诗+、传说++。 */
 function qualityText(item) {
-  const name = item.quality ? qualityNames[item.quality] : "";
+  const name = item.quality ? t().qualityNames[item.quality] : "";
   return name ? name + "+".repeat(Math.max(0, Math.min(2, item.plus || 0))) : "";
 }
 
 function stateOf(item) {
   if (item.stackable)
-    return item.held != null ? "持有 " + formatNumber(item.held) : "未持有";
-  return item.owned ? "已拥有" : "";
+    return item.held != null ? t().stateHeld(formatNumber(item.held)) : t().stateNotHeld;
+  return item.owned ? t().stateOwned : "";
 }
 
 function defaultVariant(group) {
@@ -557,8 +861,7 @@ function defaultVariant(group) {
 
 /** 合并卡片的数量说明：7 个品阶 / 3 种款式。 */
 function variantCount(group) {
-  const noun = group.variantNoun || "品阶";
-  return group.variants.length + (noun === "款式" ? " 种" : " 个") + noun;
+  return t().variantCount(group.variants.length, group.variantNoun);
 }
 
 function groupState(group) {
@@ -566,8 +869,8 @@ function groupState(group) {
     return stateOf(group.variants[0]);
   const have = group.variants.filter((item) => (item.stackable ? item.held != null : item.owned)).length;
   if (have === 0)
-    return group.stackable ? "未持有" : "";
-  return (group.stackable ? "持有 " : "已拥有 ") + have + "/" + group.variants.length;
+    return group.stackable ? t().stateNotHeld : "";
+  return group.stackable ? t().stateGroupHeld(have, group.variants.length) : t().stateGroupOwned(have, group.variants.length);
 }
 
 function groupHasTarget(group, target) {
@@ -676,25 +979,22 @@ function paintMeta() {
   if (!library.available) {
     metaEl.textContent = "";
     emptyEl.hidden = false;
-    emptyEl.textContent = library.message || "物品库不可用。";
+    emptyEl.textContent = library.message || t().libUnavailable;
     return;
   }
   const empty = !library.loading && library.groups.length === 0;
   emptyEl.hidden = !empty;
   if (!library.query)
-    emptyEl.textContent = "这个分类里没有物品。";
+    emptyEl.textContent = t().libEmptyKind;
   else if (library.counts && Object.values(library.counts).some((count) => count > 0))
-    emptyEl.textContent = "这个分类里没有与「" + library.query + "」匹配的物品，看看标签上带数字的分类。";
+    emptyEl.textContent = t().libEmptyOtherKind(library.query);
   else
-    emptyEl.textContent = "没有找到与「" + library.query + "」匹配的物品。";
+    emptyEl.textContent = t().libEmptyQuery(library.query);
   if (library.loading && library.groups.length === 0) {
-    metaEl.textContent = "加载中…";
+    metaEl.textContent = t().libLoading;
     return;
   }
-  const merged = library.itemTotal > library.total ? "（含不同品阶和款式共 " + formatNumber(library.itemTotal) + " 条）" : "";
-  const pages = pageCount();
-  const where = pages > 1 ? (merged ? "" : " ") + "· 第 " + library.page + " / " + pages + " 页" : "";
-  metaEl.textContent = "共 " + formatNumber(library.total) + " 件" + merged + where;
+  metaEl.textContent = t().libMeta(library.total, library.itemTotal, library.page, pageCount());
 }
 
 /** 分类标签：没有「全部」（D019）。有搜索词时每个标签后面显示这个分类的命中卡片数，没有命中的标签变淡。 */
@@ -758,7 +1058,7 @@ function renderPager() {
   pagerEl.hidden = !library.available || pages <= 1;
   if (pagerEl.hidden)
     return;
-  pagerEl.append(pagerButton("上一页", library.page - 1, library.page <= 1, "pg-step"));
+  pagerEl.append(pagerButton(t().prevPage, library.page - 1, library.page <= 1, "pg-step"));
   for (const page of pageNumbers(library.page, pages)) {
     if (page == null) {
       pagerEl.append(element("span", "pg-gap", "…"));
@@ -770,8 +1070,8 @@ function renderPager() {
       button.setAttribute("aria-current", "page");
     pagerEl.append(button);
   }
-  pagerEl.append(pagerButton("下一页", library.page + 1, library.page >= pages, "pg-step"));
-  const jump = element("label", "pg-jump", "跳到第");
+  pagerEl.append(pagerButton(t().nextPage, library.page + 1, library.page >= pages, "pg-step"));
+  const jump = element("label", "pg-jump", t().jumpPrefix);
   const input = document.createElement("input");
   input.type = "number";
   input.id = "page-jump";
@@ -785,7 +1085,7 @@ function renderPager() {
     if (Number.isInteger(value))
       goToPage(Math.min(pages, Math.max(1, value))).catch(showError);
   });
-  jump.append(input, document.createTextNode("页"));
+  jump.append(input, document.createTextNode(t().jumpSuffix));
   pagerEl.append(jump);
 }
 
@@ -797,9 +1097,9 @@ function cardFor(group) {
   card.dataset.target = chosen.target;
   card.dataset.targets = group.variants.map((item) => item.target).join(" ");
   const tips = [];
-  if (chosen.statBadges && chosen.statBadges.length > 0) tips.push("【基础常数】\n" + chosen.statBadges.join(" · "));
-  if (chosen.effectDesc) tips.push("【特殊效果】\n" + chosen.effectDesc);
-  if (chosen.description) tips.push("【说明】\n" + chosen.description);
+  if (chosen.statBadges && chosen.statBadges.length > 0) tips.push(t().cardTipStats + "\n" + chosen.statBadges.join(" · "));
+  if (chosen.effectDesc) tips.push(t().cardTipEffect + "\n" + chosen.effectDesc);
+  if (chosen.description) tips.push(t().cardTipDesc + "\n" + chosen.description);
   if (tips.length > 0) card.title = tips.join("\n\n");
   const icon = element("div", "icon");
   icon.dataset.iconKey = chosen.recordName;
@@ -810,7 +1110,7 @@ function cardFor(group) {
   if (tier)
     icon.append(element("span", "tag quality", tier));
   if (group.iconic)
-    icon.append(element("span", "tag iconic", "标志性"));
+    icon.append(element("span", "tag iconic", t().iconicBadge));
   const name = element("h3", "name", group.label);
   name.title = group.label;
   const sub = element("p", "sub", subtitle(group));
@@ -966,14 +1266,14 @@ function openObtain(group, initialIndex) {
     return null;
   const variants = group.variants;
   let index = Number.isInteger(initialIndex) && initialIndex >= 0 && initialIndex < variants.length ? initialIndex : group.defaultIndex || 0;
-  openDialog("获得物品", "");
+  openDialog(t().obtainTitle, "");
   confirmPreview.hidden = false;
 
   const picker = element("div", "variants");
   let select = null;
   const segments = [];
   if (variants.length > 1) {
-    const caption = element("p", "variants-caption", "选择" + (group.variantNoun || "品阶") + "（" + variants.length + "）");
+    const caption = element("p", "variants-caption", t().obtainPickCaption(group.variantNoun, variants.length));
     picker.append(caption);
     if (variants.length <= SEGMENT_LIMIT) {
       const row = element("div", "segmented");
@@ -1012,9 +1312,9 @@ function openObtain(group, initialIndex) {
   const detail = element("div", "variant-detail");
   confirmBody.append(detail);
 
-  const run = element("button", null, "获得");
+  const run = element("button", null, t().obtainBtn);
   run.type = "button";
-  const cancel = element("button", "ghost", "取消");
+  const cancel = element("button", "ghost", t().cancel);
   cancel.type = "button";
   confirmActions.append(cancel, run);
   let busy = false;
@@ -1043,22 +1343,19 @@ function openObtain(group, initialIndex) {
       run.disabled = busy;
       return;
     }
-    const held = item.held || 0;
     const value = quantity();
-    const prefix = item.held != null ? "当前持有 " + formatNumber(held) : "当前未持有，将新增一个堆叠";
-    if (!Number.isSafeInteger(value) || value < 1)
-      after.textContent = prefix + "。请输入至少为 1 的整数。";
-    else if (value > limit)
-      after.textContent = prefix + "。最多还能获得 " + formatNumber(limit) + "。";
-    else
-      after.textContent = prefix + "，获得后为 " + formatNumber(held + value) + "。";
+    if (item.stackable) {
+      after.textContent = t().qtyNote(item.held, value, limit);
+    } else {
+      after.textContent = t().gearQtyNote(value, limit);
+    }
     run.disabled = busy || !(Number.isSafeInteger(value) && value >= 1 && value <= limit);
   }
 
   /** 按选中的条目重画预览（图标、颜色、记录名、持有情况）和数量区。 */
   function paintVariant() {
     const item = current();
-    confirmText.textContent = "将向〈" + slot.name + "〉添加〈" + nameOf(item) + "〉，读档后生效。";
+    confirmText.textContent = t().obtainSummary(slot.name, nameOf(item));
     confirmPreview.className = "preview " + qualityClass(item);
     confirmPreview.replaceChildren();
     const thumb = element("div", "thumb");
@@ -1089,7 +1386,7 @@ function openObtain(group, initialIndex) {
     if (item.effectDesc || item.description) {
       if (item.effectDesc) {
         const effectBox = element("div", "detail-effect");
-        const title = element("span", "effect-title", "★ 特殊效果");
+        const title = element("span", "effect-title", t().effectHeading);
         const text = element("p", "effect-text", item.effectDesc);
         effectBox.append(title, text);
         detailsPanel.append(effectBox);
@@ -1107,11 +1404,12 @@ function openObtain(group, initialIndex) {
     input = null;
     after = null;
     const held = item.held || 0;
-    limit = item.stackable ? Math.max(0, (item.maxQuantity || 0) - held) : 1;
-    if (item.stackable) {
+    const isMultiGear = !item.stackable && item.kind === "mod";
+    limit = item.stackable ? Math.max(0, (item.maxQuantity || 0) - held) : (isMultiGear ? 10 : 1);
+    if (item.stackable || isMultiGear) {
       const box = element("div", "qty");
       const row = element("div", "qty-row");
-      const label = element("label", null, "数量");
+      const label = element("label", null, t().qtyLabel);
       input = document.createElement("input");
       input.type = "number";
       input.id = "obtain-quantity";
@@ -1121,7 +1419,9 @@ function openObtain(group, initialIndex) {
       input.value = limit >= 1 ? "1" : "0";
       label.htmlFor = input.id;
       row.append(label, input);
-      const presets = item.kind === "currency" ? [1000, 10000, 100000, 1000000] : [1, 10, 100, 1000];
+      const presets = item.stackable
+        ? (item.kind === "currency" ? [1000, 10000, 100000, 1000000] : [1, 10, 100, 1000])
+        : [1, 2, 4, 10];
       for (const value of presets) {
         if (value > limit)
           continue;
@@ -1139,7 +1439,7 @@ function openObtain(group, initialIndex) {
       detail.append(box);
       input.addEventListener("input", paintAfter);
     } else if (item.owned) {
-      detail.append(element("p", "dialog-note", "存档里已经有这一件，获得后会再多一件。"));
+      detail.append(element("p", "dialog-note", t().ownedNote));
     }
     paintAfter();
   }
@@ -1149,7 +1449,7 @@ function openObtain(group, initialIndex) {
       return;
     index = position;
     confirmError.hidden = true;
-    run.textContent = "获得";
+    run.textContent = t().obtainBtn;
     paintVariant();
   }
 
@@ -1168,7 +1468,7 @@ function openObtain(group, initialIndex) {
     if (select)
       select.disabled = true;
     segments.forEach((segment) => { segment.disabled = true; });
-    run.textContent = "写入中…";
+    run.textContent = t().obtainWriting;
     confirmError.hidden = true;
     let outcome;
     try {
@@ -1178,9 +1478,9 @@ function openObtain(group, initialIndex) {
       applyObtained(group, item, result);
     } catch (error) {
       outcome = { ok: false, error, target: item.target };
-      confirmError.textContent = "未写入：" + messageOf(error);
+      confirmError.textContent = t().obtainNotWritten(messageOf(error));
       confirmError.hidden = false;
-      run.textContent = "重试";
+      run.textContent = t().obtainRetry;
       busy = false;
       cancel.disabled = false;
       if (select)
@@ -1215,9 +1515,9 @@ function applyObtained(group, item, result) {
     item.held = result.after;
   item.owned = true;
   replaceCard(group);
-  const amount = result.stackable ? " ×" + formatNumber(result.quantity) : "";
+  const amount = result.stackable ? " ×" + formatNumber(result.quantity) : (result.quantity > 1 ? " ×" + result.quantity : "");
   const label = group.variants.length > 1 && item.variantLabel ? group.label + " · " + item.variantLabel : group.label;
-  showToast("已获得 " + label + amount + "，读档后生效");
+  showToast(t().toastObtained(label, amount));
   refreshQuietly().catch(showError);
 }
 
@@ -1304,10 +1604,144 @@ const helpEl = document.querySelector("#help");
 const helpOpenEl = document.querySelector("#help-open");
 const helpCloseEl = document.querySelector("#help-close");
 const helpBodyEl = document.querySelector("#help-body");
-const helpVersionEl = document.querySelector("#help-version");
+let helpVersionEl = document.querySelector("#help-version");
+let currentAppVersion = "";
 const helpTabs = [...document.querySelectorAll("[data-help-tab]")];
 const helpPanes = [...document.querySelectorAll("[data-help-pane]")];
 let helpTab = "start";
+
+const HELP_PANES_HTML = {
+  "zh-cn": {
+    start: document.querySelector('[data-help-pane="start"]').innerHTML,
+    faq: document.querySelector('[data-help-pane="faq"]').innerHTML,
+    about: document.querySelector('[data-help-pane="about"]').innerHTML
+  },
+  "zh-tw": {
+    start: `
+      <ol class="help-steps">
+        <li><strong>設定目錄</strong>：第一次開啟時選擇「存檔目錄」和「遊戲目錄」，兩項都通過後點「開始使用」。以後可點右上角齒輪修改。</li>
+        <li><strong>選擇存檔</strong>：在左側「目前存檔」裡點選要修改的存檔。</li>
+        <li><strong>獲得物品</strong>：在搜尋框輸入物品名，或點分類標籤；在卡片上點「獲得」，在確認框裡選品階或款式（可疊放物品填數量）後確認。</li>
+        <li><strong>回遊戲讀檔</strong>：回到遊戲讀取這個存檔，新物品就在背包裡。</li>
+      </ol>
+      <p class="help-tip">想留後路？先點「加入備份區」，出問題可在「備份區」一鍵還原。</p>
+      <div class="help-author">
+        <span>覺得好用，歡迎關注作者 B 站「魔法苦茶籽」獲取更新。</span>
+        <button class="ghost small" type="button" data-author-open>B 站主頁</button>
+      </div>`,
+    faq: `
+      <dl class="help-faq">
+        <dt>獲得後遊戲裡看不到？</dt>
+        <dd>需要在遊戲裡重新讀取這個存檔。另外，遊戲執行時如果又存到同一個存檔位，會覆蓋掉修改，建議在主選單讀檔前使用。</dd>
+        <dt>開了 Steam / GOG 雲端存檔會有影響嗎？</dt>
+        <dd>修改後啟動遊戲時，如果平台彈出雲端存檔衝突提示，請選擇保留<strong>本機</strong>存檔，否則修改會被雲端的舊存檔覆蓋。不確定時，先把存檔加入備份區。</dd>
+        <dt>物品庫是空的或提示名字表不可用？</dt>
+        <dd>需要安裝官方免費 DLC REDmod（Steam / GOG / Epic 均可獲取），並在設定裡選對遊戲目錄。</dd>
+        <dt>沒買自由幻局能用嗎？</dt>
+        <dd>可以。工具會偵測遊戲目錄：沒有自由幻局時，物品庫只列本體物品，資料片的物品不顯示、也不會生成。</dd>
+        <dt>存檔顯示「不支援」？</dt>
+        <dd>分兩種情況：
+          <ul class="help-list">
+            <li><strong>舊版本的存檔</strong>：在遊戲裡讀取後重新存檔即可。</li>
+            <li><strong>遊戲更新後的新版本存檔</strong>：工具需要適配新版本，暫時不能修改（這是保護存檔的安全設計）。請關注作者 B 站獲取更新。</li>
+          </ul>
+        </dd>
+        <dt>怎麼備份和還原？</dt>
+        <dd>選取存檔後點「加入備份區」；在「備份區」頁籤裡可以查看、還原或刪除備份。獲得物品不會自動備份。</dd>
+        <dt>會不會把存檔改壞？</dt>
+        <dd>每次寫入前都會逐位元組校驗：除了新增或修改的物品，其他內容只要有任何變化就放棄寫入，原存檔保持不變。</dd>
+      </dl>`,
+    about: `
+      <div class="help-about">
+        <h3>遊戲工具 · Cyberpunk 2077 物品庫</h3>
+        <span id="help-version" class="help-version">v</span>
+      </div>
+      <h4>作者</h4>
+      <div class="help-author">
+        <span>作者：<strong>魔法苦茶籽</strong></span>
+        <button class="ghost small" type="button" data-author-open>B 站主頁</button>
+      </div>
+      <p class="help-note">本工具免費。遊戲更新後需要等待工具適配，最新版本與更新請關注作者 B 站動態。</p>
+      <h4>執行環境</h4>
+      <ul id="help-env" class="help-list">
+        <li>Windows 10/11 64 位元</li>
+        <li>Microsoft Edge WebView2 執行階段</li>
+        <li>遊戲 2.31 / 2.5 版本存檔（有沒有自由幻局都可以）</li>
+        <li>官方免費 DLC REDmod</li>
+      </ul>
+      <h4>聲明</h4>
+      <ul class="help-list">
+        <li>本工具只修改存檔檔案，不注入、不修改遊戲處理程序，也不改動遊戲目錄。</li>
+        <li>物品名稱、分類與圖示均在執行時從你本機的遊戲檔案讀取，本工具不附帶任何遊戲素材。</li>
+        <li>非官方工具，與 CD PROJEKT RED 無關。僅供單機遊戲使用。</li>
+        <li>修改存檔有風險，建議重要存檔先加入備份區。</li>
+      </ul>`
+  },
+  "en-us": {
+    start: `
+      <ol class="help-steps">
+        <li><strong>Set Paths</strong>: On first launch, choose your Save Directory and Game Directory, then click Get Started. You can change them anytime via the top-right gear icon.</li>
+        <li><strong>Select Save</strong>: Click a save slot under Saves on the left panel.</li>
+        <li><strong>Get Items</strong>: Search by item name or click a category tab; click an item card, choose tier/style (or quantity for stackables), and click Get.</li>
+        <li><strong>Reload in Game</strong>: Load the modified save in Cyberpunk 2077 to find the new items in your inventory.</li>
+      </ol>
+      <p class="help-tip">Want a safety net? Click "Add Backup" before editing so you can restore with one click anytime.</p>
+      <div class="help-author">
+        <span>Follow author "魔法苦茶籽" on Bilibili for updates.</span>
+        <button class="ghost small" type="button" data-author-open>Bilibili</button>
+      </div>`,
+    faq: `
+      <dl class="help-faq">
+        <dt>Don't see the item in game after adding?</dt>
+        <dd>You must reload the modified save inside the game. Avoid overwriting the same save slot from a running game session before reloading.</dd>
+        <dt>Does Steam / GOG Cloud Save affect edits?</dt>
+        <dd>If a cloud conflict prompt appears when launching the game, choose to keep the <strong>Local Save</strong> so cloud sync doesn't overwrite your changes.</dd>
+        <dt>Item library is empty or says catalog unavailable?</dt>
+        <dd>Make sure the official free DLC <strong>REDmod</strong> is installed (available on Steam / GOG / Epic) and your Game Directory is set properly.</dd>
+        <dt>Can I use it without Phantom Liberty?</dt>
+        <dd>Yes. When Phantom Liberty is not installed, expansion-only items are automatically hidden so you only see base-game items.</dd>
+        <dt>Save slot shows "Unsupported"?</dt>
+        <dd>
+          <ul class="help-list">
+            <li><strong>Older game save</strong>: Load and re-save it once in game (2.31 / 2.5) to upgrade the format.</li>
+            <li><strong>Newer game update</strong>: Wait for a tool update (safety lock to protect your save).</li>
+          </ul>
+        </dd>
+        <dt>Will this corrupt my save file?</dt>
+        <dd>Every write is byte-verified before saving: if anything outside the inventory node changes unexpectedly, the write is aborted and your save remains untouched.</dd>
+      </dl>`,
+    about: `
+      <div class="help-about">
+        <h3>GameTool · Cyberpunk 2077 Item Library</h3>
+        <span id="help-version" class="help-version">v</span>
+      </div>
+      <h4>Author</h4>
+      <div class="help-author">
+        <span>Author: <strong>魔法苦茶籽</strong></span>
+        <button class="ghost small" type="button" data-author-open>Bilibili</button>
+      </div>
+      <p class="help-note">Free standalone save editor. Follow the author's Bilibili page for updates after game patches.</p>
+      <h4>Requirements</h4>
+      <ul id="help-env" class="help-list">
+        <li>Windows 10/11 64-bit</li>
+        <li>Microsoft Edge WebView2 Runtime</li>
+        <li>Cyberpunk 2077 v2.31 / v2.5 save (with or without Phantom Liberty)</li>
+        <li>Official free DLC REDmod</li>
+      </ul>
+      <h4>Disclaimer</h4>
+      <ul class="help-list">
+        <li>Modifies save files only; never injects into the game process or alters game installation files.</li>
+        <li>All item names, descriptions, and icons are read dynamically from your local game installation at runtime.</li>
+        <li>Unofficial tool, not affiliated with CD PROJEKT RED. For single-player use only.</li>
+      </ul>`
+  }
+};
+
+function bindAuthorButtons() {
+  for (const button of document.querySelectorAll("[data-author-open]")) {
+    button.onclick = () => { openAuthorPage(); };
+  }
+}
 
 function showHelpTab(name) {
   helpTab = name;
@@ -1322,8 +1756,15 @@ function showHelpTab(name) {
 }
 
 function applyAppInfo(info) {
-  if (info && info.version)
-    helpVersionEl.textContent = "v" + info.version;
+  if (info && info.version) {
+    currentAppVersion = info.version;
+    if (helpVersionEl)
+      helpVersionEl.textContent = "v" + info.version;
+  }
+  if (info && info.language && I18N[info.language] && info.language !== uiLang) {
+    uiLang = info.language;
+    applyUiLang();
+  }
 }
 
 function openHelp(tab) {
@@ -1357,15 +1798,11 @@ helpEl.addEventListener("click", (event) => {
 for (const tab of helpTabs)
   tab.addEventListener("click", () => showHelpTab(tab.dataset.helpTab));
 
-// D024：「B 站主页」按钮（关于页、快速上手末尾）只发一条不带参数的消息，地址固定在宿主里，由系统浏览器打开。
-const authorButtons = [...document.querySelectorAll("[data-author-open]")];
-
 function openAuthorPage() {
   return call("app.openAuthorPage").catch((error) => showToast(messageOf(error), true));
 }
 
-for (const button of authorButtons)
-  button.addEventListener("click", () => { openAuthorPage(); });
+bindAuthorButtons();
 /** 说明开着时 Tab 只在弹窗内循环，不会跑到后面的按钮上（例如在遮罩下打开外观面板）。 */
 function trapHelpFocus(event) {
   const focusable = [...helpEl.querySelectorAll("button")].filter((node) => !node.disabled && node.offsetParent !== null);
@@ -1452,7 +1889,7 @@ function setupStatusText(entry) {
 function renderSetupRow(kind) {
   const row = setupRows[kind];
   const entry = setup[kind];
-  row.path.textContent = entry.path || "未选择";
+  row.path.textContent = entry.path || t().setupUnset;
   row.path.title = entry.path || "";
   row.path.classList.toggle("unset", !entry.path);
   row.pick.disabled = setup.busy;
@@ -1464,17 +1901,15 @@ function renderSetupRow(kind) {
 
 function renderSetup() {
   const info = setup.info || {};
-  setupRows.saveRoot.hint.textContent = info.saveRootHint ? "常见位置：" + info.saveRootHint : "";
+  setupRows.saveRoot.hint.textContent = info.saveRootHint ? t().setupHintPrefix + info.saveRootHint : "";
   setupRows.gameDir.hint.textContent = info.gameDirHint || "";
   renderSetupRow("saveRoot");
   renderSetupRow("gameDir");
-  setupIntro.textContent = setup.first
-    ? "第一次使用，请先选择存档目录和游戏目录。两项都通过检查后就能开始使用，以后可以点右上角的齿轮修改。"
-    : "修改后点「保存」，存档列表、物品目录和图标会按新路径重新加载。";
-  setupDone.textContent = setup.first ? "开始使用" : "保存";
+  setupIntro.textContent = setup.first ? t().setupIntroFirst : t().setupIntroEdit;
+  setupDone.textContent = setup.first ? t().setupDoneFirst : t().setupDoneSave;
   setupDone.disabled = setup.busy || !setup.saveRoot.ok || !setup.gameDir.ok;
   setupCancel.hidden = setup.first;
-  setupFile.textContent = info.file ? "设置保存在 " + info.file : "";
+  setupFile.textContent = info.file ? t().setupFilePrefix + info.file : "";
 }
 
 function openSetup(info, first) {
@@ -1553,7 +1988,7 @@ async function finishSetup() {
     setup.info = info;
     closeSetup();
     await reloadWithNewPaths();
-    showToast(first ? "设置完成" : "路径已保存，已按新路径重新加载");
+    showToast(first ? t().toastSetupFirst : t().toastSetupSaved);
     // D022：第一次设置完路径，自动弹出一次「快速上手」（已弹出过就不再弹）。
     if (first)
       await autoShowHelp().catch(showError);
@@ -1595,7 +2030,7 @@ function applyWindowState(state) {
     return;
   document.body.classList.toggle("maximized", !!state.maximized);
   document.body.classList.toggle("inactive", state.active === false);
-  const label = state.maximized ? "还原" : "最大化";
+  const label = state.maximized ? t().winRestore : t().winMax;
   winMaxEl.title = label;
   winMaxEl.setAttribute("aria-label", label);
 }
@@ -1621,6 +2056,103 @@ document.addEventListener("gametool", (event) => {
 });
 call("window.state", {}).then(applyWindowState).catch(() => {});
 
+// ---------- 语言切换 ----------
+
+function applyUiLang() {
+  const L = t();
+  titleEl.textContent = gameName + L.titleSuffix;
+  helpOpenEl.textContent = L.helpOpen;
+  document.querySelector("#skin-open").textContent = L.skinOpen;
+  settingsOpenEl.title = L.settingsOpen;
+  settingsOpenEl.setAttribute("aria-label", L.settingsOpen);
+  const winMin = document.querySelector("#win-min");
+  const winClose = document.querySelector("#win-close");
+  winMin.title = L.winMin;
+  winMin.setAttribute("aria-label", L.winMin);
+  winClose.title = L.winClose;
+  winClose.setAttribute("aria-label", L.winClose);
+  const maxLabel = document.body.classList.contains("maximized") ? L.winRestore : L.winMax;
+  winMaxEl.title = maxLabel;
+  winMaxEl.setAttribute("aria-label", maxLabel);
+
+  document.querySelector("#tab-saves").textContent = L.tabSaves;
+  document.querySelector("#tab-backups").textContent = L.tabBackups;
+  backupAddEl.textContent = L.backupAdd;
+  searchEl.placeholder = L.searchPlaceholder;
+  const pageSizeLabel = document.querySelector("#page-size-label");
+  if (pageSizeLabel) pageSizeLabel.textContent = L.pageSizeLabel;
+
+  const skinTitle = document.querySelector("#skin-title");
+  if (skinTitle) skinTitle.textContent = L.skinTitle;
+  const skinDropText = document.querySelector("#skin-drop-text");
+  if (skinDropText) skinDropText.textContent = L.skinDropText;
+  document.querySelector("#skin-clear").textContent = L.skinClear;
+  const skinMaskLabel = document.querySelector("#skin-mask-label");
+  if (skinMaskLabel) skinMaskLabel.textContent = L.skinMask;
+
+  document.querySelector("#setup-title").textContent = L.setupTitle;
+  const saveLabel = document.querySelector("#setup-save-label");
+  if (saveLabel) saveLabel.textContent = L.setupSaveLabel;
+  const gameLabel = document.querySelector("#setup-game-label");
+  if (gameLabel) gameLabel.textContent = L.setupGameLabel;
+  setupRows.saveRoot.pick.textContent = L.setupPickBtn;
+  setupRows.gameDir.pick.textContent = L.setupPickBtn;
+  setupCancel.textContent = L.cancel;
+
+  document.querySelector("#help-title").textContent = L.helpTitle;
+  helpCloseEl.title = L.winClose;
+  helpCloseEl.setAttribute("aria-label", L.winClose);
+  const tabStart = document.querySelector('[data-help-tab="start"]');
+  const tabFaq = document.querySelector('[data-help-tab="faq"]');
+  const tabAbout = document.querySelector('[data-help-tab="about"]');
+  if (tabStart) tabStart.textContent = L.helpTabStart;
+  if (tabFaq) tabFaq.textContent = L.helpTabFaq;
+  if (tabAbout) tabAbout.textContent = L.helpTabAbout;
+
+  const panesHtml = HELP_PANES_HTML[uiLang] || HELP_PANES_HTML["zh-cn"];
+  for (const pane of helpPanes) {
+    const key = pane.dataset.helpPane;
+    if (panesHtml[key])
+      pane.innerHTML = panesHtml[key];
+  }
+  helpVersionEl = document.querySelector("#help-version");
+  if (helpVersionEl && currentAppVersion)
+    helpVersionEl.textContent = "v" + currentAppVersion;
+  bindAuthorButtons();
+
+  for (const btn of document.querySelectorAll("#lang-switch .lang-btn")) {
+    btn.classList.toggle("active", btn.dataset.lang === uiLang);
+  }
+}
+
+async function switchLanguage(lang) {
+  if (!I18N[lang] || lang === uiLang)
+    return;
+  uiLang = lang;
+  applyUiLang();
+  try {
+    await call("app.setLanguage", { language: lang });
+    if (!setupEl.hidden)
+      renderSetup();
+    if (booted) {
+      renderSlots();
+      renderBackups();
+      if (!selected && !selectedBackup)
+        showNoSlot();
+      else if (selectedBackup)
+        await selectBackup(selectedBackup);
+      else if (selected && selected.supported !== false)
+        await loadLibrary(false, false, true);
+    }
+  } catch (error) {
+    showError(error);
+  }
+}
+
+for (const btn of document.querySelectorAll("#lang-switch .lang-btn")) {
+  btn.addEventListener("click", () => { switchLanguage(btn.dataset.lang); });
+}
+
 // ---------- 启动 ----------
 
 async function boot() {
@@ -1629,8 +2161,10 @@ async function boot() {
     gameId = games[0].id;
     gameName = games[0].displayName;
   }
-  titleEl.textContent = gameName + " · 物品库";
-  call("app.info", {}).then(applyAppInfo).catch(() => {});
+  const appInfo = await call("app.info", {}).catch(() => null);
+  if (appInfo)
+    applyAppInfo(appInfo);
+  applyUiLang();
   applyTheme(await call("theme.get", { gameId }));
   applySkin(await call("skin.get", { gameId }));
   const query = new URLSearchParams(location.search);

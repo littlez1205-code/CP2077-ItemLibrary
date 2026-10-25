@@ -519,6 +519,40 @@ public class GearGenerateTests : IDisposable
     }
 
     [Fact]
+    public void Generate_ClothingWithIntrinsicMod_AttachesFabricEnhancer()
+    {
+        var tweaks = """
+            package RTDB
+            Item
+            {
+            }
+
+            Clothing : Item
+            {
+            }
+
+            package Items
+            using RTDB
+            Vest_01 : Clothing
+            {
+            	displayName = "LocKey#1";
+            	itemType = "ItemType.Clo_OuterChest";
+            	tags =
+            	[
+            		"ArmorMod"
+            	];
+            }
+            """;
+        var index = TweakSourceIndex.Parse([("a.tweak", tweaks)]);
+        var parts = index.FindPresetParts("Items.Vest_01");
+        Assert.NotNull(parts);
+        Assert.Equal(2, parts.Count);
+        Assert.Equal("AttachmentSlots.GenericItemRoot", parts[0].Slot);
+        Assert.Equal("AttachmentSlots.OuterChestFabricEnhancer1", parts[1].Slot);
+        Assert.Equal("Items.IntrinsicFabricEnhancer01", parts[1].Item);
+    }
+
+    [Fact]
     public void VerifyOnlyGenerated_RejectsTamperedBodyHeaderAndOtherItemHeader()
     {
         var path = WriteSave("strict", (1, Weapon("Items.Preset_MA70_Default", children: true)), (ItemInserter.StashBagId, Samurai()));

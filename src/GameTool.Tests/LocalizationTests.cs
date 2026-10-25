@@ -393,4 +393,44 @@ public class LocalizationTests
             .ToList();
         Assert.Empty(danglingPercent);
     }
+
+    [Fact]
+    public void Test_MultiLanguage_Catalog_ZhCn_ZhTw_EnUs()
+    {
+        var game = @"D:\steam\steamapps\common\Cyberpunk 2077";
+        if (!Directory.Exists(game)) return;
+        var cn = GameTool.Adapters.Cyberpunk2077.Names.Cp2077ItemNames.ForGame(game, "zh-cn");
+        var tw = GameTool.Adapters.Cyberpunk2077.Names.Cp2077ItemNames.ForGame(game, "zh-tw");
+        var en = GameTool.Adapters.Cyberpunk2077.Names.Cp2077ItemNames.ForGame(game, "en-us");
+        if (!cn.Available || !tw.Available || !en.Available) return;
+
+        Assert.Equal("zh-cn", cn.Language);
+        Assert.Equal("zh-tw", tw.Language);
+        Assert.Equal("en-us", en.Language);
+
+        // 共享同一份图标解析器，切语言零重复解析
+        Assert.Same(cn.Icons, tw.Icons);
+        Assert.Same(cn.Icons, en.Icons);
+
+        var rec = "Items.Preset_Satara_Brick";
+        var itemCn = cn.Gear.First(g => g.RecordName == rec);
+        var itemTw = tw.Gear.First(g => g.RecordName == rec);
+        var itemEn = en.Gear.First(g => g.RecordName == rec);
+
+        Assert.NotEqual(itemCn.Label, itemEn.Label);
+        Assert.Equal("双管霰弹枪", itemCn.TypeLabel);
+        Assert.Equal("雙管霰彈槍", itemTw.TypeLabel);
+        Assert.Equal("Double-Barrel Shotgun", itemEn.TypeLabel);
+
+        Assert.Contains(itemCn.StatBadges!, b => b.StartsWith("技术", StringComparison.Ordinal));
+        Assert.Contains(itemTw.StatBadges!, b => b.StartsWith("科技", StringComparison.Ordinal));
+        Assert.Contains(itemEn.StatBadges!, b => b.StartsWith("Tech", StringComparison.Ordinal));
+
+        var modCn = cn.Gear.First(g => g.RecordName == "Items.RangedMod3_Common");
+        var modTw = tw.Gear.First(g => g.RecordName == "Items.RangedMod3_Common");
+        var modEn = en.Gear.First(g => g.RecordName == "Items.RangedMod3_Common");
+        Assert.Contains("骷髅头", modCn.EffectDesc);
+        Assert.Contains("骷髏頭", modTw.EffectDesc);
+        Assert.Contains("Skull", modEn.EffectDesc);
+    }
 }

@@ -61,10 +61,20 @@ public sealed class LibraryService
 
     private ObtainReport ObtainGear(IGameAdapter adapter, string saveFilePath, GenerateCatalogItem item, long quantity, System.Diagnostics.Stopwatch clock)
     {
-        if (quantity != 1)
+        var isMod = item.Kind == "mod";
+        if (isMod)
+        {
+            if (quantity is < 1 or > 10)
+                throw new PatchRejectedException("模组每次获得 1 到 10 件。");
+        }
+        else if (quantity != 1)
+        {
             throw new PatchRejectedException("装备每次获得 1 件。");
-        var report = GenerateService.Run(adapter, saveFilePath, new GenerateRequest(item.Target, 1), backupFirst: false, _backups, _enable);
-        return new ObtainReport(item.Target, item.Label, false, 1, null, null, false, report.TemplateLabel, clock.ElapsedMilliseconds);
+        }
+
+        var copies = (int)quantity;
+        var report = GenerateService.Run(adapter, saveFilePath, new GenerateRequest(item.Target, copies), backupFirst: false, _backups, _enable);
+        return new ObtainReport(item.Target, item.Label, false, copies, null, null, false, report.TemplateLabel, clock.ElapsedMilliseconds);
     }
 
     private ObtainReport ObtainStack(

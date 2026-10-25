@@ -19,15 +19,24 @@ public sealed class ItemNameCatalog
     private readonly Lazy<GearCatalog?> _gear;
     private readonly Lazy<ItemIconResolver?> _icons;
 
-    private ItemNameCatalog(TweakSourceIndex? index, bool available, long tweakScanMilliseconds, long localizationMilliseconds)
+    private ItemNameCatalog(
+        TweakSourceIndex? index,
+        bool available,
+        long tweakScanMilliseconds,
+        long localizationMilliseconds,
+        string lang = "zh-cn",
+        Lazy<ItemIconResolver?>? sharedIcons = null)
     {
         _index = index;
-        _icons = new Lazy<ItemIconResolver?>(() => _index is null ? null : ItemIconResolver.Build(_index));
-        _gear = new Lazy<GearCatalog?>(() => Available && _index is not null ? GearCatalog.Build(_index, Resolve, IsInternalRecord, HasIcon, ResolveText) : null);
+        Language = GearKinds.NormalizeLang(lang);
+        _icons = sharedIcons ?? new Lazy<ItemIconResolver?>(() => _index is null ? null : ItemIconResolver.Build(_index));
+        _gear = new Lazy<GearCatalog?>(() => Available && _index is not null ? GearCatalog.Build(_index, Resolve, IsInternalRecord, HasIcon, ResolveText, Language) : null);
         Available = available;
         TweakScanMilliseconds = tweakScanMilliseconds;
         LocalizationMilliseconds = localizationMilliseconds;
     }
+
+    public string Language { get; }
 
     public bool Available { get; }
 
@@ -51,34 +60,48 @@ public sealed class ItemNameCatalog
         var scan = System.Diagnostics.Stopwatch.StartNew();
         var index = TweakSourceIndex.TryLoad(tweaks, expansion, out _);
         scan.Stop();
+        return LoadFromIndex(gameDirectory, index, scan.ElapsedMilliseconds, lang, oodle);
+    }
+
+    public static ItemNameCatalog LoadFromIndex(
+        string gameDirectory,
+        TweakSourceIndex? index,
+        long tweakScanMilliseconds,
+        string lang = "zh-cn",
+        IOodleDecompressor? oodle = null,
+        Lazy<ItemIconResolver?>? sharedIcons = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(gameDirectory);
+        var normLang = GearKinds.NormalizeLang(lang);
         if (index is null)
-            return new ItemNameCatalog(null, false, scan.ElapsedMilliseconds, 0);
+            return new ItemNameCatalog(null, false, tweakScanMilliseconds, 0, normLang, sharedIcons);
 
         var localization = System.Diagnostics.Stopwatch.StartNew();
-        var actualLang = ResolveAvailableLang(gameDirectory, lang);
+        var actualLang = ResolveAvailableLang(gameDirectory, normLang);
         var text = LocalizationCatalog.Load(gameDirectory, actualLang, oodle);
         localization.Stop();
-        var catalog = new ItemNameCatalog(index, true, scan.ElapsedMilliseconds, localization.ElapsedMilliseconds);
+        var catalog = new ItemNameCatalog(index, true, tweakScanMilliseconds, localization.ElapsedMilliseconds, normLang, sharedIcons);
         catalog.IndexText(text.Entries);
         return catalog;
     }
 
     private static string ResolveAvailableLang(string gameDirectory, string preferredLang)
     {
-        if (File.Exists(LocalizationCatalog.ArchivePath(gameDirectory, preferredLang, "content")))
-            return preferredLang;
+        var norm = GearKinds.NormalizeLang(preferredLang);
+        if (File.Exists(LocalizationCatalog.ResolveArchivePath(gameDirectory, norm, "content")))
+            return norm;
         foreach (var fallback in new[] { "zh-cn", "zh-tw", "en-us" })
         {
-            if (File.Exists(LocalizationCatalog.ArchivePath(gameDirectory, fallback, "content")))
+            if (File.Exists(LocalizationCatalog.ResolveArchivePath(gameDirectory, fallback, "content")))
                 return fallback;
         }
 
-        return preferredLang;
+        return norm;
     }
 
-    public static ItemNameCatalog FromParts(TweakSourceIndex index, IReadOnlyList<LocEntry> entries)
+    public static ItemNameCatalog FromParts(TweakSourceIndex index, IReadOnlyList<LocEntry> entries, string lang = "zh-cn")
     {
-        var catalog = new ItemNameCatalog(index, true, 0, 0);
+        var catalog = new ItemNameCatalog(index, true, 0, 0, lang);
         catalog.IndexText(entries);
         return catalog;
     }

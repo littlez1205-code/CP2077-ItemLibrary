@@ -83,7 +83,7 @@ header {
   app-region: drag;
 }
 
-header button, header input, header select, header a, header label {
+header button, header input, header select, header a, header label, .lang-switch {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
@@ -170,6 +170,40 @@ body.inactive .caption .cap:not(:hover) { color: var(--faint); }
 body.maximized .edges { display: none; }
 
 .head-actions { display: flex; align-items: center; gap: 8px; }
+
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.04);
+  gap: 2px;
+}
+
+.lang-btn {
+  padding: 4px 8px;
+  min-width: 28px;
+  border: 0;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.lang-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  filter: none;
+}
+
+.lang-btn.active {
+  color: #090d14;
+  background: var(--accent, #5eead4);
+}
 
 .icon-button { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; }
 

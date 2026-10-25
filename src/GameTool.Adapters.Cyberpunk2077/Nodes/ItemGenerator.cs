@@ -163,7 +163,8 @@ public static class ItemGenerator
         var ranged = kind == GearKinds.Ranged;
         var loose = GearKinds.UsesPrefixSource(kind);
         var grenade = kind == GearKinds.Grenade;
-        var preset = ranged || loose ? gear.PresetParts(targetRecord) : null;
+        var clothing = kind == GearKinds.Clothing;
+        var preset = ranged || loose || clothing ? gear.PresetParts(targetRecord) : null;
         RootBuilder rootBuilder = kind switch
         {
             GearKinds.Ranged => (root, _, fresh) => BuildParts(root, preset, fresh),
@@ -172,6 +173,7 @@ public static class ItemGenerator
             GearKinds.Grenade => (root, _, fresh) => BuildPresetTree(root, preset, GearCatalog.GrenadeCoreSlot, fresh),
             GearKinds.ArmCyberware => (root, _, fresh) => BuildPresetTree(root, preset, GearCatalog.CyberwareRootSlot, fresh),
             GearKinds.Quickhack or GearKinds.Mod => (_, header, _) => BuildSelfRoot(header, entry.RootSlot),
+            GearKinds.Clothing => (root, _, fresh) => BuildClothing(root, preset, fresh),
             _ => (root, _, _) => root
         };
         var layout = ItemInserter.Layout.Read(container);
@@ -514,6 +516,25 @@ public static class ItemGenerator
         var children = preset!
             .Skip(1)
             .Select(part => new ItemPart(PartId(part.Item, fresh(), model.ItemId), model.Appearance, TweakDbId.FromName(part.Slot), [], model.Trailer.ToArray()))
+            .ToArray();
+        return new ItemPart(rootId, sourceRoot.Appearance, TweakDbId.FromName(GearCatalog.GenericItemRootSlot), children, sourceRoot.Trailer.ToArray());
+    }
+
+    /// <summary>
+    /// 服装：根是 Items.GenericItemRoot，种子固定为 2。
+    /// 带有固有属性加成的功能性服装（2.0 固有属性服装：如防弹背心、战术头盔、科技眼罩等），
+    /// 挂载预设的内禀插件子配件（新种子）；普通纯外观服装无子配件（91 字节）。
+    /// </summary>
+    private static ItemPart BuildClothing(ItemPart sourceRoot, IReadOnlyList<TweakPresetPart>? preset, Func<uint> fresh)
+    {
+        var model = sourceRoot.Children.FirstOrDefault() ?? sourceRoot;
+        var rootId = new byte[ItemPartTree.ItemIdLength];
+        BinaryPrimitives.WriteUInt64LittleEndian(rootId, TweakDbId.FromName(GearCatalog.GenericItemRoot));
+        BinaryPrimitives.WriteUInt32LittleEndian(rootId.AsSpan(SeedOffset), GenericRootSeed);
+        var children = (preset ?? [])
+            .Skip(1)
+            .Where(part => part.Item.Length > 0)
+            .Select(part => new ItemPart(PartId(part.Item, fresh(), model.ItemId), NoneName, TweakDbId.FromName(part.Slot), [], BlankTrailer()))
             .ToArray();
         return new ItemPart(rootId, sourceRoot.Appearance, TweakDbId.FromName(GearCatalog.GenericItemRootSlot), children, sourceRoot.Trailer.ToArray());
     }

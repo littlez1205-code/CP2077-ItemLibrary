@@ -343,4 +343,21 @@ public class ItemIconResolverTests
         var attributeList = attributes.Split(',', StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(expected, GearCatalog.IsObtainableIconic(record, attributeList, tags.Split(',')));
     }
+
+    [Theory]
+    [InlineData("Items.Q005_Johnny_Shirt", "notQueryable", true)]
+    [InlineData("Items.Q005_Johnny_Glasses", "notQueryable", true)]
+    [InlineData("Items.SQ031_Samurai_Jacket", "notQueryable", true)]
+    [InlineData("Items.SQ030_MaxTac_Chest", "notQueryable", true)]
+    [InlineData("Items.Solo_01_Set_Visor", "notQueryable", true)]
+    [InlineData("Items.Clothing", "notQueryable", false)]
+    [InlineData("Items.Q005_Johnny_Shirt", "notQueryable,Debug", false)]
+    [InlineData("Items.NPC_Johnny_Shirt", "notQueryable", false)]
+    [InlineData("Items.Weak_1_Shirt", "notQueryable", false)]
+    [InlineData("Other.Shirt", "notQueryable", false)]
+    public void ObtainableClothing_Rule(string record, string attributes, bool expected)
+    {
+        var attributeList = attributes.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(expected, GearCatalog.IsObtainableClothing(record, attributeList));
+    }
 }

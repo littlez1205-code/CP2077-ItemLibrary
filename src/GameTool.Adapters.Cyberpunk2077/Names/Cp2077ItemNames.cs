@@ -9,40 +9,73 @@ namespace GameTool.Adapters.Cyberpunk2077.Names;
 /// </summary>
 public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
 {
+    private sealed class GameLangCache(
+        Lazy<(TweakSourceIndex? Index, long ScanMs)>? index,
+        Lazy<ItemIconResolver?>? iconResolver,
+        Lazy<Cp2077ItemIcons>? itemIcons)
+    {
+        public Lazy<(TweakSourceIndex? Index, long ScanMs)>? Index { get; } = index;
+        public Lazy<ItemIconResolver?>? IconResolver { get; } = iconResolver;
+        public Lazy<Cp2077ItemIcons>? ItemIcons { get; } = itemIcons;
+        public Dictionary<string, Lazy<Cp2077ItemNames>> ByLang { get; } = new(StringComparer.Ordinal);
+    }
+
     private static readonly Lock Gate = new();
-    private static string? _sharedKey;
-    private static Lazy<Cp2077ItemNames>? _shared;
+    private static readonly Dictionary<string, GameLangCache> CacheByGame = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly ItemNameCatalog? _catalog;
     private readonly string? _diagnosticReason;
 
     private readonly Lazy<Cp2077ItemIcons> _icons;
 
-    private Cp2077ItemNames(ItemNameCatalog? catalog, string? gameDirectory, string? diagnosticReason = null)
+    private Cp2077ItemNames(ItemNameCatalog? catalog, string? gameDirectory, string? diagnosticReason = null, Lazy<Cp2077ItemIcons>? sharedIcons = null)
     {
         _catalog = catalog;
         _diagnosticReason = diagnosticReason;
         GameDirectory = gameDirectory;
-        _icons = new Lazy<Cp2077ItemIcons>(() => new Cp2077ItemIcons(() => IconResolver, GameDirectory));
+        _icons = sharedIcons ?? new Lazy<Cp2077ItemIcons>(() => new Cp2077ItemIcons(() => IconResolver, GameDirectory));
     }
 
     /// <summary>
-    /// 指定游戏目录的共享实例：同一个目录只加载一次；换目录后丢掉旧实例，下次请求按新目录重新加载。
+    /// 指定游戏目录和语言的共享实例：同一个目录的 tweak 索引和图标缓存只加载一次；切换语言时直接复用索引并按语言缓存；
     /// null 或空表示没有设置游戏目录（名字表不可用）。
     /// </summary>
-    public static Cp2077ItemNames ForGame(string? gameDirectory)
+    public static Cp2077ItemNames ForGame(string? gameDirectory, string? lang = null)
     {
         var key = string.IsNullOrWhiteSpace(gameDirectory) ? null : gameDirectory;
+        var cacheKey = key ?? "";
+        var normLang = GearKinds.NormalizeLang(lang);
         Lazy<Cp2077ItemNames> lazy;
         lock (Gate)
         {
-            if (_shared is null || !string.Equals(_sharedKey, key, StringComparison.OrdinalIgnoreCase))
+            if (!CacheByGame.TryGetValue(cacheKey, out var gameCache))
             {
-                _sharedKey = key;
-                _shared = new Lazy<Cp2077ItemNames>(() => Create(key), LazyThreadSafetyMode.ExecutionAndPublication);
+                if (CacheByGame.Count >= 8)
+                    CacheByGame.Clear();
+                if (key is not null)
+                {
+                    var game = key;
+                    var idxLazy = new Lazy<(TweakSourceIndex? Index, long ScanMs)>(() => LoadIndex(game), LazyThreadSafetyMode.ExecutionAndPublication);
+                    var resolverLazy = new Lazy<ItemIconResolver?>(() => idxLazy.Value.Index is { } idx ? ItemIconResolver.Build(idx) : null, LazyThreadSafetyMode.ExecutionAndPublication);
+                    var iconsLazy = new Lazy<Cp2077ItemIcons>(() => new Cp2077ItemIcons(() => resolverLazy.Value, game), LazyThreadSafetyMode.ExecutionAndPublication);
+                    gameCache = new GameLangCache(idxLazy, resolverLazy, iconsLazy);
+                }
+                else
+                {
+                    gameCache = new GameLangCache(null, null, null);
+                }
+
+                CacheByGame[cacheKey] = gameCache;
             }
 
-            lazy = _shared;
+            if (!gameCache.ByLang.TryGetValue(normLang, out lazy!))
+            {
+                var idxLazy = gameCache.Index;
+                var resolverLazy = gameCache.IconResolver;
+                var iconsLazy = gameCache.ItemIcons;
+                lazy = new Lazy<Cp2077ItemNames>(() => Create(key, normLang, idxLazy, resolverLazy, iconsLazy), LazyThreadSafetyMode.ExecutionAndPublication);
+                gameCache.ByLang[normLang] = lazy;
+            }
         }
 
         return lazy.Value;
@@ -53,6 +86,9 @@ public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
 
     /// <summary>名字表来自的游戏目录（只读）。</summary>
     public string? GameDirectory { get; }
+
+    /// <summary>当前目录使用的语言代码（zh-cn / zh-tw / en-us）。</summary>
+    public string Language => _catalog?.Language ?? "zh-cn";
 
     /// <summary>记录 → UIIcon 解析器；名字表不可用时为 null。</summary>
     public ItemIconResolver? IconResolver => Available ? _catalog!.IconResolver : null;
@@ -97,13 +133,29 @@ public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
 
     public string? ResolveText(string? key) => Available ? _catalog?.ResolveText(key) : null;
 
-    private static Cp2077ItemNames Create(string? game)
+    private static (TweakSourceIndex? Index, long ScanMs) LoadIndex(string game)
+    {
+        var tweaks = Path.Combine(game, "tools", "redmod", "tweaks");
+        var expansion = Cp2077Paths.HasPhantomLiberty(game);
+        var scan = System.Diagnostics.Stopwatch.StartNew();
+        var index = TweakSourceIndex.TryLoad(tweaks, expansion, out _);
+        scan.Stop();
+        return (index, scan.ElapsedMilliseconds);
+    }
+
+    private static Cp2077ItemNames Create(
+        string? game,
+        string lang,
+        Lazy<(TweakSourceIndex? Index, long ScanMs)>? sharedIndex,
+        Lazy<ItemIconResolver?>? sharedResolver,
+        Lazy<Cp2077ItemIcons>? sharedIcons)
     {
         if (string.IsNullOrWhiteSpace(game))
             return new Cp2077ItemNames(null, null);
         try
         {
-            var catalog = ItemNameCatalog.Load(game);
+            var (index, scanMs) = sharedIndex is not null ? sharedIndex.Value : LoadIndex(game);
+            var catalog = ItemNameCatalog.LoadFromIndex(game, index, scanMs, lang, sharedIcons: sharedResolver);
             string? reason = null;
             if (!catalog.Available)
             {
@@ -112,12 +164,12 @@ public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
                     ? "tools\\redmod\\tweaks 文件夹内没有找到 .tweak 数据文件，请确认 REDmod DLC 已完整下载"
                     : null;
             }
-            return new Cp2077ItemNames(catalog, game, reason);
+            return new Cp2077ItemNames(catalog, game, reason, sharedIcons);
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException or DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
         {
             // 名字表只影响显示；读不出来时按不可用处理，复制功能照常，但保留具体诊断原因方便排查。
-            return new Cp2077ItemNames(null, game, ex.Message);
+            return new Cp2077ItemNames(null, game, ex.Message, sharedIcons);
         }
     }
 }

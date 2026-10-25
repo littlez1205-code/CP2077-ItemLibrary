@@ -118,7 +118,7 @@ public class SettingsTests : IDisposable
     [Fact]
     public void AppVersion_IsOneZeroZero_WithoutCommitSuffix()
     {
-        Assert.Equal("1.0.3", AppVersion.Of(typeof(SettingsStore).Assembly));
+        Assert.Equal("1.0.4", AppVersion.Of(typeof(SettingsStore).Assembly));
         Assert.Equal("1.0.0", AppVersion.Clean("1.0.0+0123abcdef"));
         Assert.Equal("1.2.3-beta", AppVersion.Clean(" 1.2.3-beta "));
         Assert.Equal("", AppVersion.Clean(null));
@@ -157,6 +157,39 @@ public class SettingsTests : IDisposable
         Assert.False(Data(memory, "app.info", "").GetProperty("helpShown").GetBoolean());
         Assert.True(Data(memory, "app.markHelpShown", "").GetProperty("helpShown").GetBoolean());
         Assert.True(Data(memory, "app.info", "").GetProperty("helpShown").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Bridge_SetLanguage_PersistsAndUpdatesAdapter()
+    {
+        var file = Path.Combine(_root, "settings-lang.json");
+        var adapter = new Cp2077Adapter(() => Cp2077ItemNames.FromCatalog(null));
+        var registry = new AdapterRegistry();
+        registry.Register(adapter);
+
+        await using (var bridge = new BridgeDispatcher(registry, null, _ => { }, Path.Combine(_root, "b"), Path.Combine(_root, "k"), new SettingsStore(file)))
+        {
+            Assert.Equal("zh-cn", Data(bridge, "app.info", "").GetProperty("language").GetString());
+            Assert.Equal("zh-cn", adapter.Language);
+
+            var tw = Data(bridge, "app.setLanguage", "\"language\":\"zh-tw\"");
+            Assert.Equal("zh-tw", tw.GetProperty("language").GetString());
+            Assert.Equal("zh-tw", adapter.Language);
+
+            var en = Data(bridge, "app.setLanguage", "\"language\":\"en\"");
+            Assert.Equal("en-us", en.GetProperty("language").GetString());
+            Assert.Equal("en-us", adapter.Language);
+        }
+
+        Assert.Equal("en-us", new SettingsStore(file).GetLanguage());
+        var adapter2 = new Cp2077Adapter(() => Cp2077ItemNames.FromCatalog(null));
+        var registry2 = new AdapterRegistry();
+        registry2.Register(adapter2);
+        await using (var reopened = new BridgeDispatcher(registry2, null, _ => { }, Path.Combine(_root, "b"), Path.Combine(_root, "k"), new SettingsStore(file)))
+        {
+            Assert.Equal("en-us", Data(reopened, "app.info", "").GetProperty("language").GetString());
+            Assert.Equal("en-us", adapter2.Language);
+        }
     }
 
     [Fact]
