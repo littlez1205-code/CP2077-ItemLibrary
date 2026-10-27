@@ -147,6 +147,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
                 "generate.run" => GenerateRun(id, parameters),
                 "library.catalog" => LibraryCatalog(id, parameters),
                 "library.obtain" => LibraryObtain(id, parameters),
+                "library.batchObtain" => LibraryBatchObtain(id, parameters),
                 "settings.get" => SettingsGet(id, parameters),
                 "settings.validate" => SettingsValidate(id, parameters),
                 "settings.pickFolder" => SettingsPickFolder(id, parameters),
@@ -597,7 +598,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
 
     /// <summary>
     /// 物品库卡片（T023）：同名合并后按卡片分页，参数同 generate.catalog。
-    /// T024：kindFallback 为 true 时，kind 为空或未知就改用第一个分类（返回的 kind 是实际分类）；有 query 时附带 kindCounts（各分类命中的卡片数）。
+    /// T024：kindFallback 为 true 时，kind 为空或未知就改用第一个分类（返回的 kind 是实际分类）；有 query 或 ownership 时附带 kindCounts。
     /// </summary>
     private string LibraryCatalog(string? id, JsonElement parameters)
     {
@@ -605,6 +606,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var slot = RequireSlot(parameters, adapter);
         var kind = ReadString(parameters, "kind");
         var query = ReadString(parameters, "query");
+        var ownership = ReadString(parameters, "ownership");
         var skip = ReadInt(parameters, "skip", 0);
         var take = ReadInt(parameters, "take", GenerateService.DefaultTake);
         if (skip < 0)
@@ -612,7 +614,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         if (take is < 1 or > GenerateService.MaxTake)
             throw new BridgeArgumentException($"take 必须在 1 到 {GenerateService.MaxTake} 之间。");
         var kindFallback = parameters.TryGetProperty("kindFallback", out var fallback) && fallback.ValueKind == JsonValueKind.True;
-        return Ok(id, adapter.GameId, GenerateService.Groups(adapter, slot, string.IsNullOrEmpty(kind) ? null : kind, query, skip, take, kindFallback));
+        return Ok(id, adapter.GameId, GenerateService.Groups(adapter, slot, string.IsNullOrEmpty(kind) ? null : kind, query, skip, take, kindFallback, ownership));
     }
 
     private string GenerateRun(string? id, JsonElement parameters)
@@ -657,6 +659,37 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var toStash = parameters.TryGetProperty("toStash", out var stashProp) && stashProp.ValueKind is JsonValueKind.True;
 
         return Ok(id, adapter.GameId, _library.Obtain(adapter, slot, target, quantity, toStash));
+    }
+
+    /// <summary>物品库批量「获得」：多件物品一次性写入，支持智能目标位置选择。</summary>
+    private string LibraryBatchObtain(string? id, JsonElement parameters)
+    {
+        var adapter = RequireGame(parameters);
+        var slot = RequireSlot(parameters, adapter);
+        if (!parameters.TryGetProperty("items", out var itemsElem) || itemsElem.ValueKind != JsonValueKind.Array)
+            throw new BridgeArgumentException("缺少 items 列表。");
+
+        var list = new List<BatchItemRequest>();
+        foreach (var elem in itemsElem.EnumerateArray())
+        {
+            var target = ReadString(elem, "target");
+            if (string.IsNullOrWhiteSpace(target))
+                continue;
+            long? qty = null;
+            if (elem.TryGetProperty("quantity", out var q) && q.ValueKind == JsonValueKind.Number && q.TryGetInt64(out var parsedQty))
+                qty = parsedQty;
+            bool? toStash = null;
+            if (elem.TryGetProperty("toStash", out var s) && s.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                toStash = s.GetBoolean();
+            list.Add(new BatchItemRequest(target, qty, toStash));
+        }
+
+        if (list.Count == 0)
+            throw new BridgeArgumentException("未选择任何要添加的物品。");
+
+        var destMode = ReadString(parameters, "destinationMode") ?? "smart";
+        var report = _library.BatchObtain(adapter, slot, list, destMode);
+        return Ok(id, adapter.GameId, report);
     }
 
     // ---------- 路径设置（D020） ----------

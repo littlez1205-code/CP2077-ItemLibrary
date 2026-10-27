@@ -151,9 +151,9 @@ public interface IItemGenerateCapable
 
     /// <summary>
     /// 同名合并后按卡片分页（T023）：卡片里任一条目命中搜索就列出整张卡，计数和分页都按卡片。
-    /// 默认实现把每条目录项当成一张卡。
+    /// ownership 支持 "all"、"unowned"、"owned"。默认实现把每条目录项当成一张卡。
     /// </summary>
-    GenerateGroupPage ListGeneratableGroups(string? kind, string? query, int skip, int take)
+    GenerateGroupPage ListGeneratableGroups(string? kind, string? query, int skip, int take, string? ownership = null)
     {
         var page = ListGeneratable(kind, query, skip, take);
         return new GenerateGroupPage(page.Total, page.Total, page.Items.Select(GenerateCatalogGroup.Single).ToArray());
@@ -163,8 +163,8 @@ public interface IItemGenerateCapable
     /// 每个分类里命中 query 的卡片数（T024，搜索时分类标签上的数字），键是 <see cref="GenerateKinds"/> 里的分类，没有命中的为 0。
     /// 默认实现逐个分类取一页；适配器可以一次遍历目录算出全部计数。
     /// </summary>
-    IReadOnlyDictionary<string, int> CountGeneratableGroups(string? query) =>
-        GenerateKinds.ToDictionary(kind => kind.Id, kind => ListGeneratableGroups(kind.Id, query, 0, 1).Total, StringComparer.Ordinal);
+    IReadOnlyDictionary<string, int> CountGeneratableGroups(string? query, string? ownership = null) =>
+        GenerateKinds.ToDictionary(kind => kind.Id, kind => ListGeneratableGroups(kind.Id, query, 0, 1, ownership).Total, StringComparer.Ordinal);
 
     /// <summary>按目标精确查找目录中的一条（含持有信息），不在目录里返回 null。</summary>
     GenerateCatalogItem? FindGeneratable(string target);

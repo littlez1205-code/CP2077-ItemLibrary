@@ -398,8 +398,9 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     /// <summary>
     /// 同名合并后按卡片分页（T023）。卡片里任一条目命中全部搜索词就列出整张卡（列出全部条目，确认框里可切换），
     /// 默认条目是命中条目里品阶最高的一条；没有搜索词时就是整组的默认条目。
+    /// ownership 支持 "all"、"unowned"、"owned"。
     /// </summary>
-    public GenerateGroupPage ListGeneratableGroups(string? kind, string? query, int skip, int take)
+    public GenerateGroupPage ListGeneratableGroups(string? kind, string? query, int skip, int take, string? ownership = null)
     {
         if (skip < 0)
             throw new InvalidDataException("skip 不能是负数。");
@@ -408,35 +409,61 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         if (!GenerateAvailable)
             return new GenerateGroupPage(0, 0, []);
         var words = SearchWords(query);
+        var owned = ItemInserter.ListNonStacks(_container).Select(slot => slot.Tweak).ToHashSet();
         var matches = new List<(GearGroup Group, int Default)>();
         foreach (var group in Gear!.Groups)
         {
             if (!string.IsNullOrEmpty(kind) && group.Kind != kind)
+                continue;
+            if (!MatchesOwnership(group, owned, ownership))
                 continue;
             var best = MatchGroup(group, words);
             if (best >= 0)
                 matches.Add((group, best));
         }
 
-        var owned = ItemInserter.ListNonStacks(_container).Select(slot => slot.Tweak).ToHashSet();
         var groups = matches.Skip(skip).Take(take).Select(match => ToGroup(match.Group, match.Default, owned)).ToArray();
         return new GenerateGroupPage(matches.Count, matches.Sum(match => match.Group.Variants.Count), groups);
     }
 
-    /// <summary>每个分类里命中 query 的卡片数（T024）：一次遍历合并后的目录，规则与 <see cref="ListGeneratableGroups"/> 相同。</summary>
-    public IReadOnlyDictionary<string, int> CountGeneratableGroups(string? query)
+    /// <summary>每个分类里命中 query 和 ownership 的卡片数（T024）：一次遍历合并后的目录，规则与 <see cref="ListGeneratableGroups"/> 相同。</summary>
+    public IReadOnlyDictionary<string, int> CountGeneratableGroups(string? query, string? ownership = null)
     {
         var counts = GenerateKinds.ToDictionary(kind => kind.Id, _ => 0, StringComparer.Ordinal);
         if (!GenerateAvailable)
             return counts;
         var words = SearchWords(query);
+        var owned = ItemInserter.ListNonStacks(_container).Select(slot => slot.Tweak).ToHashSet();
         foreach (var group in Gear!.Groups)
         {
-            if (counts.TryGetValue(group.Kind, out var count) && MatchGroup(group, words) >= 0)
+            if (counts.TryGetValue(group.Kind, out var count)
+                && MatchesOwnership(group, owned, ownership)
+                && MatchGroup(group, words) >= 0)
+            {
                 counts[group.Kind] = count + 1;
+            }
         }
 
         return counts;
+    }
+
+    private bool IsGroupOwned(GearGroup group, HashSet<ulong> ownedGear)
+    {
+        if (group.Stackable)
+            return group.Variants.Any(v => _stacks.Any(s => s.TweakDbId == v.TweakDbId && s.Quantity > 0));
+        return group.Variants.Any(v => ownedGear.Contains(v.TweakDbId));
+    }
+
+    private bool MatchesOwnership(GearGroup group, HashSet<ulong> ownedGear, string? ownership)
+    {
+        if (string.IsNullOrWhiteSpace(ownership) || ownership.Equals("all", StringComparison.OrdinalIgnoreCase))
+            return true;
+        var isOwned = IsGroupOwned(group, ownedGear);
+        if (ownership.Equals("unowned", StringComparison.OrdinalIgnoreCase))
+            return !isOwned;
+        if (ownership.Equals("owned", StringComparison.OrdinalIgnoreCase))
+            return isOwned;
+        return true;
     }
 
     /// <summary>

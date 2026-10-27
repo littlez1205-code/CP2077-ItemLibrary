@@ -90,19 +90,48 @@
         </label>
         <div id="chips" class="chips"></div>
         <div class="lib-bar">
-          <div id="lib-meta" class="lib-meta"></div>
-          <label class="page-size"><span id="page-size-label">每页</span>
-            <select id="page-size">
-              <option value="15">15</option>
-              <option value="30">30</option>
-              <option value="60">60</option>
-            </select>
-          </label>
+          <div class="ownership-filter" id="ownership-filter" role="radiogroup" aria-label="状态筛选">
+            <button type="button" class="seg-btn active" data-ownership="all" id="ownership-all">全部</button>
+            <button type="button" class="seg-btn" data-ownership="unowned" id="ownership-unowned">未拥有</button>
+            <button type="button" class="seg-btn" data-ownership="owned" id="ownership-owned">已拥有</button>
+          </div>
+          <div class="lib-bar-right">
+            <button id="batch-toggle-btn" class="ghost small batch-toggle-btn" type="button">批量选择</button>
+            <div id="lib-meta" class="lib-meta"></div>
+            <label class="page-size"><span id="page-size-label">每页</span>
+              <select id="page-size">
+                <option value="15">15</option>
+                <option value="30">30</option>
+                <option value="60">60</option>
+              </select>
+            </label>
+          </div>
         </div>
         <div id="results" class="results">
           <div id="grid" class="grid"></div>
           <div id="lib-empty" class="empty" hidden></div>
           <nav id="pager" class="pager" aria-label="翻页" hidden></nav>
+        </div>
+        <div id="batch-bar" class="batch-bar" hidden>
+          <div class="batch-bar-content">
+            <div class="batch-info">
+              <span class="batch-icon">☑</span>
+              <span class="batch-count" id="batch-count">已选 0 项</span>
+            </div>
+            <div class="batch-dest-box">
+              <label id="batch-dest-label" for="batch-dest">存放位置：</label>
+              <select id="batch-dest" class="batch-dest-select">
+                <option value="smart" id="opt-batch-smart">智能推荐（不朽入储藏室）</option>
+                <option value="backpack" id="opt-batch-backpack">全部放入背包</option>
+                <option value="stash" id="opt-batch-stash">全部放入储藏室</option>
+              </select>
+            </div>
+            <div class="batch-actions">
+              <button id="batch-clear-btn" class="ghost small" type="button">清空</button>
+              <button id="batch-submit-btn" class="primary small" type="button">一键获得</button>
+              <button id="batch-cancel-btn" class="ghost small" type="button">退出多选</button>
+            </div>
+          </div>
         </div>
       </div>
       <div id="backup-view" class="backup-view" hidden>
@@ -172,6 +201,13 @@
             <dd>选中存档后点「加入备份区」；在「备份区」页签里可以查看、还原或删除备份。获得物品不会自动备份。</dd>
             <dt>会不会把存档改坏？</dt>
             <dd>每次写入前都会逐字节校验：除了新增或修改的物品，其他内容只要有任何变化就放弃写入，原存档保持不变。</dd>
+            <dt>如何查看已拥有/未拥有的物品？如何多选批量添加？</dt>
+            <dd>
+              <ul class="help-list">
+                <li><strong>状态筛选</strong>：分类栏下方提供「全部 / 未拥有 / 已拥有」切换，点击「未拥有」可直接查看当前存档还未收集的所有装备，分类标签上的数字也会实时同步为未收集数量。</li>
+                <li><strong>批量选择模式</strong>：点击工具栏的「批量选择」按钮进入多选模式，直接点击多张物品卡片进行勾选，在底部浮动操作条中选择存放位置后，点击「一键获得」即可一次性全部注入存档。</li>
+              </ul>
+            </dd>
             <dt>为什么获得不朽武器推荐选「放入储藏室」？升阶到 5++ 的机制是什么？</dt>
             <dd>
               这是由于《赛博朋克 2077》2.0+ 官方脚本的<strong>等级校准机制</strong>（<code>RescaleStashedIconicsToPlayerLevel</code>）：

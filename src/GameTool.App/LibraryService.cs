@@ -18,6 +18,22 @@ public sealed record ObtainReport(
     long ElapsedMilliseconds,
     bool ToStash = false);
 
+public sealed record BatchItemRequest(string Target, long? Quantity = null, bool? ToStash = null);
+
+public sealed record BatchItemResult(
+    string Target,
+    string Label,
+    bool Success,
+    string? Error,
+    ObtainReport? Report);
+
+public sealed record BatchObtainReport(
+    int TotalRequested,
+    int Succeeded,
+    int Failed,
+    IReadOnlyList<BatchItemResult> Results,
+    long ElapsedMilliseconds);
+
 /// <summary>
 /// 物品库（D013）：确认框里点「获得」的唯一入口。
 /// 装备走 <see cref="GenerateService.Run"/>（每次 1 件），堆叠物品走 PatchEngine.Patch 的改数量 / 插入新堆叠路径，
@@ -47,21 +63,97 @@ public sealed class LibraryService
         // 页面消息并发处理；写入串行进行，避免两次获得互相把对方判成「存档已被改写」。
         lock (_writeGate)
         {
-            var clock = System.Diagnostics.Stopwatch.StartNew();
-            if (adapter.Load(saveFilePath) is not IItemGenerateCapable document)
-                throw new PatchRejectedException("这个存档不能获得物品。");
-            if (!document.GenerateAvailable)
-                throw new PatchRejectedException(document.GenerateMessage ?? "物品库不可用。");
-            var item = document.FindGeneratable(target)
-                ?? throw new PatchRejectedException(document.HiddenReason(target) ?? $"物品库里没有 {target}。");
-            if (item.Stackable)
-            {
-                if (toStash)
-                    throw new PatchRejectedException("堆叠物品不支持直接存入储藏箱。");
-                return ObtainStack(adapter, saveFilePath, document, item, quantity ?? 1, clock);
-            }
-            return ObtainGear(adapter, saveFilePath, item, quantity ?? 1, clock, toStash);
+            return ObtainInternal(adapter, saveFilePath, target, quantity, toStash);
         }
+    }
+
+    public BatchObtainReport BatchObtain(
+        IGameAdapter adapter,
+        string saveFilePath,
+        IReadOnlyList<BatchItemRequest> items,
+        string destinationMode = "smart")
+    {
+        ArgumentNullException.ThrowIfNull(adapter);
+        ArgumentException.ThrowIfNullOrWhiteSpace(saveFilePath);
+        if (items is null || items.Count == 0)
+            throw new PatchRejectedException("批量添加列表为空。");
+        if (items.Count > 100)
+            throw new PatchRejectedException("单次批量添加最多支持 100 件物品。");
+
+        lock (_writeGate)
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var results = new List<BatchItemResult>();
+            int succeeded = 0;
+            int failed = 0;
+
+            foreach (var req in items)
+            {
+                if (string.IsNullOrWhiteSpace(req.Target))
+                {
+                    results.Add(new BatchItemResult("", "未知物品", false, "缺少目标。", null));
+                    failed++;
+                    continue;
+                }
+
+                try
+                {
+                    bool toStash = req.ToStash ?? false;
+                    if (req.ToStash is null)
+                    {
+                        if (destinationMode.Equals("stash", StringComparison.OrdinalIgnoreCase))
+                        {
+                            toStash = true;
+                        }
+                        else if (destinationMode.Equals("smart", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (adapter.Load(saveFilePath) is IItemGenerateCapable doc)
+                            {
+                                var item = doc.FindGeneratable(req.Target);
+                                toStash = item != null && !item.Stackable && item.Iconic;
+                            }
+                        }
+                    }
+
+                    // 堆叠物品不支持放储藏室，自动修正为放背包
+                    if (toStash && adapter.Load(saveFilePath) is IItemGenerateCapable checkDoc)
+                    {
+                        var item = checkDoc.FindGeneratable(req.Target);
+                        if (item?.Stackable == true)
+                            toStash = false;
+                    }
+
+                    var report = ObtainInternal(adapter, saveFilePath, req.Target, req.Quantity, toStash);
+                    results.Add(new BatchItemResult(req.Target, report.Label, true, null, report));
+                    succeeded++;
+                }
+                catch (Exception ex)
+                {
+                    results.Add(new BatchItemResult(req.Target, req.Target, false, ex.Message, null));
+                    failed++;
+                }
+            }
+
+            return new BatchObtainReport(items.Count, succeeded, failed, results, clock.ElapsedMilliseconds);
+        }
+    }
+
+    private ObtainReport ObtainInternal(IGameAdapter adapter, string saveFilePath, string target, long? quantity, bool toStash)
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        if (adapter.Load(saveFilePath) is not IItemGenerateCapable document)
+            throw new PatchRejectedException("这个存档不能获得物品。");
+        if (!document.GenerateAvailable)
+            throw new PatchRejectedException(document.GenerateMessage ?? "物品库不可用。");
+        var item = document.FindGeneratable(target)
+            ?? throw new PatchRejectedException(document.HiddenReason(target) ?? $"物品库里没有 {target}。");
+        if (item.Stackable)
+        {
+            if (toStash)
+                throw new PatchRejectedException("堆叠物品不支持直接存入储藏箱。");
+            return ObtainStack(adapter, saveFilePath, document, item, quantity ?? 1, clock);
+        }
+        return ObtainGear(adapter, saveFilePath, item, quantity ?? 1, clock, toStash);
     }
 
     private ObtainReport ObtainGear(IGameAdapter adapter, string saveFilePath, GenerateCatalogItem item, long quantity, System.Diagnostics.Stopwatch clock, bool toStash = false)

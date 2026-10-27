@@ -62,13 +62,14 @@ try {
     Get-ChildItem -LiteralPath $releaseRoot -Filter 'GameTool-CP2077-v*' | ForEach-Object {
         if ($_.PSIsContainer) {
             Get-ChildItem -LiteralPath $_.FullName -File -ErrorAction SilentlyContinue | ForEach-Object {
+                $file = $_
                 try {
-                    Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop
+                    Remove-Item -LiteralPath $file.FullName -Force -ErrorAction Stop
                 }
                 catch {
                     New-Item -ItemType Directory -Force -Path $oldDir | Out-Null
-                    $bak = Join-Path $oldDir ('locked-' + [DateTime]::UtcNow.Ticks + '-' + $_.Name)
-                    Move-Item -LiteralPath $_.FullName -Destination $bak -Force
+                    $bak = Join-Path $oldDir ('locked-' + [DateTime]::UtcNow.Ticks + '-' + $file.Name)
+                    Move-Item -LiteralPath $file.FullName -Destination $bak -Force
                 }
             }
             Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue

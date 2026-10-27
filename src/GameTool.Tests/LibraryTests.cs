@@ -489,6 +489,54 @@ public class LibraryTests : IDisposable
         Assert.Equal(0, listed.RootElement.GetProperty("data").GetArrayLength());
     }
 
+    [Fact]
+    public void Groups_OwnershipFilter_DistinguishesUnownedAndOwned()
+    {
+        var path = Save("ownership-saves");
+        var doc = (Cp2077SaveDocument)_adapter.Load(path);
+
+        // 全部
+        var allPage = doc.ListGeneratableGroups("clothing", null, 0, 50, "all");
+        // 未拥有
+        var unownedPage = doc.ListGeneratableGroups("clothing", null, 0, 50, "unowned");
+        // 已拥有
+        var ownedPage = doc.ListGeneratableGroups("clothing", null, 0, 50, "owned");
+
+        Assert.Equal(allPage.Total, unownedPage.Total + ownedPage.Total);
+        Assert.True(ownedPage.Total >= 1); // 初始背包里有 Jacket_01_basic_01
+
+        var counts = doc.CountGeneratableGroups(null, "unowned");
+        Assert.Equal(unownedPage.Total, counts["clothing"]);
+    }
+
+    [Fact]
+    public async Task BatchObtain_MultipleItems_AndBridgeDispatch_Succeeds()
+    {
+        var saves = Path.Combine(_root, "batch-saves");
+        var path = Save("batch-saves", "ManualSave-1");
+        var registry = new AdapterRegistry();
+        registry.Register(_adapter);
+        await using var bridge = new BridgeDispatcher(registry, saves, _ => { }, Path.Combine(_root, "batch-backups"), Path.Combine(_root, "batch-skins"));
+        var slot = JsonSerializer.Serialize(path);
+
+        var batchPayload = "{\"id\":\"b1\",\"method\":\"library.batchObtain\",\"params\":{\"gameId\":\"cp2077\",\"slot\":" + slot + ",\"destinationMode\":\"smart\",\"items\":[{\"target\":\"Items.Jacket_Twin\"},{\"target\":\"" + Food + "\",\"quantity\":5}]}}";
+        using var resp = JsonDocument.Parse(bridge.Dispatch(batchPayload));
+        Assert.Equal("ok", resp.RootElement.GetProperty("status").GetString());
+        var data = resp.RootElement.GetProperty("data");
+        Assert.Equal(2, data.GetProperty("totalRequested").GetInt32());
+        Assert.Equal(2, data.GetProperty("succeeded").GetInt32());
+        Assert.Equal(0, data.GetProperty("failed").GetInt32());
+
+        // 验证写回后食物数量是 5
+        var doc = (Cp2077SaveDocument)_adapter.Load(path);
+        var food = doc.FindGeneratable(Food);
+        Assert.Equal(5, food!.Held);
+
+        // 验证 Jacket_Twin 现在是已拥有
+        var ownedClothing = doc.ListGeneratableGroups("clothing", "Twin", 0, 10, "owned");
+        Assert.True(ownedClothing.Total >= 1);
+    }
+
     private static JsonDocument Call(BridgeDispatcher bridge, string fields, string slot) =>
         JsonDocument.Parse(bridge.Dispatch("{\"id\":\"o\",\"method\":\"library.obtain\",\"params\":{\"gameId\":\"cp2077\",\"slot\":" + slot + "," + fields + "}}"));
 
