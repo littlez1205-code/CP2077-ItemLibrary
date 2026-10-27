@@ -54,6 +54,7 @@ public static class GenerateService
     /// <summary>
     /// 物品库用的卡片目录：同名合并后按卡片搜索和分页（T023）。参数校验同 <see cref="Catalog"/>。
     /// kindFallback（T024，界面没有「全部」标签）：kind 为空或不在这个存档的分类里时，改用第一个分类，不报错。
+    /// ownership 支持 "all"、"unowned"、"owned"。
     /// </summary>
     public static LibraryCatalogView Groups(
         IGameAdapter adapter,
@@ -62,7 +63,8 @@ public static class GenerateService
         string? query,
         int skip,
         int take,
-        bool kindFallback = false)
+        bool kindFallback = false,
+        string? ownership = null)
     {
         if (skip < 0)
             throw new PatchRejectedException("skip 不能是负数。");
@@ -75,7 +77,8 @@ public static class GenerateService
             throw new PatchRejectedException($"未知分类 {kind}。");
         if (kindFallback && !known)
             kind = kinds.Count > 0 ? kinds[0].Id : null;
-        var page = document.ListGeneratableGroups(string.IsNullOrEmpty(kind) ? null : kind, query, skip, take);
+        var page = document.ListGeneratableGroups(string.IsNullOrEmpty(kind) ? null : kind, query, skip, take, ownership);
+        var showCounts = !string.IsNullOrWhiteSpace(query) || (!string.IsNullOrEmpty(ownership) && !ownership.Equals("all", StringComparison.OrdinalIgnoreCase));
         return new LibraryCatalogView(
             document.GenerateAvailable,
             document.GenerateMessage,
@@ -88,7 +91,7 @@ public static class GenerateService
         {
             IconVersion = (adapter as IItemIconProvider)?.IconVersion,
             Kind = string.IsNullOrEmpty(kind) ? null : kind,
-            KindCounts = string.IsNullOrWhiteSpace(query) ? null : document.CountGeneratableGroups(query),
+            KindCounts = showCounts ? document.CountGeneratableGroups(query, ownership) : null,
             Hidden = document.HiddenKinds,
             HiddenNotice = document.HiddenNotice
         };

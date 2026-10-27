@@ -27,6 +27,15 @@ const confirmBody = document.querySelector("#confirm-body");
 const confirmError = document.querySelector("#confirm-error");
 const confirmActions = document.querySelector("#confirm-actions");
 const toastEl = document.querySelector("#toast");
+const ownershipFilterEl = document.querySelector("#ownership-filter");
+const batchToggleBtn = document.querySelector("#batch-toggle-btn");
+const batchBarEl = document.querySelector("#batch-bar");
+const batchCountEl = document.querySelector("#batch-count");
+const batchDestLabelEl = document.querySelector("#batch-dest-label");
+const batchDestSelect = document.querySelector("#batch-dest");
+const batchSubmitBtn = document.querySelector("#batch-submit-btn");
+const batchClearBtn = document.querySelector("#batch-clear-btn");
+const batchCancelBtn = document.querySelector("#batch-cancel-btn");
 
 let uiLang = "zh-cn";
 
@@ -65,9 +74,13 @@ const I18N = {
     deleteConfirm: "删除",
     searchPlaceholder: "输入物品名，如 阿贾克斯、夹克、传说组件、网络接入仓、配方",
     pageSizeLabel: "每页",
+    ownershipAll: "全部",
+    ownershipUnowned: "未拥有",
+    ownershipOwned: "已拥有",
     stateHeld: (n) => "持有 " + n,
     stateNotHeld: "未持有",
     stateOwned: "已拥有",
+    stateUnowned: "未拥有",
     stateGroupHeld: (h, t) => "持有 " + h + "/" + t,
     stateGroupOwned: (h, t) => "已拥有 " + h + "/" + t,
     variantCount: (len, noun) => {
@@ -116,6 +129,22 @@ const I18N = {
     destIconicTip: "💡 推荐存入储藏室：进游戏后从车后备箱或公寓储藏点取出，可直接触发官方等级校准并升阶至 5++！",
     destIconicBackpackWarn: "⚠️ 注意：直接放入背包的不朽武器受游戏机制限制最高只能升至 5 阶；存入储藏室取出可升至 5++。",
     toastObtained: (label, amount, toStash) => (toStash ? "已存入储藏室：" : "已放入背包：") + label + amount + "，读档后生效",
+    batchToggle: "批量选择",
+    batchToggleActive: "退出多选",
+    batchSelectedCount: (n) => "已选 " + n + " 项",
+    batchDestLabel: "存放位置：",
+    batchDestSmart: "智能推荐（不朽入储藏室）",
+    batchDestBackpack: "全部放入背包",
+    batchDestStash: "全部放入储藏室",
+    batchSubmit: (n) => "一键获得 (" + n + ")",
+    batchClear: "清空",
+    batchCancel: "退出多选",
+    batchTitle: "批量获得物品",
+    batchConfirmSummary: (slotName, count, destText) => "将向〈" + slotName + "〉添加选中的 " + count + " 件物品（" + destText + "），读档后生效：",
+    batchEmptyAlert: "请先勾选要获得的物品。",
+    batchConfirm: (n) => "确定要将选中的 " + n + " 件物品添加到当前存档吗？",
+    batchToastSuccess: (n, ms) => "批量添加成功：共 " + n + " 件物品（耗时 " + ms + "ms）",
+    batchToastPartial: (succ, fail) => "批量添加完成：成功 " + succ + " 件，失败 " + fail + " 件",
     skinTitle: "外观",
     skinDropText: "选择图片，或把图片拖到这里",
     skinClear: "清除背景",
@@ -172,9 +201,13 @@ const I18N = {
     deleteConfirm: "刪除",
     searchPlaceholder: "輸入物品名，如 阿賈克斯、夾克、傳說組件、網路接入倉、配方",
     pageSizeLabel: "每頁",
+    ownershipAll: "全部",
+    ownershipUnowned: "未擁有",
+    ownershipOwned: "已擁有",
     stateHeld: (n) => "持有 " + n,
     stateNotHeld: "未持有",
     stateOwned: "已擁有",
+    stateUnowned: "未擁有",
     stateGroupHeld: (h, t) => "持有 " + h + "/" + t,
     stateGroupOwned: (h, t) => "已擁有 " + h + "/" + t,
     variantCount: (len, noun) => {
@@ -223,6 +256,22 @@ const I18N = {
     destIconicTip: "💡 推薦存入儲藏室：進遊戲後從車後備箱或公寓儲藏點取出，可直接啟動官方等級校準並升階至 5++！",
     destIconicBackpackWarn: "⚠️ 注意：直接放入背包的不朽武器受遊戲機制限制最高只能升至 5 階；存入儲藏室取出可升至 5++。",
     toastObtained: (label, amount, toStash) => (toStash ? "已存入儲藏室：" : "已放入個人背包：") + label + amount + "，讀檔後生效",
+    batchToggle: "批量選擇",
+    batchToggleActive: "退出多選",
+    batchSelectedCount: (n) => "已選 " + n + " 項",
+    batchDestLabel: "存放位置：",
+    batchDestSmart: "智慧推薦（不朽存儲藏箱）",
+    batchDestBackpack: "全部放入背包",
+    batchDestStash: "全部放入儲藏箱",
+    batchSubmit: (n) => "一鍵獲得 (" + n + ")",
+    batchClear: "清空",
+    batchCancel: "退出多選",
+    batchTitle: "批量獲得物品",
+    batchConfirmSummary: (slotName, count, destText) => "將向〈" + slotName + "〉添加選中的 " + count + " 件物品（" + destText + "），讀檔後生效：",
+    batchEmptyAlert: "請先勾選要獲得的物品。",
+    batchConfirm: (n) => "確定要將選中的 " + n + " 件物品添加到存檔嗎？",
+    batchToastSuccess: (n, ms) => "批量獲得成功：共 " + n + " 件物品（耗時 " + ms + "ms）",
+    batchToastPartial: (succ, fail) => "批量添加完成：成功 " + succ + " 件，失敗 " + fail + " 件",
     skinTitle: "外觀",
     skinDropText: "選擇圖片，或把圖片拖到這裡",
     skinClear: "清除背景",
@@ -279,9 +328,13 @@ const I18N = {
     deleteConfirm: "Delete",
     searchPlaceholder: "Search items, e.g. Ajax, Jacket, Legendary, Cyberdeck, Recipe",
     pageSizeLabel: "Per page",
+    ownershipAll: "All",
+    ownershipUnowned: "Unowned",
+    ownershipOwned: "Owned",
     stateHeld: (n) => "Held " + n,
     stateNotHeld: "Not held",
     stateOwned: "Owned",
+    stateUnowned: "Unowned",
     stateGroupHeld: (h, t) => "Held " + h + "/" + t,
     stateGroupOwned: (h, t) => "Owned " + h + "/" + t,
     variantCount: (len, noun) => {
@@ -330,6 +383,22 @@ const I18N = {
     destIconicTip: "💡 Recommended to store in Stash: retrieving it from vehicle trunk or apartment stash triggers game level-scaling up to Tier 5++!",
     destIconicBackpackWarn: "⚠️ Note: Iconic weapons placed directly in backpack cannot upgrade past Tier 5 due to game mechanics; storing in Stash allows upgrading to Tier 5++.",
     toastObtained: (label, amount, toStash) => (toStash ? "Stored in Stash: " : "Added to backpack: ") + label + amount + "; reload save in game",
+    batchToggle: "Batch Select",
+    batchToggleActive: "Exit Batch",
+    batchSelectedCount: (n) => n + " selected",
+    batchDestLabel: "Destination:",
+    batchDestSmart: "Smart (Iconics to Stash)",
+    batchDestBackpack: "All to Backpack",
+    batchDestStash: "All to Stash",
+    batchSubmit: (n) => "Obtain (" + n + ")",
+    batchClear: "Clear",
+    batchCancel: "Exit",
+    batchTitle: "Batch Obtain",
+    batchConfirmSummary: (slotName, count, destText) => "Add " + count + " selected items to 〈" + slotName + "〉 (" + destText + "); reload save to apply:",
+    batchEmptyAlert: "Please select at least one item.",
+    batchConfirm: (n) => "Add " + n + " selected items to save?",
+    batchToastSuccess: (n, ms) => "Batch obtained " + n + " items (" + ms + "ms)",
+    batchToastPartial: (succ, fail) => "Batch complete: " + succ + " succeeded, " + fail + " failed",
     skinTitle: "Theme",
     skinDropText: "Choose an image or drag it here",
     skinClear: "Clear Background",
@@ -390,6 +459,9 @@ const collapsed = new Set(["auto"]);
 const library = {
   kind: "",
   query: "",
+  ownership: "all",
+  batchMode: false,
+  selected: new Map(),
   page: 1,
   size: readPageSize(),
   groups: [],
@@ -696,6 +768,8 @@ function showNoSlot() {
   libraryEl.hidden = true;
   backupViewEl.hidden = true;
   backupAddEl.hidden = true;
+  library.selected.clear();
+  toggleBatchMode(false);
 }
 
 async function selectSlot(slot) {
@@ -718,6 +792,8 @@ async function selectSlot(slot) {
   if (changed) {
     // 换了存档：先清掉上一个存档的卡片，回到第 1 页；同一个存档（如恢复备份后刷新）保留页码。
     library.groups = [];
+    library.selected.clear();
+    toggleBatchMode(false);
     gridEl.replaceChildren();
     pagerEl.hidden = true;
   }
@@ -867,7 +943,7 @@ function qualityText(item) {
 function stateOf(item) {
   if (item.stackable)
     return item.held != null ? t().stateHeld(formatNumber(item.held)) : t().stateNotHeld;
-  return item.owned ? t().stateOwned : "";
+  return item.owned ? t().stateOwned : t().stateUnowned;
 }
 
 function defaultVariant(group) {
@@ -884,7 +960,7 @@ function groupState(group) {
     return stateOf(group.variants[0]);
   const have = group.variants.filter((item) => (item.stackable ? item.held != null : item.owned)).length;
   if (have === 0)
-    return group.stackable ? t().stateNotHeld : "";
+    return group.stackable ? t().stateNotHeld : t().stateUnowned;
   return group.stackable ? t().stateGroupHeld(have, group.variants.length) : t().stateGroupOwned(have, group.variants.length);
 }
 
@@ -944,6 +1020,7 @@ async function loadLibrary(reset, autoKind, keepScroll) {
       kind: library.kind || null,
       kindFallback: true,
       query: library.query || null,
+      ownership: library.ownership,
       skip: (library.page - 1) * library.size,
       take: library.size
     });
@@ -977,6 +1054,7 @@ async function loadLibrary(reset, autoKind, keepScroll) {
   const scrollTop = keepScroll ? resultsEl.scrollTop : 0;
   gridEl.replaceChildren(...page.groups.map((group) => cardFor(group)));
   resultsEl.scrollTop = scrollTop;
+  updateBatchUI();
   renderChips();
   renderPager();
   paintMeta();
@@ -1111,6 +1189,12 @@ function cardFor(group) {
   card.dataset.key = group.key;
   card.dataset.target = chosen.target;
   card.dataset.targets = group.variants.map((item) => item.target).join(" ");
+  if (library.batchMode) card.classList.add("batch-mode");
+  if (library.selected.has(group.key)) card.classList.add("batch-selected");
+
+  const check = element("div", "card-check", "✓");
+  card.append(check);
+
   const tips = [];
   if (chosen.statBadges && chosen.statBadges.length > 0) tips.push(t().cardTipStats + "\n" + chosen.statBadges.join(" · "));
   if (chosen.effectDesc) tips.push(t().cardTipEffect + "\n" + chosen.effectDesc);
@@ -1146,14 +1230,26 @@ function cardFor(group) {
   }
   const foot = element("div", "foot");
   const heldAny = group.variants.some((item) => item.held != null);
-  const state = element("span", "state" + (heldAny ? " held" : ""), groupState(group));
+  const ownedAny = group.variants.some((item) => item.owned);
+  const isOwnedOrHeld = heldAny || ownedAny;
+  const state = element("span", "state" + (isOwnedOrHeld ? " held owned" : " unowned"), groupState(group));
   foot.append(state);
   card.setAttribute("role", "button");
   card.setAttribute("tabindex", "0");
-  card.addEventListener("click", () => openObtain(group));
+  card.addEventListener("click", () => {
+    if (library.batchMode) {
+      toggleBatchSelection(group);
+      return;
+    }
+    openObtain(group);
+  });
   card.addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
+      if (library.batchMode) {
+        toggleBatchSelection(group);
+        return;
+      }
       openObtain(group);
     }
   });
@@ -1162,6 +1258,137 @@ function cardFor(group) {
   else
     card.append(icon, name, sub, rec, foot);
   return card;
+}
+
+function toggleBatchMode(enable) {
+  library.batchMode = enable !== undefined ? enable : !library.batchMode;
+  if (!library.batchMode) {
+    library.selected.clear();
+  }
+  updateBatchUI();
+}
+
+function toggleBatchSelection(group) {
+  const chosen = defaultVariant(group);
+  if (library.selected.has(group.key)) {
+    library.selected.delete(group.key);
+  } else {
+    library.selected.set(group.key, {
+      groupKey: group.key,
+      target: chosen.target,
+      label: group.label,
+      iconic: group.iconic,
+      stackable: group.stackable,
+      quantity: group.stackable ? (group.kind === "consumable" ? 10 : 100) : 1
+    });
+  }
+  updateBatchUI();
+}
+
+function updateBatchUI() {
+  if (batchToggleBtn) {
+    batchToggleBtn.classList.toggle("active", library.batchMode);
+    batchToggleBtn.textContent = library.batchMode ? t().batchToggleActive : t().batchToggle;
+  }
+  if (resultsEl) {
+    resultsEl.classList.toggle("batch-active", library.batchMode);
+  }
+  if (batchBarEl) {
+    batchBarEl.hidden = !library.batchMode;
+  }
+  if (batchCountEl) {
+    batchCountEl.textContent = t().batchSelectedCount(library.selected.size);
+  }
+  if (batchSubmitBtn) {
+    batchSubmitBtn.textContent = t().batchSubmit(library.selected.size);
+    batchSubmitBtn.disabled = library.selected.size === 0;
+  }
+  for (const card of gridEl.querySelectorAll(".item")) {
+    const key = card.dataset.key;
+    const isSel = library.selected.has(key);
+    card.classList.toggle("batch-mode", library.batchMode);
+    card.classList.toggle("batch-selected", isSel);
+  }
+}
+
+function openBatchConfirmDialog() {
+  if (library.selected.size === 0) {
+    showToast(t().batchEmptyAlert, true);
+    return;
+  }
+  const slot = selected;
+  if (!slot)
+    return;
+  const count = library.selected.size;
+  const destMode = batchDestSelect ? batchDestSelect.value : "smart";
+  let destText = t().batchDestSmart;
+  if (destMode === "backpack") destText = t().batchDestBackpack;
+  else if (destMode === "stash") destText = t().batchDestStash;
+
+  openDialog(t().batchTitle, t().batchConfirmSummary(slot.name, count, destText));
+  confirmPreview.hidden = true;
+
+  const listContainer = element("div", "batch-preview-list");
+  for (const item of library.selected.values()) {
+    const row = element("div", "batch-preview-row");
+    const name = element("span", "batch-preview-name", item.label);
+    const qty = element("span", "batch-preview-qty", item.stackable ? "×" + item.quantity : "×1");
+    row.append(name, qty);
+    listContainer.append(row);
+  }
+  confirmBody.append(listContainer);
+
+  const cancel = element("button", "ghost", t().cancel);
+  cancel.type = "button";
+  cancel.addEventListener("click", () => closeDialog());
+
+  const run = element("button", "primary", t().batchSubmit(count));
+  run.type = "button";
+
+  let busy = false;
+  run.addEventListener("click", async () => {
+    if (busy) return;
+    busy = true;
+    run.disabled = true;
+    cancel.disabled = true;
+    run.textContent = t().obtainWriting;
+    confirmError.hidden = true;
+
+    const items = Array.from(library.selected.values()).map((item) => ({
+      target: item.target,
+      quantity: item.stackable ? item.quantity : 1,
+      toStash: null
+    }));
+
+    try {
+      const res = await call("library.batchObtain", {
+        gameId,
+        slot: slot.slot,
+        items,
+        destinationMode: destMode
+      });
+      closeDialog();
+      if (res.succeeded === res.totalRequested) {
+        showToast(t().batchToastSuccess(res.succeeded, res.elapsedMilliseconds));
+      } else {
+        showToast(t().batchToastPartial(res.succeeded, res.failed));
+      }
+      library.selected.clear();
+      toggleBatchMode(false);
+      await refreshQuietly();
+      await loadLibrary(false, false, true);
+    } catch (err) {
+      confirmError.textContent = t().obtainNotWritten(messageOf(err));
+      confirmError.hidden = false;
+      run.disabled = false;
+      cancel.disabled = false;
+      run.textContent = t().obtainRetry;
+      busy = false;
+    }
+  });
+
+  confirmActions.append(cancel, run);
+  bindKeys(run, () => closeDialog());
 }
 
 function cardOf(target) {
@@ -1197,6 +1424,36 @@ pageSizeEl.addEventListener("change", () => {
   savePageSize(value);
   loadLibrary(true, false).catch(showError);
 });
+
+if (batchToggleBtn) {
+  batchToggleBtn.addEventListener("click", () => toggleBatchMode());
+}
+if (batchClearBtn) {
+  batchClearBtn.addEventListener("click", () => {
+    library.selected.clear();
+    updateBatchUI();
+  });
+}
+if (batchCancelBtn) {
+  batchCancelBtn.addEventListener("click", () => toggleBatchMode(false));
+}
+if (batchSubmitBtn) {
+  batchSubmitBtn.addEventListener("click", () => openBatchConfirmDialog());
+}
+
+if (ownershipFilterEl) {
+  for (const btn of ownershipFilterEl.querySelectorAll(".seg-btn")) {
+    btn.addEventListener("click", () => {
+      const mode = btn.dataset.ownership || "all";
+      if (library.ownership === mode) return;
+      library.ownership = mode;
+      for (const b of ownershipFilterEl.querySelectorAll(".seg-btn")) {
+        b.classList.toggle("active", b === btn);
+      }
+      loadLibrary(true, false).catch(showError);
+    });
+  }
+}
 
 // ---------- 确认框 ----------
 
@@ -1716,6 +1973,13 @@ const HELP_PANES_HTML = {
         </dd>
         <dt>會不會把存檔改壞？</dt>
         <dd>每次寫入前都會逐位元組校驗：除了新增或修改的物品，其他內容只要有任何變化就放棄寫入，原存檔保持不變。</dd>
+        <dt>如何查看已擁有/未擁有的物品？如何多選批量添加？</dt>
+        <dd>
+          <ul class="help-list">
+            <li><strong>狀態篩選</strong>：分類列下方提供「全部 / 未擁有 / 已擁有」切換，點擊「未擁有」可直接查看目前存檔尚未收集的所有裝備，分類標籤上的數字也會即時同步為未收集數量。</li>
+            <li><strong>批量選擇模式</strong>：點擊工具列的「批量選擇」按鈕進入多選模式，直接點選多張物品卡片進行勾選，在底部浮動操作列中選擇存放位置後，點擊「一鍵獲得」即可一次性全部注入存檔。</li>
+          </ul>
+        </dd>
       </dl>`,
     about: `
       <div class="help-about">
@@ -1784,6 +2048,13 @@ const HELP_PANES_HTML = {
         </dd>
         <dt>Will this corrupt my save file?</dt>
         <dd>Every write is byte-verified before saving: if anything outside the inventory node changes unexpectedly, the write is aborted and your save remains untouched.</dd>
+        <dt>How do I view owned / unowned items? How do I batch add multiple items?</dt>
+        <dd>
+          <ul class="help-list">
+            <li><strong>Ownership Filter</strong>: Switch between "All / Unowned / Owned" below the category bar. Clicking "Unowned" displays all equipment not yet collected in this save, and category counts will dynamically show uncollected amounts.</li>
+            <li><strong>Batch Mode</strong>: Click "Batch Select" in the toolbar to enter multi-select mode. Click multiple item cards to check them, configure destination in the floating bottom bar, and click "Obtain All" to inject them in a single batch.</li>
+          </ul>
+        </dd>
       </dl>`,
     about: `
       <div class="help-about">
@@ -2156,6 +2427,25 @@ function applyUiLang() {
   searchEl.placeholder = L.searchPlaceholder;
   const pageSizeLabel = document.querySelector("#page-size-label");
   if (pageSizeLabel) pageSizeLabel.textContent = L.pageSizeLabel;
+
+  const ownAll = document.querySelector("#ownership-all");
+  const ownUnowned = document.querySelector("#ownership-unowned");
+  const ownOwned = document.querySelector("#ownership-owned");
+  if (ownAll) ownAll.textContent = L.ownershipAll;
+  if (ownUnowned) ownUnowned.textContent = L.ownershipUnowned;
+  if (ownOwned) ownOwned.textContent = L.ownershipOwned;
+  if (batchToggleBtn) batchToggleBtn.textContent = library.batchMode ? L.batchToggleActive : L.batchToggle;
+  if (batchDestLabelEl) batchDestLabelEl.textContent = L.batchDestLabel;
+  const optSmart = document.querySelector("#opt-batch-smart");
+  const optBackpack = document.querySelector("#opt-batch-backpack");
+  const optStash = document.querySelector("#opt-batch-stash");
+  if (optSmart) optSmart.textContent = L.batchDestSmart;
+  if (optBackpack) optBackpack.textContent = L.batchDestBackpack;
+  if (optStash) optStash.textContent = L.batchDestStash;
+  if (batchClearBtn) batchClearBtn.textContent = L.batchClear;
+  if (batchCancelBtn) batchCancelBtn.textContent = L.batchCancel;
+  if (batchSubmitBtn) batchSubmitBtn.textContent = L.batchSubmit(library.selected.size);
+  if (batchCountEl) batchCountEl.textContent = L.batchSelectedCount(library.selected.size);
 
   const skinTitle = document.querySelector("#skin-title");
   if (skinTitle) skinTitle.textContent = L.skinTitle;
