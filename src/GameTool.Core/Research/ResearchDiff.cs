@@ -134,10 +134,10 @@ public static class ResearchDiff
         return new RegionChange("resized", left.Name, left.Index, right.Index, left.Length, right.Length, first, []);
     }
 
-    private static bool IndexShiftOnly(byte[] left, byte[] right) =>
+    private static bool IndexShiftOnly(ReadOnlySpan<byte> left, ReadOnlySpan<byte> right) =>
         left.Length > 4
-        && !left.AsSpan(0, 4).SequenceEqual(right.AsSpan(0, 4))
-        && left.AsSpan(4).SequenceEqual(right.AsSpan(4));
+        && !left[..4].SequenceEqual(right[..4])
+        && left[4..].SequenceEqual(right[4..]);
 
     private static List<DiffSpan> Spans(byte[] left, byte[] right)
     {
@@ -167,28 +167,36 @@ public static class ResearchDiff
         return spans;
     }
 
-    private static byte[] Slice(byte[] payload, ResearchRegion region)
+    private static byte[] Slice(byte[] payload, ResearchRegion region) => View(payload, region).ToArray();
+
+    private static ReadOnlySpan<byte> View(byte[] payload, ResearchRegion region)
     {
         if (region.Offset < 0 || region.Length < 0 || region.Offset > payload.Length || region.Length > payload.Length - region.Offset)
             throw new InvalidDataException($"区域 {region.Name} 超出解压数据。");
-        return payload.AsSpan(region.Offset, region.Length).ToArray();
+        return payload.AsSpan(region.Offset, region.Length);
     }
 
+    /// <summary>
+    /// 按名字对齐两边的节点（加权最长公共子序列：先比匹配数，再比内容相似度）。
+    /// 节点多时是 O(左×右)：只保留动态规划的上一行和当前行，回溯用的选择表单独保存；
+    /// 比较内容直接比原数据，不复制（原来每比较一对都要各复制一份字节）。结果与逐格保存整张表完全相同。
+    /// </summary>
     private static List<(int Left, int Right)> Align(
         byte[] leftPayload,
         IReadOnlyList<ResearchRegion> left,
         byte[] rightPayload,
         IReadOnlyList<ResearchRegion> right)
     {
-        var cells = new Cell[left.Count + 1, right.Count + 1];
+        var previous = new Cell[right.Count + 1];
+        var current = new Cell[right.Count + 1];
         var choice = new byte[left.Count + 1, right.Count + 1];
         for (var i = 1; i <= left.Count; i++)
         {
             for (var j = 1; j <= right.Count; j++)
             {
-                var best = cells[i - 1, j];
+                var best = previous[j];
                 var from = (byte)1;
-                var other = cells[i, j - 1];
+                var other = current[j - 1];
                 if (Better(other, best))
                 {
                     best = other;
@@ -197,7 +205,7 @@ public static class ResearchDiff
 
                 if (left[i - 1].Name == right[j - 1].Name)
                 {
-                    var diagonal = cells[i - 1, j - 1];
+                    var diagonal = previous[j - 1];
                     var matched = new Cell(diagonal.Matches + 1, diagonal.Quality + Quality(leftPayload, left[i - 1], rightPayload, right[j - 1]));
                     if (Better(matched, best) || (matched.Matches == best.Matches && matched.Quality == best.Quality))
                     {
@@ -206,9 +214,11 @@ public static class ResearchDiff
                     }
                 }
 
-                cells[i, j] = best;
+                current[j] = best;
                 choice[i, j] = from;
             }
+
+            (previous, current) = (current, previous);
         }
 
         var pairs = new List<(int, int)>();
@@ -243,12 +253,12 @@ public static class ResearchDiff
 
     private static int Quality(byte[] leftPayload, ResearchRegion left, byte[] rightPayload, ResearchRegion right)
     {
-        var leftBytes = Slice(leftPayload, left);
-        var rightBytes = Slice(rightPayload, right);
-        if (leftBytes.Length == rightBytes.Length && leftBytes.AsSpan().SequenceEqual(rightBytes))
+        var leftBytes = View(leftPayload, left);
+        var rightBytes = View(rightPayload, right);
+        if (leftBytes.Length != rightBytes.Length)
+            return 0;
+        if (leftBytes.SequenceEqual(rightBytes))
             return 2;
-        if (leftBytes.Length == rightBytes.Length && IndexShiftOnly(leftBytes, rightBytes))
-            return 1;
-        return 0;
+        return IndexShiftOnly(leftBytes, rightBytes) ? 1 : 0;
     }
 }
