@@ -1,3 +1,4 @@
+using GameTool.Core;
 namespace GameTool.Adapters.Cyberpunk2077.Textures;
 
 /// <summary>
@@ -100,7 +101,7 @@ public static class Bc7
     public static void DecodeBlock(ReadOnlySpan<byte> block, Span<byte> destination, int stride)
     {
         if (block.Length < 16)
-            throw new ArgumentException("BC7 块必须是 16 字节。", nameof(block));
+            throw new ArgumentException(UiText.T("BC7 块必须是 16 字节。", "BC7 塊必須是 16 位元組。", "A BC7 block must be 16 bytes."), nameof(block));
         var bits = new BitReader(block);
         var modeIndex = 0;
         while (modeIndex < 8 && bits.Read(1) == 0)

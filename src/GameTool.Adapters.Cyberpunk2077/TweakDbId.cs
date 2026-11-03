@@ -1,3 +1,4 @@
+using GameTool.Core;
 using System.Text;
 
 namespace GameTool.Adapters.Cyberpunk2077;
@@ -19,7 +20,7 @@ public static class TweakDbId
     {
         const string prefix = "tdb:";
         if (string.IsNullOrEmpty(locator) || !locator.StartsWith(prefix, StringComparison.Ordinal) || locator.Length == prefix.Length)
-            throw new InvalidDataException($"locator 必须是非空的 tdb: 名字，实际为 {locator}。");
+            throw new InvalidDataException(UiText.T($"locator 必须是非空的 tdb: 名字，实际为 {locator}。", $"locator 必須是非空的 tdb: 名字，實際為 {locator}。", $"A locator must be a non-empty tdb: name, but was {locator}."));
         return FromName(locator[prefix.Length..]);
     }
 

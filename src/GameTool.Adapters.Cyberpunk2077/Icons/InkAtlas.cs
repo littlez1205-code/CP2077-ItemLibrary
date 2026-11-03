@@ -1,3 +1,4 @@
+using GameTool.Core;
 using GameTool.Adapters.Cyberpunk2077.Resources;
 
 namespace GameTool.Adapters.Cyberpunk2077.Icons;
@@ -22,7 +23,7 @@ public sealed class InkAtlas
     {
         ArgumentNullException.ThrowIfNull(file);
         if (file.ExportCount == 0)
-            throw new InvalidDataException("图集没有导出对象。");
+            throw new InvalidDataException(UiText.T("图集没有导出对象。", "圖集沒有匯出物件。", "The atlas has no export."));
         var root = file.ReadExport(0);
         var slots = new List<AtlasSlot>();
         foreach (var item in root.GetArray("slots"))

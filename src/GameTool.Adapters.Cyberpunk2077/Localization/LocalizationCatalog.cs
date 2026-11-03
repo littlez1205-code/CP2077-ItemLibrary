@@ -1,3 +1,4 @@
+using GameTool.Core;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -70,7 +71,7 @@ public static partial class LocalizationCatalog
         var contentPath = ResolveArchivePath(gameDirectory, lang, "content");
         var expansionPath = ResolveArchivePath(gameDirectory, lang, "ep1");
         if (!File.Exists(contentPath))
-            throw new InvalidDataException($"找不到本地化归档：{contentPath}");
+            throw new InvalidDataException(UiText.T($"找不到本地化归档：{contentPath}", $"找不到本地化歸檔：{contentPath}", $"Localization archive not found: {contentPath}"));
         oodle ??= OodleNativeDecompressor.Load(OodlePath(gameDirectory));
         var baseEntries = ReadOnscreens(RdarArchive.Open(contentPath), lang, oodle);
         // 往日之影的文本包可选（D023）：没买资料片的玩家没有 archive\pc\ep1，只用本体文本，Ep1Count 为 0。
@@ -121,7 +122,7 @@ public static partial class LocalizationCatalog
         }
 
         if (entries.Count == 0)
-            throw new InvalidDataException($"归档里没有 {lang} 的 onscreens。");
+            throw new InvalidDataException(UiText.T($"归档里没有 {lang} 的 onscreens。", $"歸檔裡沒有 {lang} 的 onscreens。", $"The archive has no onscreens for {lang}."));
         return entries;
     }
 
@@ -132,7 +133,7 @@ public static partial class LocalizationCatalog
         if (key.StartsWith("LocKey#", StringComparison.Ordinal))
         {
             if (!ulong.TryParse(key["LocKey#".Length..], out var id))
-                throw new InvalidDataException($"无法解析 {key}。");
+                throw new InvalidDataException(UiText.T($"无法解析 {key}。", $"無法解析 {key}。", $"Cannot parse the text key {key}."));
             return entries.Where(entry => entry.PrimaryKey == id).ToArray();
         }
 
@@ -192,7 +193,7 @@ public static partial class LocalizationCatalog
     private static void RequireLang(string lang)
     {
         if (string.IsNullOrWhiteSpace(lang) || !LangPattern().IsMatch(lang))
-            throw new InvalidDataException("语言代码只允许小写字母、数字和连字符。");
+            throw new InvalidDataException(UiText.T("语言代码只允许小写字母、数字和连字符。", "語言程式碼只允許小寫字母、數字和連字元。", "A language code may only contain lowercase letters, digits and hyphens."));
     }
 
     [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*$", RegexOptions.CultureInvariant)]

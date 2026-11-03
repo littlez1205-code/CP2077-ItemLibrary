@@ -1,3 +1,4 @@
+using GameTool.Core;
 using GameTool.Adapters.Cyberpunk2077.Archives;
 using GameTool.Adapters.Cyberpunk2077.Resources;
 using GameTool.Adapters.Cyberpunk2077.Textures;
@@ -115,9 +116,9 @@ public sealed class IconExtractor
             {
                 var info = XbmTexture.Parse(Cr2wFile.Parse(file.ReadBody()));
                 var data = file.ReadSegment(info.BufferIndex)
-                    ?? throw new InvalidDataException($"贴图缺少像素段 {info.BufferIndex}：{path}");
+                    ?? throw new InvalidDataException(UiText.T($"贴图缺少像素段 {info.BufferIndex}：{path}", $"貼圖缺少畫素段 {info.BufferIndex}：{path}", $"The texture is missing pixel buffer {info.BufferIndex}: {path}"));
                 if ((long)info.MipOffset + info.MipSize > data.Length)
-                    throw new InvalidDataException($"贴图像素段比 mip 0 短：{path}");
+                    throw new InvalidDataException(UiText.T($"贴图像素段比 mip 0 短：{path}", $"貼影象素段比 mip 0 短：{path}", $"The texture's pixel buffer is shorter than mip 0: {path}"));
                 texture = new LoadedTexture(info, info.MipOffset == 0 && info.MipSize == data.Length ? data : data.AsSpan(info.MipOffset, info.MipSize).ToArray());
             }
 

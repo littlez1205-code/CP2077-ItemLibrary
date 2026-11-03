@@ -28,7 +28,7 @@ public static class PatchEngine
         var working = adapter.Load(saveFilePath);
         var results = working.Apply(changes);
         if (results.Any(result => result.Outcome == ChangeOutcome.Ambiguous))
-            throw new PatchRejectedException("存在多个堆叠的资源，已整体拒绝，未写文件。");
+            throw new PatchRejectedException(UiText.T("存在多个堆叠的资源，已整体拒绝，未写文件。", "存在多個堆疊的資源，已整體拒絕，未寫檔案。", "Some resources have multiple stacks, so the whole change was rejected and nothing was written."));
         if (results.All(result => result.Outcome is not (ChangeOutcome.Changed or ChangeOutcome.Inserted)))
             return new PatchReport(PatchOutcome.NoChange, results, null, clock.ElapsedMilliseconds);
 
@@ -62,7 +62,7 @@ public static class PatchEngine
         ArgumentNullException.ThrowIfNull(options);
         ArgumentException.ThrowIfNullOrWhiteSpace(saveFilePath);
         if (request.Copies is < 1 or > 10)
-            throw new PatchRejectedException("复制件数必须在 1 到 10 之间。");
+            throw new PatchRejectedException(UiText.T("复制件数必须在 1 到 10 之间。", "複製件數必須在 1 到 10 之間。", "The number of copies must be between 1 and 10."));
         var clock = Stopwatch.StartNew();
         var observed = new FileInfo(saveFilePath);
         var observedLength = observed.Length;
@@ -71,7 +71,7 @@ public static class PatchEngine
         var before = ReadQuantities(original, adapter.Resources, out var ambiguous);
         var working = adapter.Load(saveFilePath);
         if (working is not IItemCloneCapable cloneable || original is not IItemCloneCapable)
-            throw new PatchRejectedException("这个存档不能复制装备。");
+            throw new PatchRejectedException(UiText.T("这个存档不能复制装备。", "這個存檔不能複製裝備。", "This save does not support copying gear."));
         var applied = cloneable.Clone(request);
         var expectedCount = cloneable.PlayerItemCount;
         var patch = Commit(
@@ -88,7 +88,7 @@ public static class PatchEngine
             reloaded =>
             {
                 if (reloaded is not IItemCloneCapable check || check.PlayerItemCount != expectedCount)
-                    throw new PatchRejectedException("回读校验失败：玩家物品数没有增加对应的件数。");
+                    throw new PatchRejectedException(UiText.T("回读校验失败：玩家物品数没有增加对应的件数。", "回讀校驗失敗：玩家物品數沒有增加對應的件數。", "Read-back check failed: the player item count did not increase by the expected amount."));
                 check.VerifyOnlyCloned(original, applied);
             },
             working);
@@ -102,9 +102,9 @@ public static class PatchEngine
         ArgumentNullException.ThrowIfNull(options);
         ArgumentException.ThrowIfNullOrWhiteSpace(saveFilePath);
         if (string.IsNullOrWhiteSpace(request.Target))
-            throw new PatchRejectedException("缺少要生成的目标。");
+            throw new PatchRejectedException(UiText.T("缺少要生成的目标。", "缺少要生成的目標。", "No item to generate was given."));
         if (request.Copies is < 1 or > 10)
-            throw new PatchRejectedException("生成件数必须在 1 到 10 之间。");
+            throw new PatchRejectedException(UiText.T("生成件数必须在 1 到 10 之间。", "生成件數必須在 1 到 10 之間。", "The number of items to generate must be between 1 and 10."));
         var clock = Stopwatch.StartNew();
         var observed = new FileInfo(saveFilePath);
         var observedLength = observed.Length;
@@ -113,7 +113,7 @@ public static class PatchEngine
         var before = ReadQuantities(original, adapter.Resources, out var ambiguous);
         var working = adapter.Load(saveFilePath);
         if (working is not IItemGenerateCapable generator || original is not IItemGenerateCapable source)
-            throw new PatchRejectedException("这个存档不能生成物品。");
+            throw new PatchRejectedException(UiText.T("这个存档不能生成物品。", "這個存檔不能生成物品。", "This save does not support generating items."));
         var applied = generator.Generate(request);
         var expectedPlayerCount = request.ToStash ? source.PlayerItemCount : source.PlayerItemCount + request.Copies;
         var expectedStashCount = request.ToStash ? source.StashItemCount + request.Copies : source.StashItemCount;
@@ -121,7 +121,7 @@ public static class PatchEngine
             || (request.ToStash && generator.StashItemCount != expectedStashCount)
             || applied.Copies != request.Copies
             || applied.Records.Count != request.Copies)
-            throw new PatchRejectedException("生成结果与请求的件数不一致。");
+            throw new PatchRejectedException(UiText.T("生成结果与请求的件数不一致。", "生成結果與請求的件數不一致。", "The generated result does not match the requested count."));
         var patch = Commit(
             adapter,
             saveFilePath,
@@ -136,16 +136,16 @@ public static class PatchEngine
             reloaded =>
             {
                 if (reloaded is not IItemGenerateCapable check)
-                    throw new PatchRejectedException("回读校验失败：无法作为物品生成文档加载。");
+                    throw new PatchRejectedException(UiText.T("回读校验失败：无法作为物品生成文档加载。", "回讀校驗失敗：無法作為物品生成文件載入。", "Read-back check failed: the written save could not be loaded for item generation."));
                 if (request.ToStash)
                 {
                     if (check.PlayerItemCount != expectedPlayerCount || check.StashItemCount != expectedStashCount)
-                        throw new PatchRejectedException("回读校验失败：储藏箱物品数没有增加对应的件数。");
+                        throw new PatchRejectedException(UiText.T("回读校验失败：储藏箱物品数没有增加对应的件数。", "回讀校驗失敗：儲藏箱物品數沒有增加對應的件數。", "Read-back check failed: the stash item count did not increase by the expected amount."));
                 }
                 else
                 {
                     if (check.PlayerItemCount != expectedPlayerCount)
-                        throw new PatchRejectedException("回读校验失败：玩家物品数没有增加对应的件数。");
+                        throw new PatchRejectedException(UiText.T("回读校验失败：玩家物品数没有增加对应的件数。", "回讀校驗失敗：玩家物品數沒有增加對應的件數。", "Read-back check failed: the player item count did not increase by the expected amount."));
                 }
                 check.VerifyOnlyGenerated(original, applied);
             },
@@ -210,7 +210,7 @@ public static class PatchEngine
         var clock = Stopwatch.StartNew();
         var backup = saveFilePath + ".bak";
         if (!File.Exists(backup))
-            throw new PatchRejectedException("找不到备份文件。");
+            throw new PatchRejectedException(UiText.T("找不到备份文件。", "找不到備份檔案。", "Backup file not found."));
         _ = adapter.Load(backup);
 
         var temporary = saveFilePath + ".tmp";
@@ -238,11 +238,11 @@ public static class PatchEngine
         {
             var resource = adapter.Resources.FirstOrDefault(item => item.Id == change.Id);
             if (resource is null)
-                throw new PatchRejectedException($"未知资源 {change.Id.Value}。");
+                throw new PatchRejectedException(UiText.T($"未知资源 {change.Id.Value}。", $"未知資源 {change.Id.Value}。", $"Unknown resource {change.Id.Value}."));
             if (change.TargetQuantity < 0 || change.TargetQuantity > resource.Max)
             {
                 throw new PatchRejectedException(
-                    $"资源 {change.Id.Value} 的目标值 {change.TargetQuantity} 超出安全范围 0..{resource.Max}。");
+                    UiText.T($"资源 {change.Id.Value} 的目标值 {change.TargetQuantity} 超出安全范围 0..{resource.Max}。", $"資源 {change.Id.Value} 的目標值 {change.TargetQuantity} 超出安全範圍 0..{resource.Max}。", $"Target value {change.TargetQuantity} for resource {change.Id.Value} is outside the safe range 0..{resource.Max}."));
             }
         }
     }
@@ -295,7 +295,7 @@ public static class PatchEngine
             if (actual != expected)
             {
                 throw new PatchRejectedException(
-                    $"回读校验失败：{resource.Id.Value} 期望 {expected?.ToString() ?? "未持有"}，实际 {actual?.ToString() ?? "未持有"}。");
+                    UiText.T($"回读校验失败：{resource.Id.Value} 期望 {expected?.ToString() ?? "未持有"}，实际 {actual?.ToString() ?? "未持有"}。", $"回讀校驗失敗：{resource.Id.Value} 期望 {expected?.ToString() ?? "未持有"}，實際 {actual?.ToString() ?? "未持有"}。", $"Read-back check failed: {resource.Id.Value} expected {expected?.ToString() ?? "not held"}, got {actual?.ToString() ?? "not held"}."));
             }
         }
     }

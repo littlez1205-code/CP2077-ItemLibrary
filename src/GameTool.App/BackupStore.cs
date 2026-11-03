@@ -34,14 +34,14 @@ public sealed class BackupStore
         ArgumentException.ThrowIfNullOrWhiteSpace(slotDirectory);
         var slot = FindSlot(adapter, slotDirectory);
         if (!adapter.IsComplete(slot.SaveFilePath))
-            throw new PatchRejectedException("存档不完整或无法读取。");
+            throw new PatchRejectedException(UiText.T("存档不完整或无法读取。", "存檔不完整或無法讀取。", "The save is incomplete or cannot be read."));
         try
         {
             _ = adapter.Load(slot.SaveFilePath);
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException or JsonException or UnsupportedSaveException)
         {
-            throw new PatchRejectedException("存档不完整或无法读取。");
+            throw new PatchRejectedException(UiText.T("存档不完整或无法读取。", "存檔不完整或無法讀取。", "The save is incomplete or cannot be read."));
         }
 
         var slotName = slot.SlotName;
@@ -72,7 +72,7 @@ public sealed class BackupStore
         try
         {
             if (!adapter.IsComplete(copiedSave))
-                throw new PatchRejectedException("存档不完整或无法读取。");
+                throw new PatchRejectedException(UiText.T("存档不完整或无法读取。", "存檔不完整或無法讀取。", "The save is incomplete or cannot be read."));
             _ = adapter.Load(copiedSave);
         }
         catch (Exception ex)
@@ -81,7 +81,7 @@ public sealed class BackupStore
                 Directory.Delete(destination, recursive: true);
             if (ex is PatchRejectedException)
                 throw;
-            throw new PatchRejectedException("存档不完整或无法读取。");
+            throw new PatchRejectedException(UiText.T("存档不完整或无法读取。", "存檔不完整或無法讀取。", "The save is incomplete or cannot be read."));
         }
 
         var manifest = new BackupManifest(Path.GetFullPath(slot.SaveFilePath), DateTime.UtcNow, files);
@@ -115,7 +115,7 @@ public sealed class BackupStore
         ArgumentException.ThrowIfNullOrWhiteSpace(saveRoot);
         var directory = Resolve(backupId);
         var manifest = ReadManifest(directory);
-        var backupFile = Confine(directory, Path.GetFileName(manifest.SourceSlot), "备份文件路径超出备份目录。");
+        var backupFile = Confine(directory, Path.GetFileName(manifest.SourceSlot), UiText.T("备份文件路径超出备份目录。", "備份檔案路徑超出備份目錄。", "A backup file path points outside the backup folder."));
         var backupInfo = SaveQueryService.GetInfo(adapter, backupFile);
         var current = ReadCurrent(adapter, manifest.SourceSlot, saveRoot);
         var resources = backupInfo.Resources.Select(resource => new BackupResourceView(
@@ -138,13 +138,13 @@ public sealed class BackupStore
         var root = Path.GetFullPath(saveRoot);
         var rootPrefix = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (!source.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
-            throw new PatchRejectedException("备份的目标槽位不在存档根目录内。");
+            throw new PatchRejectedException(UiText.T("备份的目标槽位不在存档根目录内。", "備份的目標槽位不在存檔根目錄內。", "The backup's target slot is not inside the save folder."));
         var known = adapter.DiscoverSaves(root)
             .Any(slot => Path.GetFullPath(slot.SaveFilePath).Equals(source, StringComparison.OrdinalIgnoreCase));
         if (!known)
-            throw new PatchRejectedException("备份的目标槽位不是当前发现的存档。");
+            throw new PatchRejectedException(UiText.T("备份的目标槽位不是当前发现的存档。", "備份的目標槽位不是當前發現的存檔。", "The backup's target slot is not one of the saves currently found."));
         if (isEnabled(source))
-            throw new PatchRejectedException("该存档正处于使能状态，拒绝恢复。");
+            throw new PatchRejectedException(UiText.T("该存档正处于使能状态，拒绝恢复。", "該存檔正處於使能狀態，拒絕恢復。", "Auto-apply is enabled for this save, so it cannot be restored."));
 
         var slotDirectory = Path.GetDirectoryName(source)!;
         var staged = new List<(string Temporary, string Destination)>();
@@ -152,8 +152,8 @@ public sealed class BackupStore
         {
             foreach (var file in manifest.Files)
             {
-                var from = Confine(directory, file.Name, "备份文件路径超出备份目录。");
-                var destination = Confine(slotDirectory, file.Name, "备份文件路径超出槽位目录。");
+                var from = Confine(directory, file.Name, UiText.T("备份文件路径超出备份目录。", "備份檔案路徑超出備份目錄。", "A backup file path points outside the backup folder."));
+                var destination = Confine(slotDirectory, file.Name, UiText.T("备份文件路径超出槽位目录。", "備份檔案路徑超出槽位目錄。", "A backup file path points outside the save slot folder."));
                 var temporary = destination + ".tmp";
                 if (File.Exists(temporary))
                     File.Delete(temporary);
@@ -161,7 +161,7 @@ public sealed class BackupStore
                 File.Copy(from, temporary, overwrite: false);
                 var hash = Hash(temporary);
                 if (!hash.Equals(file.Sha256, StringComparison.OrdinalIgnoreCase) || new FileInfo(temporary).Length != file.Size)
-                    throw new PatchRejectedException($"备份文件 {file.Name} 的哈希与清单不一致。");
+                    throw new PatchRejectedException(UiText.T($"备份文件 {file.Name} 的哈希与清单不一致。", $"備份檔案 {file.Name} 的雜湊與清單不一致。", $"The hash of backup file {file.Name} does not match the manifest."));
                 staged.Add((temporary, destination));
             }
 
@@ -191,7 +191,7 @@ public sealed class BackupStore
     {
         var directory = Resolve(backupId);
         if (!File.Exists(Path.Combine(directory, "manifest.json")))
-            throw new PatchRejectedException("找不到备份。");
+            throw new PatchRejectedException(UiText.T("找不到备份。", "找不到備份。", "Backup not found."));
         Directory.Delete(directory, recursive: true);
     }
 
@@ -238,7 +238,7 @@ public sealed class BackupStore
         var slot = matches.FirstOrDefault(item =>
             Path.GetFullPath(item.SlotDirectory).Equals(full, StringComparison.OrdinalIgnoreCase));
         if (slot is null)
-            throw new PatchRejectedException("找不到要备份的槽位。");
+            throw new PatchRejectedException(UiText.T("找不到要备份的槽位。", "找不到要備份的槽位。", "The save slot to back up was not found."));
         return slot;
     }
 
@@ -256,14 +256,14 @@ public sealed class BackupStore
     private string Resolve(string backupId)
     {
         if (string.IsNullOrWhiteSpace(backupId))
-            throw new PatchRejectedException("缺少备份编号。");
+            throw new PatchRejectedException(UiText.T("缺少备份编号。", "缺少備份編號。", "Missing backup id."));
         if (backupId.Contains("..", StringComparison.Ordinal) || Path.IsPathRooted(backupId))
-            throw new PatchRejectedException("备份路径超出备份根目录。");
+            throw new PatchRejectedException(UiText.T("备份路径超出备份根目录。", "備份路徑超出備份根目錄。", "The backup path points outside the backup folder."));
         var combined = Path.GetFullPath(Path.Combine(Root, backupId.Replace('/', Path.DirectorySeparatorChar)));
         var root = Path.GetFullPath(Root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar;
         if (!combined.StartsWith(root, StringComparison.OrdinalIgnoreCase) || combined.Equals(Path.GetFullPath(Root), StringComparison.OrdinalIgnoreCase))
-            throw new PatchRejectedException("备份路径超出备份根目录。");
+            throw new PatchRejectedException(UiText.T("备份路径超出备份根目录。", "備份路徑超出備份根目錄。", "The backup path points outside the backup folder."));
         return combined;
     }
 
@@ -271,10 +271,10 @@ public sealed class BackupStore
     {
         var path = Path.Combine(directory, "manifest.json");
         if (!File.Exists(path))
-            throw new PatchRejectedException("找不到备份。");
+            throw new PatchRejectedException(UiText.T("找不到备份。", "找不到備份。", "Backup not found."));
         var manifest = JsonSerializer.Deserialize<BackupManifest>(File.ReadAllText(path), JsonOptions);
         if (manifest is null || string.IsNullOrWhiteSpace(manifest.SourceSlot))
-            throw new PatchRejectedException("备份清单无法读取。");
+            throw new PatchRejectedException(UiText.T("备份清单无法读取。", "備份清單無法讀取。", "The backup manifest cannot be read."));
         return manifest;
     }
 

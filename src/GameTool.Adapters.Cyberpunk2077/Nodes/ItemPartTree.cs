@@ -1,3 +1,4 @@
+using GameTool.Core;
 using System.Buffers.Binary;
 using System.Text;
 
@@ -73,11 +74,11 @@ public static class ItemPartTree
     {
         var prefixLength = PrefixLengthOf(body);
         if (body.Length < prefixLength)
-            throw new InvalidDataException($"itemData 只有 {body.Length} 字节，放不下 {prefixLength} 字节固定前缀。");
+            throw new InvalidDataException(UiText.T($"itemData 只有 {body.Length} 字节，放不下 {prefixLength} 字节固定前缀。", $"itemData 只有 {body.Length} 位元組，放不下 {prefixLength} 位元組固定字首。", $"itemData has only {body.Length} bytes, too short for the {prefixLength}-byte fixed prefix."));
         var cursor = prefixLength;
         var root = ReadPart(body, ref cursor, 0);
         if (cursor != body.Length)
-            throw new InvalidDataException($"配件树解析停在 {cursor}，itemData 长 {body.Length}，没有正好读完。");
+            throw new InvalidDataException(UiText.T($"配件树解析停在 {cursor}，itemData 长 {body.Length}，没有正好读完。", $"配件樹解析停在 {cursor}，itemData 長 {body.Length}，沒有正好讀完。", $"Part tree parsing stopped at {cursor} of {body.Length} bytes instead of reaching the end."));
         return new ItemDataBody(body[..prefixLength].ToArray(), root);
     }
 
@@ -86,7 +87,7 @@ public static class ItemPartTree
         ArgumentNullException.ThrowIfNull(body);
         var prefixLength = PrefixLengthOf(body.Prefix);
         if (body.Prefix.Length != prefixLength)
-            throw new InvalidDataException($"固定前缀必须是 {prefixLength} 字节（结构字节为 3 的物品 45 字节，其余 41 字节）。");
+            throw new InvalidDataException(UiText.T($"固定前缀必须是 {prefixLength} 字节（结构字节为 3 的物品 45 字节，其余 41 字节）。", $"固定字首必須是 {prefixLength} 位元組（結構位元組為 3 的物品 45 位元組，其餘 41 位元組）。", $"The fixed prefix must be {prefixLength} bytes (45 for items with structure byte 3, otherwise 41)."));
         var buffer = new List<byte>(prefixLength + 64);
         buffer.AddRange(body.Prefix);
         WritePart(buffer, body.Root, 0);
@@ -96,38 +97,38 @@ public static class ItemPartTree
     private static ItemPart ReadPart(ReadOnlySpan<byte> body, ref int cursor, int depth)
     {
         if (depth > MaxDepth)
-            throw new InvalidDataException($"配件树深度超过 {MaxDepth}。");
+            throw new InvalidDataException(UiText.T($"配件树深度超过 {MaxDepth}。", $"配件樹深度超過 {MaxDepth}。", $"The part tree is deeper than {MaxDepth}."));
         var id = Take(body, ref cursor, ItemIdLength, "ItemID");
-        var nameLength = ReadCanonical(body, ref cursor, "外观名长度");
+        var nameLength = ReadCanonical(body, ref cursor, UiText.T("外观名长度", "外觀名長度", "appearance name length"));
         if (nameLength > 0)
-            throw new InvalidDataException($"外观名长度 {nameLength} 为正数，当前只接受负数 ASCII 长度。");
+            throw new InvalidDataException(UiText.T($"外观名长度 {nameLength} 为正数，当前只接受负数 ASCII 长度。", $"外觀名長度 {nameLength} 為正數，當前只接受負數 ASCII 長度。", $"Appearance name length {nameLength} is positive; only negative (ASCII) lengths are supported."));
         if (-nameLength > MaxNameLength)
-            throw new InvalidDataException($"外观名长度 {-nameLength} 超出安全范围 0..{MaxNameLength}。");
-        var name = Take(body, ref cursor, -nameLength, "外观名");
+            throw new InvalidDataException(UiText.T($"外观名长度 {-nameLength} 超出安全范围 0..{MaxNameLength}。", $"外觀名長度 {-nameLength} 超出安全範圍 0..{MaxNameLength}。", $"Appearance name length {-nameLength} is outside the safe range 0..{MaxNameLength}."));
+        var name = Take(body, ref cursor, -nameLength, UiText.T("外观名", "外觀名", "appearance name"));
         if (name.Any(value => value >= 0x80))
-            throw new InvalidDataException("外观名不是可原样写回的 ASCII。");
-        var slot = BinaryPrimitives.ReadUInt64LittleEndian(Take(body, ref cursor, 8, "挂点"));
-        var count = ReadCanonical(body, ref cursor, "子配件数");
+            throw new InvalidDataException(UiText.T("外观名不是可原样写回的 ASCII。", "外觀名不是可原樣寫回的 ASCII。", "The appearance name is not ASCII that can be written back unchanged."));
+        var slot = BinaryPrimitives.ReadUInt64LittleEndian(Take(body, ref cursor, 8, UiText.T("挂点", "掛點", "slot")));
+        var count = ReadCanonical(body, ref cursor, UiText.T("子配件数", "子配件數", "child part count"));
         if (count is < 0 or > MaxChildren)
-            throw new InvalidDataException($"子配件数 {count} 超出安全范围 0..{MaxChildren}。");
+            throw new InvalidDataException(UiText.T($"子配件数 {count} 超出安全范围 0..{MaxChildren}。", $"子配件數 {count} 超出安全範圍 0..{MaxChildren}。", $"Child part count {count} is outside the safe range 0..{MaxChildren}."));
         var children = new ItemPart[count];
         for (var i = 0; i < count; i++)
             children[i] = ReadPart(body, ref cursor, depth + 1);
-        var trailer = Take(body, ref cursor, TrailerLength, "配件尾部");
+        var trailer = Take(body, ref cursor, TrailerLength, UiText.T("配件尾部", "配件尾部", "part trailer"));
         return new ItemPart(id, Encoding.ASCII.GetString(name), slot, children, trailer);
     }
 
     private static void WritePart(List<byte> buffer, ItemPart part, int depth)
     {
         if (depth > MaxDepth)
-            throw new InvalidDataException($"配件树深度超过 {MaxDepth}。");
+            throw new InvalidDataException(UiText.T($"配件树深度超过 {MaxDepth}。", $"配件樹深度超過 {MaxDepth}。", $"The part tree is deeper than {MaxDepth}."));
         if (part.ItemId.Length != ItemIdLength || part.Trailer.Length != TrailerLength)
-            throw new InvalidDataException("配件的 ItemID 必须是 16 字节、尾部必须是 20 字节。");
+            throw new InvalidDataException(UiText.T("配件的 ItemID 必须是 16 字节、尾部必须是 20 字节。", "配件的 ItemID 必須是 16 位元組、尾部必須是 20 位元組。", "A part's ItemID must be 16 bytes and its trailer 20 bytes."));
         if (part.Children.Count > MaxChildren)
-            throw new InvalidDataException($"子配件数 {part.Children.Count} 超出安全范围 0..{MaxChildren}。");
+            throw new InvalidDataException(UiText.T($"子配件数 {part.Children.Count} 超出安全范围 0..{MaxChildren}。", $"子配件數 {part.Children.Count} 超出安全範圍 0..{MaxChildren}。", $"Child part count {part.Children.Count} is outside the safe range 0..{MaxChildren}."));
         var name = Encoding.ASCII.GetBytes(part.Appearance);
         if (name.Length > MaxNameLength || part.Appearance.Any(ch => ch >= 0x80))
-            throw new InvalidDataException("外观名不是可原样写回的 ASCII。");
+            throw new InvalidDataException(UiText.T("外观名不是可原样写回的 ASCII。", "外觀名不是可原樣寫回的 ASCII。", "The appearance name is not ASCII that can be written back unchanged."));
         buffer.AddRange(part.ItemId);
         NodeTable.WriteCompact(buffer, -name.Length);
         buffer.AddRange(name);
@@ -143,7 +144,7 @@ public static class ItemPartTree
     private static byte[] Take(ReadOnlySpan<byte> body, ref int cursor, int length, string what)
     {
         if (length < 0 || length > body.Length - cursor)
-            throw new InvalidDataException($"配件树在{what}处被截断（偏移 {cursor}）。");
+            throw new InvalidDataException(UiText.T($"配件树在{what}处被截断（偏移 {cursor}）。", $"配件樹在{what}處被截斷（偏移 {cursor}）。", $"The part tree is truncated at the {what} (offset {cursor})."));
         var bytes = body.Slice(cursor, length).ToArray();
         cursor += length;
         return bytes;
@@ -159,13 +160,13 @@ public static class ItemPartTree
         }
         catch (InvalidDataException error)
         {
-            throw new InvalidDataException($"配件树在{what}处（偏移 {start}）：{error.Message}");
+            throw new InvalidDataException(UiText.T($"配件树在{what}处（偏移 {start}）：{error.Message}", $"配件樹在{what}處（偏移 {start}）：{error.Message}", $"Part tree error at the {what} (offset {start}): {error.Message}"));
         }
 
         var canonical = new List<byte>(5);
         NodeTable.WriteCompact(canonical, value);
         if (!body[start..cursor].SequenceEqual(canonical.ToArray()))
-            throw new InvalidDataException($"配件树的{what}（偏移 {start}）不是最短编码，无法原样写回。");
+            throw new InvalidDataException(UiText.T($"配件树的{what}（偏移 {start}）不是最短编码，无法原样写回。", $"配件樹的{what}（偏移 {start}）不是最短編碼，無法原樣寫回。", $"The part tree's {what} (offset {start}) is not in its shortest encoding and cannot be written back unchanged."));
         return value;
     }
 }

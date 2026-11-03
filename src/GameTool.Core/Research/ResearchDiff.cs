@@ -172,7 +172,7 @@ public static class ResearchDiff
     private static ReadOnlySpan<byte> View(byte[] payload, ResearchRegion region)
     {
         if (region.Offset < 0 || region.Length < 0 || region.Offset > payload.Length || region.Length > payload.Length - region.Offset)
-            throw new InvalidDataException($"区域 {region.Name} 超出解压数据。");
+            throw new InvalidDataException(UiText.T($"区域 {region.Name} 超出解压数据。", $"區域 {region.Name} 超出解壓資料。", $"Region {region.Name} lies outside the decompressed data."));
         return payload.AsSpan(region.Offset, region.Length);
     }
 

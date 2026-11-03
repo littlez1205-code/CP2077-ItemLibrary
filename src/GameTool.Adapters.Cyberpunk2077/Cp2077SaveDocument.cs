@@ -166,7 +166,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         {
             var resource = RequireResource(change.Id);
             if (change.TargetQuantity is < 0 or > uint.MaxValue)
-                throw new InvalidDataException($"资源 {change.Id.Value} 的目标值不能写成 u32。");
+                throw new InvalidDataException(UiText.T($"资源 {change.Id.Value} 的目标值不能写成 u32。", $"資源 {change.Id.Value} 的目標值不能寫成 u32。", $"The target value of resource {change.Id.Value} cannot be written as a u32."));
 
             var tweakId = TweakDbId.FromLocator(resource.Locator);
             var matches = _stacks.Select((stack, index) => (stack, index)).Where(item => item.stack.TweakDbId == tweakId).ToArray();
@@ -180,7 +180,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
 
                 const string prefix = "tdb:";
                 if (!resource.Locator.StartsWith(prefix, StringComparison.Ordinal) || resource.Locator.Length == prefix.Length)
-                    throw new InvalidDataException($"资源 {change.Id.Value} 没有可插入的 TweakDB 名字。");
+                    throw new InvalidDataException(UiText.T($"资源 {change.Id.Value} 没有可插入的 TweakDB 名字。", $"資源 {change.Id.Value} 沒有可插入的 TweakDB 名字。", $"Resource {change.Id.Value} has no TweakDB name that can be inserted."));
                 ItemInserter.InsertStack(_container, resource.Locator[prefix.Length..], (uint)change.TargetQuantity);
                 ReloadInventory();
                 results.Add(new ResourceChangeResult(change.Id, null, change.TargetQuantity, ChangeOutcome.Inserted));
@@ -216,7 +216,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     public void VerifyOnlyTargetsChanged(ISaveDocument original, IReadOnlyList<ResourceChange> changes)
     {
         if (original is not Cp2077SaveDocument source)
-            throw new InvalidDataException("严格校验要求原文档也是 2077 存档。");
+            throw new InvalidDataException(UiText.T("严格校验要求原文档也是 2077 存档。", "嚴格校驗要求原文件也是 2077 存檔。", "The strict check requires the original document to be a Cyberpunk 2077 save as well."));
         var inserts = changes.Where(change => source.GetQuantity(change.Id) is null).ToArray();
         if (inserts.Length == 0)
         {
@@ -255,16 +255,16 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         {
             var body = after.Regions.First(item => item.Index == region.RightIndex && item.Name == region.Name);
             if (body.Length != 29)
-                throw new InvalidDataException("严格校验失败：插入的物品不是 29 字节堆叠。");
+                throw new InvalidDataException(UiText.T("严格校验失败：插入的物品不是 29 字节堆叠。", "嚴格校驗失敗：插入的物品不是 29 位元組堆疊。", "Strict check failed: the inserted item is not a 29-byte stack."));
             var tweak = BinaryPrimitives.ReadUInt64LittleEndian(after.Payload.AsSpan(body.Offset + 4, 8));
             var quantity = BinaryPrimitives.ReadUInt32LittleEndian(after.Payload.AsSpan(body.Offset + 25, 4));
             var match = expected.FindIndex(item => item.Tweak == tweak && item.Quantity == quantity);
             if (match < 0)
-                throw new InvalidDataException("严格校验失败：新增物品与目标资源不一致。");
+                throw new InvalidDataException(UiText.T("严格校验失败：新增物品与目标资源不一致。", "嚴格校驗失敗：新增物品與目標資源不一致。", "Strict check failed: the new item does not match the target resource."));
             // 物品头：TweakDBID 必须与 itemData 一致，后 8 字节（种子 + 保留）必须照抄某个已有的 29 字节堆叠。
             var header = after.Payload.AsSpan(body.Offset - 16, 16);
             if (BinaryPrimitives.ReadUInt64LittleEndian(header) != tweak || !stackTails.Contains(BinaryPrimitives.ReadUInt64LittleEndian(header[8..])))
-                throw new InvalidDataException("严格校验失败：新增物品头与堆叠模板不一致。");
+                throw new InvalidDataException(UiText.T("严格校验失败：新增物品头与堆叠模板不一致。", "嚴格校驗失敗：新增物品頭與堆疊模板不一致。", "Strict check failed: the new item header does not match the stack template."));
             expected.RemoveAt(match);
         }
 
@@ -281,7 +281,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     public void VerifyNamedInsertion(ISaveDocument original, string tweakName, uint quantity)
     {
         if (original is not Cp2077SaveDocument source)
-            throw new InvalidDataException("严格校验要求原文档也是 2077 存档。");
+            throw new InvalidDataException(UiText.T("严格校验要求原文档也是 2077 存档。", "嚴格校驗要求原文件也是 2077 存檔。", "The strict check requires the original document to be a Cyberpunk 2077 save as well."));
         var descriptor = new ResourceDescriptor(
             new ResourceId(tweakName), tweakName, tweakName, "item", uint.MaxValue, quantity, "tdb:" + tweakName);
         var before = Open(source._container, [.. source._resources, descriptor], source._canInsert);
@@ -329,7 +329,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     public void VerifyOnlyCloned(ISaveDocument original, CloneApplyResult applied)
     {
         if (original is not Cp2077SaveDocument source)
-            throw new InvalidDataException("严格校验要求原文档也是 2077 存档。");
+            throw new InvalidDataException(UiText.T("严格校验要求原文档也是 2077 存档。", "嚴格校驗要求原文件也是 2077 存檔。", "The strict check requires the original document to be a Cyberpunk 2077 save as well."));
         var before = Cp2077Adapter.ToImage(source._container);
         var after = Cp2077Adapter.ToImage(_container);
         var diff = ResearchDiff.Compare(before, after);
@@ -339,22 +339,22 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         {
             var body = after.Regions.First(item => item.Index == region.RightIndex && item.Name == region.Name);
             if (body.Length != applied.SourceLength)
-                throw new InvalidDataException("严格校验失败：新增物品的长度和来源不一致。");
+                throw new InvalidDataException(UiText.T("严格校验失败：新增物品的长度和来源不一致。", "嚴格校驗失敗：新增物品的長度和來源不一致。", "Strict check failed: the new item's length differs from the source."));
             var copy = after.Payload.AsSpan(body.Offset, body.Length);
             if (!SameExcept(applied.SourceBody, copy, BodySeed, 4, ignoreFirst: true))
-                throw new InvalidDataException("严格校验失败：新增物品除节点号和根种子外还有差异。");
+                throw new InvalidDataException(UiText.T("严格校验失败：新增物品除节点号和根种子外还有差异。", "嚴格校驗失敗：新增物品除節點號和根種子外還有差異。", "Strict check failed: the new item differs from the source beyond the node index and root seed."));
             var seed = BinaryPrimitives.ReadUInt32LittleEndian(copy.Slice(BodySeed, 4));
             if (!applied.Seeds.Contains(seed))
-                throw new InvalidDataException("严格校验失败：新增物品的种子不在本次生成的集合里。");
+                throw new InvalidDataException(UiText.T("严格校验失败：新增物品的种子不在本次生成的集合里。", "嚴格校驗失敗：新增物品的種子不在本次生成的集合裡。", "Strict check failed: the new item's seed is not one generated in this run."));
             if (body.Offset < 16)
-                throw new InvalidDataException("严格校验失败：新增物品缺少物品头。");
+                throw new InvalidDataException(UiText.T("严格校验失败：新增物品缺少物品头。", "嚴格校驗失敗：新增物品缺少物品頭。", "Strict check failed: the new item has no item header."));
             var header = after.Payload.AsSpan(body.Offset - 16, 16);
             if (!SameExcept(applied.SourceHeader, header, HeaderSeed, 4))
-                throw new InvalidDataException("严格校验失败：新增物品头除根种子外还有差异。");
+                throw new InvalidDataException(UiText.T("严格校验失败：新增物品头除根种子外还有差异。", "嚴格校驗失敗：新增物品頭除根種子外還有差異。", "Strict check failed: the new item header differs from the source beyond the root seed."));
             if (BinaryPrimitives.ReadUInt32LittleEndian(header.Slice(HeaderSeed, 4)) != seed)
-                throw new InvalidDataException("严格校验失败：新增物品头和 itemData 的根种子不一致。");
+                throw new InvalidDataException(UiText.T("严格校验失败：新增物品头和 itemData 的根种子不一致。", "嚴格校驗失敗：新增物品頭和 itemData 的根種子不一致。", "Strict check failed: the root seeds of the new item header and its itemData differ."));
             if (!seen.Add(seed))
-                throw new InvalidDataException("严格校验失败：新增物品的根种子重复。");
+                throw new InvalidDataException(UiText.T("严格校验失败：新增物品的根种子重复。", "嚴格校驗失敗：新增物品的根種子重複。", "Strict check failed: a root seed of the new items is duplicated."));
         }
 
         VerifyInsertedStructure(before, after, NodesOf(source._container), NodesOf(_container), diff, added, applied.AddedBytes, []);
@@ -404,9 +404,9 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     public GenerateCatalogPage ListGeneratable(string? kind, string? query, int skip, int take)
     {
         if (skip < 0)
-            throw new InvalidDataException("skip 不能是负数。");
+            throw new InvalidDataException(UiText.T("skip 不能是负数。", "skip 不能是負數。", "skip cannot be negative."));
         if (take is < 1 or > 200)
-            throw new InvalidDataException("take 必须在 1 到 200 之间。");
+            throw new InvalidDataException(UiText.T("take 必须在 1 到 200 之间。", "take 必須在 1 到 200 之間。", "take must be between 1 and 200."));
         if (!GenerateAvailable)
             return new GenerateCatalogPage(0, []);
         var words = SearchWords(query);
@@ -427,9 +427,9 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     public GenerateGroupPage ListGeneratableGroups(string? kind, string? query, int skip, int take, string? ownership = null)
     {
         if (skip < 0)
-            throw new InvalidDataException("skip 不能是负数。");
+            throw new InvalidDataException(UiText.T("skip 不能是负数。", "skip 不能是負數。", "skip cannot be negative."));
         if (take is < 1 or > 200)
-            throw new InvalidDataException("take 必须在 1 到 200 之间。");
+            throw new InvalidDataException(UiText.T("take 必须在 1 到 200 之间。", "take 必須在 1 到 200 之間。", "take must be between 1 and 200."));
         if (!GenerateAvailable)
             return new GenerateGroupPage(0, 0, []);
         var words = SearchWords(query);
@@ -566,7 +566,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             var kinds = HiddenKinds;
             if (kinds.Count == 0)
                 return null;
-            return $"未检测到往日之影，物品库已隐藏 {kinds.Sum(kind => kind.Groups)} 种往日之影物品（{kinds.Sum(kind => kind.Items)} 个条目）。";
+            return UiText.T($"未检测到往日之影，物品库已隐藏 {kinds.Sum(kind => kind.Groups)} 种往日之影物品（{kinds.Sum(kind => kind.Items)} 个条目）。", $"未檢測到往日之影，物品庫已隱藏 {kinds.Sum(kind => kind.Groups)} 種往日之影物品（{kinds.Sum(kind => kind.Items)} 個條目）。", $"Phantom Liberty was not detected; the item library hides {kinds.Sum(kind => kind.Groups)} Phantom Liberty items ({kinds.Sum(kind => kind.Items)} entries).");
         }
     }
 
@@ -677,9 +677,9 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     {
         ArgumentNullException.ThrowIfNull(applied);
         if (original is not Cp2077SaveDocument source)
-            throw new InvalidDataException("严格校验要求原文档也是 2077 存档。");
+            throw new InvalidDataException(UiText.T("严格校验要求原文档也是 2077 存档。", "嚴格校驗要求原文件也是 2077 存檔。", "The strict check requires the original document to be a Cyberpunk 2077 save as well."));
         if (applied.Records.Count != applied.Copies)
-            throw new InvalidDataException("严格校验失败：生成结果的件数不一致。");
+            throw new InvalidDataException(UiText.T("严格校验失败：生成结果的件数不一致。", "嚴格校驗失敗：生成結果的件數不一致。", "Strict check failed: the generated result has the wrong number of items."));
         var before = Cp2077Adapter.ToImage(source._container);
         var after = Cp2077Adapter.ToImage(_container);
         var diff = ResearchDiff.Compare(before, after);
@@ -690,21 +690,21 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             var expected = applied.Records[i];
             var body = after.Regions.First(item => item.Index == added[i].RightIndex && item.Name == added[i].Name);
             if (body.Offset < ItemInserter.HeaderLength)
-                throw new InvalidDataException("严格校验失败：新增物品缺少物品头。");
+                throw new InvalidDataException(UiText.T("严格校验失败：新增物品缺少物品头。", "嚴格校驗失敗：新增物品缺少物品頭。", "Strict check failed: the new item has no item header."));
             if (!after.Payload.AsSpan(body.Offset, body.Length).SequenceEqual(expected.Body))
-                throw new InvalidDataException("严格校验失败：新增物品的 itemData 与生成结果不一致。");
+                throw new InvalidDataException(UiText.T("严格校验失败：新增物品的 itemData 与生成结果不一致。", "嚴格校驗失敗：新增物品的 itemData 與生成結果不一致。", "Strict check failed: the new item's itemData does not match the generated item."));
             if (!after.Payload.AsSpan(body.Offset - ItemInserter.HeaderLength, ItemInserter.HeaderLength).SequenceEqual(expected.Header))
-                throw new InvalidDataException("严格校验失败：新增物品头与生成结果不一致。");
+                throw new InvalidDataException(UiText.T("严格校验失败：新增物品头与生成结果不一致。", "嚴格校驗失敗：新增物品頭與生成結果不一致。", "Strict check failed: the new item header does not match the generated item."));
             if (ItemPartTree.IsQuantityStructure(expected.Header))
                 VerifyQuantityItem(source._container, expected);
             else if (!expected.Seeds.Contains(expected.Seed))
-                throw new InvalidDataException("严格校验失败：根种子不在本件的种子列表里。");
+                throw new InvalidDataException(UiText.T("严格校验失败：根种子不在本件的种子列表里。", "嚴格校驗失敗：根種子不在本件的種子列表裡。", "Strict check failed: the root seed is not in this item's seed list."));
             foreach (var seed in expected.Seeds)
             {
                 if (seed is 0 or 1 or 2 || ItemInserter.Contains(before.Payload, seed))
-                    throw new InvalidDataException("严格校验失败：新增物品用了原存档里已有的种子。");
+                    throw new InvalidDataException(UiText.T("严格校验失败：新增物品用了原存档里已有的种子。", "嚴格校驗失敗：新增物品用了原存檔裡已有的種子。", "Strict check failed: a new item uses a seed that already exists in the original save."));
                 if (!seen.Add(seed))
-                    throw new InvalidDataException("严格校验失败：新增物品的种子重复。");
+                    throw new InvalidDataException(UiText.T("严格校验失败：新增物品的种子重复。", "嚴格校驗失敗：新增物品的種子重複。", "Strict check failed: a seed of the new items is duplicated."));
             }
         }
 
@@ -719,22 +719,22 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     {
         if (expected.Seed != ItemGenerator.GenericRootSeed
             || BinaryPrimitives.ReadUInt32LittleEndian(expected.Header.AsSpan(8)) != ItemGenerator.GenericRootSeed)
-            throw new InvalidDataException("严格校验失败：手雷的根种子必须是 2。");
+            throw new InvalidDataException(UiText.T("严格校验失败：手雷的根种子必须是 2。", "嚴格校驗失敗：手雷的根種子必須是 2。", "Strict check failed: a grenade's root seed must be 2."));
         if (expected.Seeds.Contains(expected.Seed))
-            throw new InvalidDataException("严格校验失败：手雷的根种子 2 不能算作新种子。");
+            throw new InvalidDataException(UiText.T("严格校验失败：手雷的根种子 2 不能算作新种子。", "嚴格校驗失敗：手雷的根種子 2 不能算作新種子。", "Strict check failed: a grenade's root seed 2 cannot count as a new seed."));
         if (ItemPartTree.Parse(expected.Body).Quantity != ItemGenerator.GrenadeQuantity)
-            throw new InvalidDataException("严格校验失败：手雷的数量必须是 1。");
+            throw new InvalidDataException(UiText.T("严格校验失败：手雷的数量必须是 1。", "嚴格校驗失敗：手雷的數量必須是 1。", "Strict check failed: a grenade's quantity must be 1."));
         if (!expected.Header.AsSpan().SequenceEqual(ItemGenerator.QuantityHeader(BinaryPrimitives.ReadUInt64LittleEndian(expected.Header))))
-            throw new InvalidDataException("严格校验失败：手雷的物品头不是「记录 + 种子 2 + 03 00 00 00」。");
+            throw new InvalidDataException(UiText.T("严格校验失败：手雷的物品头不是「记录 + 种子 2 + 03 00 00 00」。", "嚴格校驗失敗：手雷的物品頭不是「記錄 + 種子 2 + 03 00 00 00」。", "Strict check failed: the grenade's item header is not \"record + seed 2 + 03 00 00 00\"."));
         if (ItemGenerator.HoldsQuantityItem(original, BinaryPrimitives.ReadUInt64LittleEndian(expected.Header)))
-            throw new InvalidDataException("严格校验失败：原存档的背包里已经有同一 ID 的手雷。");
+            throw new InvalidDataException(UiText.T("严格校验失败：原存档的背包里已经有同一 ID 的手雷。", "嚴格校驗失敗：原存檔的背包裡已經有同一 ID 的手雷。", "Strict check failed: the original save already has a grenade with the same ID in the backpack."));
     }
 
     internal static RegionChange[] AddedItems(ResearchDiffResult diff, int count)
     {
         var added = diff.Regions.Where(region => region.Kind == "added").ToArray();
         if (added.Length != count || added.Any(region => region.Name != "itemData"))
-            throw new InvalidDataException("严格校验失败：新增的物品节点数量不对。");
+            throw new InvalidDataException(UiText.T("严格校验失败：新增的物品节点数量不对。", "嚴格校驗失敗：新增的物品節點數量不對。", "Strict check failed: the number of new item nodes is wrong."));
         return added;
     }
 
@@ -761,11 +761,11 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             before.Regions.Single(region => region.Name == "inventory").Index);
         var inventory = diff.Regions.SingleOrDefault(region => region.Kind == "resized" && region.Name == "inventory");
         if (inventory is null || inventory.RightLength - inventory.LeftLength != addedBytes)
-            throw new InvalidDataException("严格校验失败：inventory 的长度增量不对。");
+            throw new InvalidDataException(UiText.T("严格校验失败：inventory 的长度增量不对。", "嚴格校驗失敗：inventory 的長度增量不對。", "Strict check failed: the inventory grew by the wrong length."));
         if (diff.Regions.Any(region => region.Kind == "resized" && region.Name != "inventory"))
-            throw new InvalidDataException("严格校验失败：除 inventory 外还有长度变化。");
+            throw new InvalidDataException(UiText.T("严格校验失败：除 inventory 外还有长度变化。", "嚴格校驗失敗：除 inventory 外還有長度變化。", "Strict check failed: something other than the inventory changed length."));
         if (diff.Regions.Any(region => region.Kind is "removed"))
-            throw new InvalidDataException("严格校验失败：有节点被删除。");
+            throw new InvalidDataException(UiText.T("严格校验失败：有节点被删除。", "嚴格校驗失敗：有節點被刪除。", "Strict check failed: a node was removed."));
         VerifyInventoryOwnBytes(before, after, added, count);
 
         var firstInserted = added.Min(region => region.RightIndex ?? int.MaxValue);
@@ -776,12 +776,12 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             if (region.Kind == "indexShiftOnly")
             {
                 if (!ShiftedBy(before, after, region, count, firstInserted))
-                    throw new InvalidDataException($"严格校验失败：{region.Name} 的节点号增量不是 {count}。");
+                    throw new InvalidDataException(UiText.T($"严格校验失败：{region.Name} 的节点号增量不是 {count}。", $"嚴格校驗失敗：{region.Name} 的節點號增量不是 {count}。", $"Strict check failed: the node index of {region.Name} did not increase by {count}."));
                 continue;
             }
 
             if (region.Kind != "changed" || region.Spans.Any(span => !AllowedSpan(before, region, span, count, firstInserted, windows)))
-                throw new InvalidDataException($"严格校验失败：{region.Name} 出现了预期之外的字节变化。");
+                throw new InvalidDataException(UiText.T($"严格校验失败：{region.Name} 出现了预期之外的字节变化。", $"嚴格校驗失敗：{region.Name} 出現了預期之外的位元組變化。", $"Strict check failed: {region.Name} has unexpected byte changes."));
         }
 
         RequireHeader(diff, "nodeCount", count);
@@ -792,7 +792,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
                 continue;
             if (field.Name == "chunkCount" && ChunkCountMatches(after, field.Right))
                 continue;
-            throw new InvalidDataException("严格校验失败：头部还有其他字段变化。");
+            throw new InvalidDataException(UiText.T("严格校验失败：头部还有其他字段变化。", "嚴格校驗失敗：頭部還有其他欄位變化。", "Strict check failed: other header fields changed."));
         }
     }
 
@@ -810,9 +810,9 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     {
         var added = inserted.ToHashSet();
         if (added.Count != inserted.Count || added.Any(index => index < 0 || index >= after.Count))
-            throw new InvalidDataException("严格校验失败：新增节点的编号不对。");
+            throw new InvalidDataException(UiText.T("严格校验失败：新增节点的编号不对。", "嚴格校驗失敗：新增節點的編號不對。", "Strict check failed: the indices of the new nodes are wrong."));
         if (after.Count != before.Count + added.Count)
-            throw new InvalidDataException("严格校验失败：节点个数的增量与新增节点数不一致。");
+            throw new InvalidDataException(UiText.T("严格校验失败：节点个数的增量与新增节点数不一致。", "嚴格校驗失敗：節點個數的增量與新增節點數不一致。", "Strict check failed: the node count did not grow by the number of new nodes."));
 
         // 原存档的第 i 个节点在新存档里的编号：按顺序跳过新增节点。
         var toAfter = new int[before.Count];
@@ -830,7 +830,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             for (var guard = 0; pointer >= 0 && pointer < after.Count && added.Contains(pointer); guard++)
             {
                 if (guard > added.Count)
-                    throw new InvalidDataException("严格校验失败：新增节点的链表成环。");
+                    throw new InvalidDataException(UiText.T("严格校验失败：新增节点的链表成环。", "嚴格校驗失敗：新增節點的連結串列成環。", "Strict check failed: the chain of new nodes forms a loop."));
                 pointer = after[pointer].Next;
             }
 
@@ -842,16 +842,16 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             var left = before[i];
             var right = after[toAfter[i]];
             if (right.Name != left.Name)
-                throw new InvalidDataException($"严格校验失败：节点 {i} 的名字变了。");
+                throw new InvalidDataException(UiText.T($"严格校验失败：节点 {i} 的名字变了。", $"嚴格校驗失敗：節點 {i} 的名字變了。", $"Strict check failed: the name of node {i} changed."));
             if (SkipAdded(right.Next) != Map(left.Next) || SkipAdded(right.Child) != Map(left.Child))
-                throw new InvalidDataException($"严格校验失败：节点 {left.Name}（{i}）在节点树里的位置变了。");
+                throw new InvalidDataException(UiText.T($"严格校验失败：节点 {left.Name}（{i}）在节点树里的位置变了。", $"嚴格校驗失敗：節點 {left.Name}（{i}）在節點樹裡的位置變了。", $"Strict check failed: node {left.Name} ({i}) moved within the node tree."));
         }
 
         foreach (var index in added)
         {
             var node = after[index];
             if (node.Name != "itemData" || node.Child >= 0)
-                throw new InvalidDataException("严格校验失败：新增节点不是不带子节点的 itemData。");
+                throw new InvalidDataException(UiText.T("严格校验失败：新增节点不是不带子节点的 itemData。", "嚴格校驗失敗：新增節點不是不帶子節點的 itemData。", "Strict check failed: a new node is not an itemData without children."));
         }
 
         var onChain = 0;
@@ -859,13 +859,13 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         for (var pointer = after[toAfter[inventoryIndex]].Child; pointer >= 0 && pointer < after.Count; pointer = after[pointer].Next)
         {
             if (++steps > after.Count)
-                throw new InvalidDataException("严格校验失败：inventory 的子节点链成环。");
+                throw new InvalidDataException(UiText.T("严格校验失败：inventory 的子节点链成环。", "嚴格校驗失敗：inventory 的子節點鏈成環。", "Strict check failed: the inventory's child chain forms a loop."));
             if (added.Contains(pointer))
                 onChain++;
         }
 
         if (onChain != added.Count)
-            throw new InvalidDataException("严格校验失败：新增节点没有全部挂在 inventory 下。");
+            throw new InvalidDataException(UiText.T("严格校验失败：新增节点没有全部挂在 inventory 下。", "嚴格校驗失敗：新增節點沒有全部掛在 inventory 下。", "Strict check failed: not all new nodes are children of the inventory."));
     }
 
     /// <summary>
@@ -878,7 +878,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         var left = before.Regions.Single(region => region.Name == "inventory");
         var right = after.Regions.Single(region => region.Name == "inventory");
         if (left.Offset != right.Offset)
-            throw new InvalidDataException("严格校验失败：inventory 的位置变了。");
+            throw new InvalidDataException(UiText.T("严格校验失败：inventory 的位置变了。", "嚴格校驗失敗：inventory 的位置變了。", "Strict check failed: the inventory moved."));
         var inserted = added
             .Select(region => after.Regions.First(item => item.Index == region.RightIndex))
             .Select(body => (Start: body.Offset - 16, End: body.Offset + body.Length))
@@ -889,14 +889,14 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         foreach (var (start, end) in inserted)
         {
             if (start < cursor || end > right.Offset + right.Length)
-                throw new InvalidDataException("严格校验失败：新增物品不在 inventory 内。");
+                throw new InvalidDataException(UiText.T("严格校验失败：新增物品不在 inventory 内。", "嚴格校驗失敗：新增物品不在 inventory 內。", "Strict check failed: a new item is outside the inventory."));
             kept.AddRange(after.Payload.AsSpan(cursor, start - cursor).ToArray());
             cursor = end;
         }
 
         kept.AddRange(after.Payload.AsSpan(cursor, right.Offset + right.Length - cursor).ToArray());
         if (kept.Count != left.Length)
-            throw new InvalidDataException("严格校验失败：去掉新增物品后 inventory 长度对不上。");
+            throw new InvalidDataException(UiText.T("严格校验失败：去掉新增物品后 inventory 长度对不上。", "嚴格校驗失敗：去掉新增物品後 inventory 長度對不上。", "Strict check failed: without the new items, the inventory length does not match."));
 
         var owned = new bool[left.Length];
         foreach (var child in before.Regions.Where(region => region.Parent == left.Index))
@@ -909,7 +909,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             .Where(i => !owned[i] && kept[i] != before.Payload[left.Offset + i])
             .ToArray();
         if (diffs.Length == 0)
-            throw new InvalidDataException("严格校验失败：玩家物品数没有变化。");
+            throw new InvalidDataException(UiText.T("严格校验失败：玩家物品数没有变化。", "嚴格校驗失敗：玩家物品數沒有變化。", "Strict check failed: the player item count did not change."));
         // 所有差异必须落在同一个 u32 里，且新值 - 旧值 = count。进位时差异可能从它的第 2~4 个字节开始。
         var keptBytes = kept.ToArray();
         for (var start = Math.Max(0, diffs[0] - 3); start <= diffs[0]; start++)
@@ -921,7 +921,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             if (now - old == (uint)count)
                 return;
         }
-        throw new InvalidDataException("严格校验失败：inventory 自身字节的变化不是玩家物品数 +" + count + "。");
+        throw new InvalidDataException(UiText.T("严格校验失败：inventory 自身字节的变化不是玩家物品数 +", "嚴格校驗失敗：inventory 自身位元組的變化不是玩家物品數 +", "Strict check failed: the change in the inventory's own bytes is not the player item count +") + count + UiText.T("。", "。", "."));
     }
 
     private static bool SameExcept(byte[] source, ReadOnlySpan<byte> copy, int skip, int length, bool ignoreFirst = false)
@@ -999,7 +999,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             var tweakId = TweakDbId.FromLocator(resource.Locator);
             var stacks = source._stacks.Where(stack => stack.TweakDbId == tweakId).ToArray();
             if (stacks.Length != 1)
-                throw new InvalidDataException($"严格校验失败：{change.Id.Value} 不是单一堆叠。");
+                throw new InvalidDataException(UiText.T($"严格校验失败：{change.Id.Value} 不是单一堆叠。", $"嚴格校驗失敗：{change.Id.Value} 不是單一堆疊。", $"Strict check failed: {change.Id.Value} is not a single stack."));
             windows.Add((stacks[0].QuantityOffset, stacks[0].QuantityOffset + 4));
         }
 
@@ -1013,22 +1013,22 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             || !long.TryParse(field.Left, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var left)
             || !long.TryParse(field.Right, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var right)
             || right - left != delta)
-            throw new InvalidDataException($"严格校验失败：头部 {name} 的增量不是 {delta}。");
+            throw new InvalidDataException(UiText.T($"严格校验失败：头部 {name} 的增量不是 {delta}。", $"嚴格校驗失敗：頭部 {name} 的增量不是 {delta}。", $"Strict check failed: header field {name} did not change by {delta}."));
     }
 
     private void VerifyQuantityEdits(Cp2077SaveDocument source, IReadOnlyList<ResourceChange> changes)
     {
         if (Version != source.Version)
-            throw new InvalidDataException("严格校验失败：版本不一致。");
+            throw new InvalidDataException(UiText.T("严格校验失败：版本不一致。", "嚴格校驗失敗：版本不一致。", "Strict check failed: the versions differ."));
         if (_container.Timestamp != source._container.Timestamp || _container.ArchiveVersion != source._container.ArchiveVersion)
-            throw new InvalidDataException("严格校验失败：时间戳或归档版本不一致。");
+            throw new InvalidDataException(UiText.T("严格校验失败：时间戳或归档版本不一致。", "嚴格校驗失敗：時間戳或歸檔版本不一致。", "Strict check failed: the timestamp or archive version differs."));
         if (!CopyNodeTable().AsSpan().SequenceEqual(source.CopyNodeTable()))
-            throw new InvalidDataException("严格校验失败：节点表不一致。");
+            throw new InvalidDataException(UiText.T("严格校验失败：节点表不一致。", "嚴格校驗失敗：節點表不一致。", "Strict check failed: the node tables differ."));
 
         var left = source._container.Payload;
         var right = _container.Payload;
         if (left.Length != right.Length)
-            throw new InvalidDataException("严格校验失败：解压长度不一致。");
+            throw new InvalidDataException(UiText.T("严格校验失败：解压长度不一致。", "嚴格校驗失敗：解壓長度不一致。", "Strict check failed: the decompressed lengths differ."));
 
         var windows = new List<(int Start, int End)>();
         foreach (var change in changes)
@@ -1037,7 +1037,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             var tweakId = TweakDbId.FromLocator(resource.Locator);
             var stacks = source._stacks.Where(stack => stack.TweakDbId == tweakId).ToArray();
             if (stacks.Length != 1)
-                throw new InvalidDataException($"严格校验失败：{change.Id.Value} 不是单一堆叠。");
+                throw new InvalidDataException(UiText.T($"严格校验失败：{change.Id.Value} 不是单一堆叠。", $"嚴格校驗失敗：{change.Id.Value} 不是單一堆疊。", $"Strict check failed: {change.Id.Value} is not a single stack."));
             windows.Add((stacks[0].QuantityOffset, stacks[0].QuantityOffset + 4));
         }
 
@@ -1047,7 +1047,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
                 continue;
             if (windows.Any(window => i >= window.Start && i < window.End))
                 continue;
-            throw new InvalidDataException($"严格校验失败：偏移 {i} 的字节被改动，但不在目标数量字段内。");
+            throw new InvalidDataException(UiText.T($"严格校验失败：偏移 {i} 的字节被改动，但不在目标数量字段内。", $"嚴格校驗失敗：偏移 {i} 的位元組被改動，但不在目標數量欄位內。", $"Strict check failed: the byte at offset {i} changed but is not inside a target quantity field."));
         }
     }
 
@@ -1055,5 +1055,5 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
 
     private ResourceDescriptor RequireResource(ResourceId id) =>
         _resources.FirstOrDefault(item => item.Id == id)
-        ?? throw new KeyNotFoundException($"未知资源 {id.Value}。");
+        ?? throw new KeyNotFoundException(UiText.T($"未知资源 {id.Value}。", $"未知資源 {id.Value}。", $"Unknown resource {id.Value}."));
 }
