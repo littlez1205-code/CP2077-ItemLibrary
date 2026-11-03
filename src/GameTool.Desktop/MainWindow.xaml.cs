@@ -59,6 +59,9 @@ public partial class MainWindow : Window
         _fullSelfTest = options.FullSelfTest;
         var fullSelfTest = options.FullSelfTest;
         InitializeComponent();
+        // 任务栏和 Alt+Tab 里的标题：先按设置里的语言显示，页面加载后跟随页面标题（随界面语言切换）。
+        using (UiText.Use(App.StartupLanguage))
+            Title = App.DialogTitle;
         _timeout = new DispatcherTimer { Interval = TimeSpan.FromSeconds(fullSelfTest ? 120 : 15) };
         _timeout.Tick += (_, _) => FinishSelfTest(1, fullSelfTest ? "120 秒内完整自检没有完成。" : "15 秒内没有收到 app.ping 应答。");
         Loaded += async (_, _) => await StartAsync();
@@ -220,6 +223,11 @@ public partial class MainWindow : Window
                     args.Cancel = true;
             };
             core.NewWindowRequested += (_, args) => args.Handled = true;
+            core.DocumentTitleChanged += (_, _) =>
+            {
+                if (!string.IsNullOrWhiteSpace(core.DocumentTitle))
+                    Title = core.DocumentTitle;
+            };
             core.AddWebResourceRequestedFilter(Origin + "*", CoreWebView2WebResourceContext.All);
             core.WebResourceRequested += (_, args) => Serve(args);
             core.WebMessageReceived += (_, args) => OnMessage(args.WebMessageAsJson);

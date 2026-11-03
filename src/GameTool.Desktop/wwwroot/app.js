@@ -168,7 +168,18 @@ const I18N = {
     helpTitle: "说明",
     helpTabStart: "快速上手",
     helpTabFaq: "常见问题",
-    helpTabAbout: "关于"
+    helpTabAbout: "关于",
+    appTitle: "游戏工具",
+    gameFallback: "游戏",
+    ariaLang: "语言",
+    ariaCaption: "窗口",
+    ariaOwnership: "状态筛选",
+    ariaPager: "翻页",
+    unknownError: "未知错误",
+    qtyInvalid: "数量无效",
+    skinTooLarge: "图片超过 20 MB。",
+    labelSep: "：",
+    withNote: (text, note) => text + "（" + note + "）"
   },
   "zh-tw": {
     titleSuffix: " · 物品庫",
@@ -240,7 +251,7 @@ const I18N = {
     obtainWriting: "寫入中…",
     obtainRetry: "重試",
     obtainNotWritten: (msg) => "未寫入：" + msg,
-    obtainSummary: (slotName, itemName) => "將向〈" + slotName + "〉添加〈" + itemName + "〉，讀檔後生效。",
+    obtainSummary: (slotName, itemName) => "將向〈" + slotName + "〉新增〈" + itemName + "〉，讀檔後生效。",
     effectHeading: "★ 特殊效果",
     qtyLabel: "數量",
     qtyNote: (heldOrNull, value, limit) => {
@@ -262,7 +273,7 @@ const I18N = {
     batchFailedIntro: (succ, fail) => "成功 " + succ + " 件，失敗 " + fail + " 件。以下物品沒有寫入：",
     batchFailedOk: "知道了",
     toastObtained: (label, amount, toStash) => (toStash ? "已存入儲藏室：" : "已放入個人背包：") + label + amount + "，讀檔後生效",
-    batchToggle: "批量選擇",
+    batchToggle: "批次選擇",
     batchToggleActive: "退出多選",
     batchSelectedCount: (n) => "已選 " + n + " 項",
     batchDestLabel: "存放位置：",
@@ -272,12 +283,12 @@ const I18N = {
     batchSubmit: (n) => "一鍵獲得 (" + n + ")",
     batchClear: "清空",
     batchCancel: "退出多選",
-    batchTitle: "批量獲得物品",
-    batchConfirmSummary: (slotName, count, destText) => "將向〈" + slotName + "〉添加選中的 " + count + " 件物品（" + destText + "），讀檔後生效：",
+    batchTitle: "批次獲得物品",
+    batchConfirmSummary: (slotName, count, destText) => "將向〈" + slotName + "〉新增選中的 " + count + " 件物品（" + destText + "），讀檔後生效：",
     batchEmptyAlert: "請先勾選要獲得的物品。",
-    batchConfirm: (n) => "確定要將選中的 " + n + " 件物品添加到存檔嗎？",
-    batchToastSuccess: (n, ms) => "批量獲得成功：共 " + n + " 件物品（耗時 " + ms + "ms）",
-    batchToastPartial: (succ, fail) => "批量添加完成：成功 " + succ + " 件，失敗 " + fail + " 件",
+    batchConfirm: (n) => "確定要將選中的 " + n + " 件物品新增到存檔嗎？",
+    batchToastSuccess: (n, ms) => "批次獲得成功：共 " + n + " 件物品（耗時 " + ms + "ms）",
+    batchToastPartial: (succ, fail) => "批次新增完成：成功 " + succ + " 件，失敗 " + fail + " 件",
     skinTitle: "外觀",
     skinDropText: "選擇圖片，或把圖片拖到這裡",
     skinClear: "清除背景",
@@ -298,7 +309,18 @@ const I18N = {
     helpTitle: "說明",
     helpTabStart: "快速上手",
     helpTabFaq: "常見問題",
-    helpTabAbout: "關於"
+    helpTabAbout: "關於",
+    appTitle: "遊戲工具",
+    gameFallback: "遊戲",
+    ariaLang: "語言",
+    ariaCaption: "視窗",
+    ariaOwnership: "狀態篩選",
+    ariaPager: "翻頁",
+    unknownError: "未知錯誤",
+    qtyInvalid: "數量無效",
+    skinTooLarge: "圖片超過 20 MB。",
+    labelSep: "：",
+    withNote: (text, note) => text + "（" + note + "）"
   },
   "en-us": {
     titleSuffix: " · Item Library",
@@ -428,7 +450,18 @@ const I18N = {
     helpTitle: "Help",
     helpTabStart: "Quick Start",
     helpTabFaq: "FAQ",
-    helpTabAbout: "About"
+    helpTabAbout: "About",
+    appTitle: "Game Tool",
+    gameFallback: "Game",
+    ariaLang: "Language",
+    ariaCaption: "Window",
+    ariaOwnership: "Ownership filter",
+    ariaPager: "Pages",
+    unknownError: "Unknown error",
+    qtyInvalid: "Invalid quantity",
+    skinTooLarge: "The image is larger than 20 MB.",
+    labelSep: ": ",
+    withNote: (text, note) => text + " (" + note + ")"
   }
 };
 
@@ -459,7 +492,7 @@ const PAGE_SIZE_KEY = "gametool.library.pageSize";
 const pending = new Map();
 let requestId = 0;
 let gameId = "cp2077";
-let gameName = "游戏";
+let gameName = "";
 let slots = [];
 let backups = [];
 let selected = null;
@@ -512,7 +545,7 @@ window.chrome.webview.addEventListener("message", (event) => {
   if (message.status === "ok")
     waiter.resolve(message.data);
   else
-    waiter.reject(message.error || { message: "未知错误" });
+    waiter.reject(message.error || { message: t().unknownError });
 });
 
 // D024：存档版本不在白名单内（「不支持」）时，补一句游戏更新后的处理和更新渠道。
@@ -1235,7 +1268,7 @@ function cardFor(group) {
   let rec;
   if (group.variants.length > 1) {
     rec = element("p", "rec count", variantCount(group));
-    rec.title = group.variants.map((item) => item.variantLabel + "：" + item.recordName).join("\n");
+    rec.title = group.variants.map((item) => item.variantLabel + t().labelSep + item.recordName).join("\n");
   } else {
     rec = element("p", "rec", shortRecord(chosen.recordName));
     rec.title = chosen.recordName;
@@ -1633,7 +1666,9 @@ function openObtain(group, initialIndex) {
       variants.forEach((item, position) => {
         const option = document.createElement("option");
         option.value = String(position);
-        option.textContent = (item.variantLabel || shortRecord(item.recordName)) + (stateOf(item) ? "（" + stateOf(item) + "）" : "");
+        const label = item.variantLabel || shortRecord(item.recordName);
+        const state = stateOf(item);
+        option.textContent = state ? t().withNote(label, state) : label;
         option.dataset.target = item.target;
         select.append(option);
       });
@@ -1845,12 +1880,12 @@ function openObtain(group, initialIndex) {
 
   async function confirm() {
     if (busy)
-      return { ok: false, error: { message: "正在写入" } };
+      return { ok: false, error: { message: t().obtainWriting } };
     const item = current();
     const value = quantity();
     if (input && !(Number.isSafeInteger(value) && value >= 1 && value <= limit)) {
       paintAfter();
-      return { ok: false, error: { message: "数量无效" } };
+      return { ok: false, error: { message: t().qtyInvalid } };
     }
     busy = true;
     run.disabled = true;
@@ -1944,7 +1979,7 @@ function importSkinFile(file) {
   if (!file)
     return;
   if (file.size > 20 * 1024 * 1024) {
-    showError({ message: "图片超过 20 MB。" });
+    showError({ message: t().skinTooLarge });
     return;
   }
   const reader = new FileReader();
@@ -2051,11 +2086,11 @@ const HELP_PANES_HTML = {
         </dd>
         <dt>會不會把存檔改壞？</dt>
         <dd>每次寫入前都會逐位元組校驗：除了新增或修改的物品，其他內容只要有任何變化就放棄寫入，原存檔保持不變。</dd>
-        <dt>如何查看已擁有/未擁有的物品？如何多選批量添加？</dt>
+        <dt>如何查看已擁有/未擁有的物品？如何多選批次新增？</dt>
         <dd>
           <ul class="help-list">
             <li><strong>狀態篩選</strong>：分類列下方提供「全部 / 未擁有 / 已擁有」切換，點擊「未擁有」可直接查看目前存檔尚未收集的所有裝備，分類標籤上的數字也會即時同步為未收集數量。</li>
-            <li><strong>批量選擇模式</strong>：點擊工具列的「批量選擇」按鈕進入多選模式，直接點選多張物品卡片進行勾選，在底部浮動操作列中選擇存放位置後，點擊「一鍵獲得」即可逐件寫入存檔。個別物品失敗（如數量超過上限）不影響其他物品，失敗的物品和原因會逐條列出，並保留在多選裡，可以直接再點「一鍵獲得」重試。</li>
+            <li><strong>批次選擇模式</strong>：點擊工具列的「批次選擇」按鈕進入多選模式，直接點選多張物品卡片進行勾選，在底部浮動操作列中選擇存放位置後，點擊「一鍵獲得」即可逐件寫入存檔。個別物品失敗（如數量超過上限）不影響其他物品，失敗的物品和原因會逐條列出，並保留在多選裡，可以直接再點「一鍵獲得」重試。</li>
           </ul>
         </dd>
       </dl>`,
@@ -2485,7 +2520,12 @@ call("window.state", {}).then(applyWindowState).catch(() => {});
 
 function applyUiLang() {
   const L = t();
-  titleEl.textContent = gameName + L.titleSuffix;
+  titleEl.textContent = (gameName || L.gameFallback) + L.titleSuffix;
+  document.title = L.appTitle;
+  document.querySelector("#lang-switch").setAttribute("aria-label", L.ariaLang);
+  document.querySelector("#caption").setAttribute("aria-label", L.ariaCaption);
+  ownershipFilterEl.setAttribute("aria-label", L.ariaOwnership);
+  pagerEl.setAttribute("aria-label", L.ariaPager);
   helpOpenEl.textContent = L.helpOpen;
   document.querySelector("#skin-open").textContent = L.skinOpen;
   settingsOpenEl.title = L.settingsOpen;
@@ -2549,6 +2589,7 @@ function applyUiLang() {
   const tabStart = document.querySelector('[data-help-tab="start"]');
   const tabFaq = document.querySelector('[data-help-tab="faq"]');
   const tabAbout = document.querySelector('[data-help-tab="about"]');
+  document.querySelector(".help-tabs").setAttribute("aria-label", L.helpTitle);
   if (tabStart) tabStart.textContent = L.helpTabStart;
   if (tabFaq) tabFaq.textContent = L.helpTabFaq;
   if (tabAbout) tabAbout.textContent = L.helpTabAbout;
