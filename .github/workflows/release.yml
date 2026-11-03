@@ -1,6 +1,7 @@
 # 发版：在 GitHub 的 Windows 机器上构建、跑全部测试、用 src/release/package-release.ps1 打包，
 # 然后创建 Release 草稿（附 zip 和 SHA-256）。草稿不公开：下载检查无误后，在 GitHub 的 Release 页面点「Publish」。
 # 版本号取自 src/Directory.Build.props；草稿发布时才会创建 v<版本> 标签。
+# 可以重复运行：同一版本已有的草稿会被新草稿替换；已经正式发布的版本拒绝覆盖。
 name: Release
 
 on:
@@ -51,8 +52,19 @@ jobs:
           [xml]$props = Get-Content -LiteralPath src/Directory.Build.props -Raw
           $version = $props.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
           $tag = "v$version"
-          gh release view $tag 2>$null
-          if ($LASTEXITCODE -eq 0) { throw "Release $tag 已经存在，先改版本号或删除旧的 Release。" }
+          # 按标签查只会查到正式发布的版本（草稿发布前没有标签）；gh release view 会连草稿一起查到，不能用来判断。
+          gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) { throw "Release $tag 已经正式发布，先改版本号。" }
+          # 草稿没有标签，按 tag_name 找出同一版本的旧草稿并删除，避免出现多个同名草稿。
+          $drafts = gh api "repos/$env:GITHUB_REPOSITORY/releases" --paginate --jq '.[] | select(.draft) | [.id, .tag_name] | @tsv'
+          if ($LASTEXITCODE -ne 0) { throw "读取已有 Release 失败（$LASTEXITCODE）" }
+          foreach ($line in @($drafts | Where-Object { $_ })) {
+            $id, $name = $line -split "`t"
+            if ($name -ne $tag) { continue }
+            gh api -X DELETE "repos/$env:GITHUB_REPOSITORY/releases/$id" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "删除旧草稿 $id 失败（$LASTEXITCODE）" }
+            Write-Host "已删除同一版本的旧草稿 $id"
+          }
           $zip = "artifacts/release/GameTool-CP2077-$tag-win-x64.zip"
           $sha = "$zip.sha256.txt"
           if (-not (Test-Path -LiteralPath $zip) -or -not (Test-Path -LiteralPath $sha)) { throw "找不到打包结果 $zip" }
