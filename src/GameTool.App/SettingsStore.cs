@@ -1,3 +1,4 @@
+using GameTool.Core;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -179,7 +180,7 @@ public sealed class SettingsStore
     private static void RequireGameId(string gameId)
     {
         if (string.IsNullOrWhiteSpace(gameId))
-            throw new ArgumentException("缺少游戏 id。", nameof(gameId));
+            throw new ArgumentException(UiText.T("缺少游戏 id。", "缺少遊戲 id。", "Missing game id."), nameof(gameId));
     }
 
     private sealed class SettingsFile

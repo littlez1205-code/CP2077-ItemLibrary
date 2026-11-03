@@ -1,3 +1,4 @@
+using GameTool.Core;
 using static System.FormattableString;
 
 namespace GameTool.Adapters.Cyberpunk2077.Names;
@@ -352,7 +353,7 @@ public sealed partial class GearCatalog
     public const string StatsShardSlot = "AttachmentSlots.StatsShardSlot";
 
     /// <summary>没装往日之影时生成往日之影物品的拒绝说明（D023）。</summary>
-    public const string ExpansionHiddenMessage = "这件物品属于往日之影资料片，当前游戏目录未检测到往日之影。";
+    public static string ExpansionHiddenMessage => UiText.T("这件物品属于往日之影资料片，当前游戏目录未检测到往日之影。", "這件物品屬於往日之影資料片，當前遊戲目錄未檢測到往日之影。", "This item belongs to the Phantom Liberty expansion, which was not detected in the current game folder.");
 
     // CPO 是多人模式原型残留（如 CPO_Base_Lexington），一并排除。
     private static readonly string[] Excluded = ["notQueryable", "Debug", "DisabledContent", "abstract", "CPO"];

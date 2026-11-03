@@ -211,7 +211,7 @@ public sealed class SaveWatcher : IAsyncDisposable
         var ready = Stopwatch.StartNew();
         if (!await WaitUntilReadyAsync(item.Path, cancellationToken))
         {
-            Emit(item, "error", null, "等待存档写完超时。", null);
+            Emit(item, "error", null, UiText.T("等待存档写完超时。", "等待存檔寫完超時。", "Timed out waiting for the save to finish writing."), null);
             return;
         }
 

@@ -1,3 +1,4 @@
+using GameTool.Core;
 using System.Buffers.Binary;
 using GameTool.Adapters.Cyberpunk2077.Localization;
 using Microsoft.Win32.SafeHandles;
@@ -49,14 +50,14 @@ public sealed class StreamingRdarArchive : IDisposable
             var header = new byte[HeaderLength];
             ReadExactly(handle, header, 0);
             if (!header.AsSpan(0, 4).SequenceEqual("RDAR"u8))
-                throw new InvalidDataException($"不是 RDAR 归档：{path}");
+                throw new InvalidDataException(UiText.T($"不是 RDAR 归档：{path}", $"不是 RDAR 歸檔：{path}", $"This is not an RDAR archive: {path}"));
             var version = BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(4));
             if (version != 12)
-                throw new InvalidDataException($"不支持的归档版本 {version}：{path}");
+                throw new InvalidDataException(UiText.T($"不支持的归档版本 {version}：{path}", $"不支援的歸檔版本 {version}：{path}", $"Unsupported archive version {version}: {path}"));
             var indexOffset = BinaryPrimitives.ReadUInt64LittleEndian(header.AsSpan(8));
             var indexSize = BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(16));
             if (indexSize < IndexHeaderLength || indexSize > MaxIndexLength || indexOffset < HeaderLength || indexOffset > (ulong)length - indexSize)
-                throw new InvalidDataException($"归档索引越界：{path}");
+                throw new InvalidDataException(UiText.T($"归档索引越界：{path}", $"歸檔索引越界：{path}", $"The archive index is out of range: {path}"));
             var index = new byte[indexSize];
             ReadExactly(handle, index, (long)indexOffset);
             var (files, segments) = ParseIndex(index, length);
@@ -73,12 +74,12 @@ public sealed class StreamingRdarArchive : IDisposable
     public static (Dictionary<ulong, (int Start, int End)> Files, Segment[] Segments) ParseIndex(ReadOnlySpan<byte> index, long archiveLength)
     {
         if (index.Length < IndexHeaderLength)
-            throw new InvalidDataException("归档索引太短。");
+            throw new InvalidDataException(UiText.T("归档索引太短。", "歸檔索引太短。", "The archive index is too short."));
         var fileCount = BinaryPrimitives.ReadUInt32LittleEndian(index[16..]);
         var segmentCount = BinaryPrimitives.ReadUInt32LittleEndian(index[20..]);
         var needed = IndexHeaderLength + (long)fileCount * FileEntryLength + (long)segmentCount * SegmentLength;
         if (needed > index.Length)
-            throw new InvalidDataException("归档索引的文件数或段数超出索引长度。");
+            throw new InvalidDataException(UiText.T("归档索引的文件数或段数超出索引长度。", "歸檔索引的檔案數或段數超出索引長度。", "The archive index's file or segment count exceeds the index length."));
         var segmentsAt = IndexHeaderLength + (int)fileCount * FileEntryLength;
         var segments = new Segment[segmentCount];
         for (var i = 0; i < segments.Length; i++)
@@ -88,7 +89,7 @@ public sealed class StreamingRdarArchive : IDisposable
             var disk = BinaryPrimitives.ReadUInt32LittleEndian(at[8..]);
             var memory = BinaryPrimitives.ReadUInt32LittleEndian(at[12..]);
             if (offset < 0 || offset > archiveLength - disk || memory > int.MaxValue)
-                throw new InvalidDataException($"归档段 {i} 越界。");
+                throw new InvalidDataException(UiText.T($"归档段 {i} 越界。", $"歸檔段 {i} 越界。", $"Archive segment {i} is out of range."));
             segments[i] = new Segment(offset, disk, memory);
         }
 
@@ -100,7 +101,7 @@ public sealed class StreamingRdarArchive : IDisposable
             var start = BinaryPrimitives.ReadUInt32LittleEndian(at[20..]);
             var end = BinaryPrimitives.ReadUInt32LittleEndian(at[24..]);
             if (end < start || end > segmentCount)
-                throw new InvalidDataException($"归档文件 {i} 的段范围无效。");
+                throw new InvalidDataException(UiText.T($"归档文件 {i} 的段范围无效。", $"歸檔檔案 {i} 的段範圍無效。", $"Archive file {i} has an invalid segment range."));
             if (start == end)
                 continue;
             files.TryAdd(hash, ((int)start, (int)end));
@@ -134,12 +135,12 @@ public sealed class StreamingRdarArchive : IDisposable
         if (raw.Length == memorySize)
             return raw;
         if (raw.Length < 8 || !raw.AsSpan(0, 4).SequenceEqual("KARK"u8))
-            throw new InvalidDataException("归档段缺少 KARK 头。");
+            throw new InvalidDataException(UiText.T("归档段缺少 KARK 头。", "歸檔段缺少 KARK 頭。", "An archive segment is missing its KARK header."));
         if (BinaryPrimitives.ReadUInt32LittleEndian(raw.AsSpan(4)) != (uint)memorySize)
-            throw new InvalidDataException("KARK 声明的长度和段表不一致。");
+            throw new InvalidDataException(UiText.T("KARK 声明的长度和段表不一致。", "KARK 宣告的長度和段表不一致。", "The KARK length does not match the segment table."));
         var decoded = oodle.Decompress(raw.AsSpan(8), memorySize);
         if (decoded.Length != memorySize)
-            throw new InvalidDataException("解压结果长度和段表不一致。");
+            throw new InvalidDataException(UiText.T("解压结果长度和段表不一致。", "解壓結果長度和段表不一致。", "The decompressed length does not match the segment table."));
         return decoded;
     }
 
@@ -152,7 +153,7 @@ public sealed class StreamingRdarArchive : IDisposable
         {
             var read = RandomAccess.Read(handle, buffer.AsSpan(done), offset + done);
             if (read <= 0)
-                throw new EndOfStreamException("归档被截断。");
+                throw new EndOfStreamException(UiText.T("归档被截断。", "歸檔被截斷。", "The archive is truncated."));
             done += read;
         }
     }

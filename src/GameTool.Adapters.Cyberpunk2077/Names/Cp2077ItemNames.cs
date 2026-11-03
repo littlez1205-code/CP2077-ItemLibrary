@@ -102,7 +102,7 @@ public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
         ? null
         : string.IsNullOrWhiteSpace(_diagnosticReason)
             ? ItemNameCatalog.RedmodUnavailable
-            : ItemNameCatalog.RedmodUnavailable + "（诊断详情：" + _diagnosticReason + "）";
+            : ItemNameCatalog.RedmodUnavailable + UiText.T("（诊断详情：", "（診斷詳情：", " (details: ") + _diagnosticReason + UiText.T("）", "）", ")");
 
     public IReadOnlyList<GearEntry> Gear => Available ? _catalog!.Gear?.Entries ?? [] : [];
 
@@ -161,7 +161,7 @@ public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
             {
                 var tweaksDir = Path.Combine(game, Cp2077Paths.TweaksRelative);
                 reason = Directory.Exists(tweaksDir)
-                    ? "tools\\redmod\\tweaks 文件夹内没有找到 .tweak 数据文件，请确认 REDmod DLC 已完整下载"
+                    ? UiText.T("tools\\redmod\\tweaks 文件夹内没有找到 .tweak 数据文件，请确认 REDmod DLC 已完整下载", "tools\\redmod\\tweaks 資料夾內沒有找到 .tweak 資料檔案，請確認 REDmod DLC 已完整下載", "No .tweak data files were found in tools\\redmod\\tweaks. Make sure the REDmod DLC is fully downloaded")
                     : null;
             }
             return new Cp2077ItemNames(catalog, game, reason, sharedIcons);

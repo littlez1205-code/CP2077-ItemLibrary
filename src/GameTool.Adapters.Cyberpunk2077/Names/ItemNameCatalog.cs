@@ -10,7 +10,7 @@ public readonly record struct ParsedNameKey(bool IsId, ulong Id, string Name);
 
 public sealed class ItemNameCatalog
 {
-    public const string RedmodUnavailable = "名字表不可用，需要安装官方免费 DLC REDmod（Steam / GOG / Epic 均可获取）。";
+    public static string RedmodUnavailable => UiText.T("名字表不可用，需要安装官方免费 DLC REDmod（Steam / GOG / Epic 均可获取）。", "名字表不可用，需要安裝官方免費 DLC REDmod（Steam / GOG / Epic 均可獲取）。", "The name table is unavailable. Install the free official REDmod DLC (available on Steam / GOG / Epic).");
 
     private readonly TweakSourceIndex? _index;
     private readonly Dictionary<ulong, string> _byKey = [];
@@ -124,7 +124,7 @@ public sealed class ItemNameCatalog
     public ItemName Resolve(string key)
     {
         if (!TryParseKey(key, out var parsed))
-            throw new ArgumentException($"无法解析 {key}。");
+            throw new ArgumentException(UiText.T($"无法解析 {key}。", $"無法解析 {key}。", $"Cannot parse the name key {key}."));
         return parsed.IsId ? Resolve(parsed.Id) : Resolve(TweakDbId.FromName(parsed.Name));
     }
 

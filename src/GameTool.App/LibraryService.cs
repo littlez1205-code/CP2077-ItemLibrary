@@ -59,7 +59,7 @@ public sealed class LibraryService
         ArgumentNullException.ThrowIfNull(adapter);
         ArgumentException.ThrowIfNullOrWhiteSpace(saveFilePath);
         if (string.IsNullOrWhiteSpace(target))
-            throw new PatchRejectedException("缺少要获得的物品。");
+            throw new PatchRejectedException(UiText.T("缺少要获得的物品。", "缺少要獲得的物品。", "No item to obtain was given."));
         // 页面消息并发处理；写入串行进行，避免两次获得互相把对方判成「存档已被改写」。
         lock (_writeGate)
         {
@@ -84,9 +84,9 @@ public sealed class LibraryService
         ArgumentNullException.ThrowIfNull(adapter);
         ArgumentException.ThrowIfNullOrWhiteSpace(saveFilePath);
         if (items is null || items.Count == 0)
-            throw new PatchRejectedException("批量添加列表为空。");
+            throw new PatchRejectedException(UiText.T("批量添加列表为空。", "批次新增列表為空。", "The batch list is empty."));
         if (items.Count > MaxBatchItems)
-            throw new PatchRejectedException($"单次批量添加最多支持 {MaxBatchItems} 件物品。");
+            throw new PatchRejectedException(UiText.T($"单次批量添加最多支持 {MaxBatchItems} 件物品。", $"單次批次新增最多支援 {MaxBatchItems} 件物品。", $"A batch can contain at most {MaxBatchItems} items."));
         var mode = ParseDestination(destinationMode);
 
         lock (_writeGate)
@@ -95,7 +95,7 @@ public sealed class LibraryService
             // 分类、是否堆叠、是否标志性、存档里有没有储藏箱，在这一批写入过程中都不会变：只读一次存档，
             // 用来决定每件放哪里、也用来查每件的目录信息（见 ObtainFrom）；每件真正写入时 PatchEngine 仍会读取最新存档。
             if (adapter.Load(saveFilePath) is not IItemGenerateCapable document)
-                throw new PatchRejectedException("这个存档不能获得物品。");
+                throw new PatchRejectedException(UiText.T("这个存档不能获得物品。", "這個存檔不能獲得物品。", "Items cannot be obtained in this save."));
             var stashAvailable = document.StashAvailable;
             var planned = items
                 .Select(request => (Request: request, Item: string.IsNullOrWhiteSpace(request.Target) ? null : document.FindGeneratable(request.Target)))
@@ -114,7 +114,7 @@ public sealed class LibraryService
             {
                 if (string.IsNullOrWhiteSpace(request.Target))
                 {
-                    results.Add(new BatchItemResult("", "未知物品", false, "缺少目标。", null));
+                    results.Add(new BatchItemResult("", UiText.T("未知物品", "未知物品", "Unknown item"), false, UiText.T("缺少目标。", "缺少目標。", "Missing target."), null));
                     failed++;
                     continue;
                 }
@@ -137,7 +137,7 @@ public sealed class LibraryService
         }
     }
 
-    private const string NoStashMessage = "存档中暂无储藏室记录，不能全部放入储藏室；请在游戏内先往载具后备箱或公寓储藏处放一件物品并存档，或改为放入背包。";
+    private static string NoStashMessage => UiText.T("存档中暂无储藏室记录，不能全部放入储藏室；请在游戏内先往载具后备箱或公寓储藏处放一件物品并存档，或改为放入背包。", "存檔中暫無儲藏室記錄，不能全部放入儲藏室；請在遊戲內先往載具後備箱或公寓儲藏處放一件物品並存檔，或改為放入背包。", "This save has no stash record yet, so the items cannot all go to the stash. Put any item into a vehicle trunk or apartment stash in game and save, or choose the backpack instead.");
 
     private enum BatchDestination
     {
@@ -151,7 +151,7 @@ public sealed class LibraryService
         null or "" or "smart" => BatchDestination.Smart,
         "backpack" => BatchDestination.Backpack,
         "stash" => BatchDestination.Stash,
-        _ => throw new PatchRejectedException($"未知的存放位置 {mode}。")
+        _ => throw new PatchRejectedException(UiText.T($"未知的存放位置 {mode}。", $"未知的存放位置 {mode}。", $"Unknown destination {mode}."))
     };
 
     /// <summary>
@@ -176,7 +176,7 @@ public sealed class LibraryService
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
         if (adapter.Load(saveFilePath) is not IItemGenerateCapable document)
-            throw new PatchRejectedException("这个存档不能获得物品。");
+            throw new PatchRejectedException(UiText.T("这个存档不能获得物品。", "這個存檔不能獲得物品。", "Items cannot be obtained in this save."));
         return ObtainFrom(adapter, saveFilePath, document, target, quantity, toStash, clock);
     }
 
@@ -194,13 +194,13 @@ public sealed class LibraryService
         System.Diagnostics.Stopwatch clock)
     {
         if (!document.GenerateAvailable)
-            throw new PatchRejectedException(document.GenerateMessage ?? "物品库不可用。");
+            throw new PatchRejectedException(document.GenerateMessage ?? UiText.T("物品库不可用。", "物品庫不可用。", "The item library is unavailable."));
         var item = document.FindGeneratable(target)
-            ?? throw new PatchRejectedException(document.HiddenReason(target) ?? $"物品库里没有 {target}。");
+            ?? throw new PatchRejectedException(document.HiddenReason(target) ?? UiText.T($"物品库里没有 {target}。", $"物品庫裡沒有 {target}。", $"{target} is not in the item library."));
         if (item.Stackable)
         {
             if (toStash)
-                throw new PatchRejectedException("堆叠物品不支持直接存入储藏箱。");
+                throw new PatchRejectedException(UiText.T("堆叠物品不支持直接存入储藏箱。", "堆疊物品不支援直接存入儲藏箱。", "Stackable items cannot be put directly into the stash."));
             return ObtainStack(adapter, saveFilePath, document, item, quantity ?? 1, clock);
         }
         return ObtainGear(adapter, saveFilePath, item, quantity ?? 1, clock, toStash);
@@ -212,11 +212,11 @@ public sealed class LibraryService
         if (isMod)
         {
             if (quantity is < 1 or > 10)
-                throw new PatchRejectedException("模组每次获得 1 到 10 件。");
+                throw new PatchRejectedException(UiText.T("模组每次获得 1 到 10 件。", "模組每次獲得 1 到 10 件。", "Mods can be obtained 1 to 10 at a time."));
         }
         else if (quantity != 1)
         {
-            throw new PatchRejectedException("装备每次获得 1 件。");
+            throw new PatchRejectedException(UiText.T("装备每次获得 1 件。", "裝備每次獲得 1 件。", "Gear is obtained one at a time."));
         }
 
         var copies = (int)quantity;
@@ -233,11 +233,11 @@ public sealed class LibraryService
         System.Diagnostics.Stopwatch clock)
     {
         var resource = document.StackResource(item.Target)
-            ?? throw new PatchRejectedException($"{item.Label} 不能按数量获得。");
+            ?? throw new PatchRejectedException(UiText.T($"{item.Label} 不能按数量获得。", $"{item.Label} 不能按數量獲得。", $"{item.Label} cannot be obtained by quantity."));
         if (quantity < 1)
-            throw new PatchRejectedException("数量至少为 1。");
+            throw new PatchRejectedException(UiText.T("数量至少为 1。", "數量至少為 1。", "The quantity must be at least 1."));
         if (quantity > resource.Max)
-            throw new PatchRejectedException($"数量不能超过 {resource.Max}。");
+            throw new PatchRejectedException(UiText.T($"数量不能超过 {resource.Max}。", $"數量不能超過 {resource.Max}。", $"The quantity cannot exceed {resource.Max}."));
         var working = Extend(adapter, resource);
         long? before;
         try
@@ -246,16 +246,16 @@ public sealed class LibraryService
         }
         catch (AmbiguousResourceException)
         {
-            throw new PatchRejectedException($"{item.Label} 在背包里有多个堆叠，无法确定加到哪一个，未写入。");
+            throw new PatchRejectedException(UiText.T($"{item.Label} 在背包里有多个堆叠，无法确定加到哪一个，未写入。", $"{item.Label} 在背包裡有多個堆疊，無法確定加到哪一個，未寫入。", $"{item.Label} has several stacks in the backpack, so it is unclear which one to add to. Nothing was written."));
         }
 
         var after = (before ?? 0) + quantity;
         if (after > resource.Max)
-            throw new PatchRejectedException($"{item.Label} 获得后为 {after}，超过上限 {resource.Max}（当前 {before ?? 0}）。");
+            throw new PatchRejectedException(UiText.T($"{item.Label} 获得后为 {after}，超过上限 {resource.Max}（当前 {before ?? 0}）。", $"{item.Label} 獲得後為 {after}，超過上限 {resource.Max}（當前 {before ?? 0}）。", $"{item.Label} would become {after}, above the limit of {resource.Max} (currently {before ?? 0})."));
         // 桌面端按 D006 不在存档目录生成 .bak；获得也不自动备份（D019）。
         var report = PatchEngine.Patch(working, saveFilePath, [new ResourceChange(resource.Id, after)], new PatchOptions(null));
         if (report.Outcome != PatchOutcome.Patched)
-            throw new PatchRejectedException($"{item.Label} 没有写入（{report.Outcome}）。");
+            throw new PatchRejectedException(UiText.T($"{item.Label} 没有写入（{report.Outcome}）。", $"{item.Label} 沒有寫入（{report.Outcome}）。", $"{item.Label} was not written ({report.Outcome})."));
         _enable.AcceptOwnWrite(saveFilePath, report.WrittenLastWriteTimeUtc, report.WrittenLength);
         var inserted = report.Results.Any(result => result.Outcome == ChangeOutcome.Inserted);
         return new ObtainReport(item.Target, item.Label, true, quantity, before, after, inserted, null, clock.ElapsedMilliseconds);
@@ -267,7 +267,7 @@ public sealed class LibraryService
         if (adapter.Resources.Any(item => item.Id == resource.Id))
             return adapter;
         if (adapter is not IResourceExtensible extensible)
-            throw new PatchRejectedException("这个游戏不支持按数量获得目录里的物品。");
+            throw new PatchRejectedException(UiText.T("这个游戏不支持按数量获得目录里的物品。", "這個遊戲不支援按數量獲得目錄裡的物品。", "This game does not support obtaining catalog items by quantity."));
         return extensible.WithResources([resource]);
     }
 }

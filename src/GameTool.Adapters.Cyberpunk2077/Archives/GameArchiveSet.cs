@@ -1,3 +1,4 @@
+using GameTool.Core;
 using GameTool.Adapters.Cyberpunk2077.Localization;
 
 namespace GameTool.Adapters.Cyberpunk2077.Archives;
@@ -53,7 +54,7 @@ public sealed class GameArchiveSet : IDisposable
         }
 
         if (archives.Count == 0)
-            throw new InvalidDataException($"游戏目录里没有可用的归档：{gameDirectory}");
+            throw new InvalidDataException(UiText.T($"游戏目录里没有可用的归档：{gameDirectory}", $"遊戲目錄裡沒有可用的歸檔：{gameDirectory}", $"No usable archives were found in the game folder: {gameDirectory}"));
         return new GameArchiveSet(archives, oodle);
     }
 
@@ -100,7 +101,7 @@ public sealed class ArchivedFile
     public int SegmentCount => _archive.SegmentCount(_hash);
 
     /// <summary>第 0 段：CR2W 本体。</summary>
-    public byte[] ReadBody() => ReadSegment(0) ?? throw new InvalidDataException("归档文件没有本体段。");
+    public byte[] ReadBody() => ReadSegment(0) ?? throw new InvalidDataException(UiText.T("归档文件没有本体段。", "歸檔檔案沒有本體段。", "The archive file has no base segment."));
 
     /// <summary>第 n 段（n ≥ 1 对应 CR2W 的第 n 个延迟缓冲）；不存在返回 null。</summary>
     public byte[]? ReadSegment(int segment) => _archive.ReadSegment(_hash, segment, _oodle);
