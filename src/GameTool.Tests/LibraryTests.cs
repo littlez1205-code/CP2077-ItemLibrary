@@ -647,6 +647,69 @@ public class LibraryTests : IDisposable
         Assert.Equal(before, File.ReadAllBytes(path));
     }
 
+    [Fact]
+    public async Task Catalog_AfterEveryWrite_ShowsTheNewState()
+    {
+        // 目录查询复用解析好的存档（CatalogDocumentCache）：每次写入（插入新堆叠、原地改数量，文件长度可能不变、
+        // 两次写入可能落在同一个文件时间刻度里）以及外部改写文件之后，下一次查询都必须看到新状态。
+        var path = Save("catalog-cache", "ManualSave-0");
+        var backups = new BackupStore(Path.Combine(_root, "catalog-cache-backups"));
+        await using var enable = new EnableService(backups, _ => { });
+        var library = new LibraryService(backups, enable);
+        long? HeldInCatalog() =>
+            GenerateService.Groups(_adapter, path, GearKinds.Consumable, "汉堡", 0, 10).Groups.Single().Variants.Single().Held;
+
+        Assert.Null(HeldInCatalog());
+        Assert.Null(HeldInCatalog());
+        library.Obtain(_adapter, path, Food, 3);
+        Assert.Equal(3, HeldInCatalog());
+        for (var round = 1; round <= 5; round++)
+        {
+            library.Obtain(_adapter, path, Food, 1);
+            Assert.Equal(3 + round, HeldInCatalog());
+        }
+
+        // 两次写入落在同一个文件时间刻度、文件长度也没变（原地改数量）：把修改时间改回写入前，
+        // 这时只有本进程的写入计数（SaveFileWrites）能看出存档变了。
+        var stamp = File.GetLastWriteTimeUtc(path);
+        var length = new FileInfo(path).Length;
+        Assert.Equal(8, HeldInCatalog());
+        library.Obtain(_adapter, path, Food, 1);
+        File.SetLastWriteTimeUtc(path, stamp);
+        Assert.Equal(length, new FileInfo(path).Length);
+        Assert.Equal(9, HeldInCatalog());
+
+        // 两件夹克同名，合并在同一张卡里：看那一条的「已拥有」。
+        bool TwinOwned() =>
+            GenerateService.Groups(_adapter, path, GearKinds.Clothing, null, 0, 10).Groups
+                .SelectMany(group => group.Variants).Single(item => item.Target == "Items.Jacket_Twin").Owned;
+        Assert.False(TwinOwned());
+        library.Obtain(_adapter, path, "Items.Jacket_Twin", null);
+        Assert.True(TwinOwned());
+
+        // 外部（比如游戏）把同一个文件换成另一份存档。
+        File.Copy(Save("catalog-cache-other", "ManualSave-0"), path, overwrite: true);
+        Assert.Null(HeldInCatalog());
+    }
+
+    [Fact]
+    public void Document_DerivedState_FollowsGenerateAndQuantityEdits()
+    {
+        // 文档内缓存的「已拥有装备」「持有的堆叠」在生成和原地改数量之后都要跟着变。
+        var path = Save("derived", "ManualSave-0");
+        var document = (Cp2077SaveDocument)_adapter.Load(path);
+        Assert.False(document.FindGeneratable("Items.Jacket_Twin")!.Owned);
+        Assert.Equal(1, document.ListGeneratableGroups(GearKinds.Currency, null, 0, 10, "owned").Total);
+
+        document.Generate(new GenerateRequest("Items.Jacket_Twin", 1));
+        Assert.True(document.FindGeneratable("Items.Jacket_Twin")!.Owned);
+
+        var results = document.Apply([new ResourceChange(new ResourceId("money"), 0)]);
+        Assert.Equal(ChangeOutcome.Changed, Assert.Single(results).Outcome);
+        Assert.Equal(0, document.ListGeneratableGroups(GearKinds.Currency, null, 0, 10, "owned").Total);
+        Assert.Equal(1, document.ListGeneratableGroups(GearKinds.Currency, null, 0, 10, "unowned").Total);
+    }
+
     private static JsonDocument Call(BridgeDispatcher bridge, string fields, string slot) =>
         JsonDocument.Parse(bridge.Dispatch("{\"id\":\"o\",\"method\":\"library.obtain\",\"params\":{\"gameId\":\"cp2077\",\"slot\":" + slot + "," + fields + "}}"));
 

@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using GameTool.Adapters.Cyberpunk2077;
 using GameTool.Adapters.Cyberpunk2077.Container;
 using GameTool.Core;
@@ -138,6 +139,54 @@ public class SaveContainerTests
         var stable = again.ToArray();
         Assert.Equal(1, SaveContainer.Read(stable).ChunkCount);
         Assert.Equal(0xAB, stable[residue]);
+    }
+
+    [Fact]
+    public void Read_FromPathAndMemory_MatchesTheFile_AndKeepsCleanChunksVerbatim()
+    {
+        var bytes = Sample().ToArray();
+        var path = Path.Combine(Path.GetTempPath(), "GameTool-container-" + Guid.NewGuid().ToString("N") + ".dat");
+        try
+        {
+            File.WriteAllBytes(path, bytes);
+            var fromPath = SaveContainer.Read(path);
+            var fromMemory = SaveContainer.Read((ReadOnlyMemory<byte>)bytes);
+            Assert.Equal(bytes, fromPath.ToArray());
+            Assert.Equal(fromPath.Payload.ToArray(), fromMemory.Payload.ToArray());
+
+            // 容器直接引用读入的文件字节：之后改动调用方的数组不能影响已经解析好的容器。
+            var original = fromMemory.ToArray();
+            Array.Fill(bytes, (byte)0xEE);
+            Assert.Equal(original, fromMemory.ToArray());
+
+            // 改一个字节只重压缩那一块，其他块仍原样写回，重新读取后载荷一致。
+            fromPath.WritePayload(130, [0xAB]);
+            Assert.False(fromPath.IsChunkDirty(0));
+            Assert.True(fromPath.IsChunkDirty(1));
+            var edited = SaveContainer.Read((ReadOnlyMemory<byte>)fromPath.ToArray());
+            Assert.Equal(fromPath.Payload.ToArray(), edited.Payload.ToArray());
+            Assert.Equal(0xAB, edited.Payload[130]);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void Read_ChunkTableWithOutOfRangeLength_ReportsTheSameErrorAsBefore()
+    {
+        // 第 2 块的解压长度写成 0：不能预分配，逐块校验时在第 2 块报解压长度越界（第 1 块照常通过）。
+        var bytes = Sample().ToArray();
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(Cp2077Format.ChunkTableOffset + Cp2077Format.ChunkEntrySize + 8), 0);
+        var error = Assert.Throws<InvalidDataException>(() => SaveContainer.Read((ReadOnlyMemory<byte>)bytes));
+        Assert.Equal($"块解压长度 0 超出安全范围 1..{Cp2077Format.MaxDecompressedChunkLength}。", error.Message);
+
+        // 解压长度与块内声明不一致（在安全范围内）：同样在那一块报错。
+        bytes = Sample().ToArray();
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(Cp2077Format.ChunkTableOffset + Cp2077Format.ChunkEntrySize + 8), 299);
+        error = Assert.Throws<InvalidDataException>(() => SaveContainer.Read((ReadOnlyMemory<byte>)bytes));
+        Assert.Equal("块内解压长度与分块表不一致。", error.Message);
     }
 
     private static SaveContainer Sample() => SaveContainer.Create(
