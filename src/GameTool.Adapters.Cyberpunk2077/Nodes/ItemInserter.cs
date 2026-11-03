@@ -36,12 +36,12 @@ public static class ItemInserter
         ArgumentException.ThrowIfNullOrWhiteSpace(tweakName);
         var tweak = TweakDbId.FromName(tweakName);
         var layout = Layout.Read(container);
-        if (layout.PlayerItems.Count == 0 || layout.PlayerItems.All(item => item.Length != StackLength))
-            throw new InvalidDataException("玩家背包里没有 29 字节堆叠物品可以当模板。");
+        // 模板必须不带子节点：新物品的子节点指针照抄模板，带子节点会让两件物品共用同一组子节点。
+        var template = layout.PlayerItems.FirstOrDefault(item => item.Length == StackLength && item.Child < 0)
+            ?? throw new InvalidDataException("玩家背包里没有 29 字节堆叠物品可以当模板。");
         if (layout.PlayerItems.Any(item => item.Tweak == tweak))
             throw new InvalidDataException($"玩家背包里已经有 {tweakName}，请改用 patch。");
 
-        var template = layout.PlayerItems.First(item => item.Length == StackLength);
         var header = template.Header.ToArray();
         var body = template.Body.ToArray();
         BinaryPrimitives.WriteUInt64LittleEndian(header, tweak);
@@ -201,6 +201,11 @@ public static class ItemInserter
             if (layout.PlayerItems.Count == 0)
                 throw new InvalidDataException("玩家背包是空的。");
         }
+
+        // 新节点的子节点指针照抄模板（见 Rewrite）：模板带子节点时两件物品会共用同一组子节点，存档结构就坏了。
+        // 物品生成和复制挑模板时已经排除了带子节点的物品，这里兜底拒绝。
+        if (template.Child >= 0)
+            throw new InvalidDataException("模板物品带子节点，不能用来插入新物品。");
 
         var countOffset = toStash ? layout.StashCountOffset!.Value : layout.PlayerCountOffset;
         var last = targetList[^1];

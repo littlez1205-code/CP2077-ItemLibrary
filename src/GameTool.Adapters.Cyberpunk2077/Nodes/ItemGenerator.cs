@@ -97,6 +97,7 @@ public static class ItemGenerator
         var check = built.Parsed;
 
         var before = Cp2077Adapter.ToImage(container);
+        var beforeNodes = NodeTable.Parse(container.CopyNodeTable());
         var insertion = ItemInserter.Apply(container, layout, template, header, body, targetRecord, quantity: null, seed);
         var after = Cp2077Adapter.ToImage(container);
         var diff = ResearchDiff.Compare(before, after);
@@ -106,7 +107,8 @@ public static class ItemGenerator
             || !after.Payload.AsSpan(region.Offset, region.Length).SequenceEqual(body)
             || !after.Payload.AsSpan(region.Offset - ItemInserter.HeaderLength, ItemInserter.HeaderLength).SequenceEqual(header))
             throw new InvalidDataException("严格校验失败：写入的物品头或 itemData 与生成结果不一致。");
-        Cp2077SaveDocument.VerifyInsertedStructure(before, after, diff, added, insertion.AddedBytes, []);
+        Cp2077SaveDocument.VerifyInsertedStructure(
+            before, after, beforeNodes, NodeTable.Parse(container.CopyNodeTable()), diff, added, insertion.AddedBytes, []);
 
         var fresh = mode == PartsMode.Auto;
         var parts = check.Walk()
