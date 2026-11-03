@@ -1,0 +1,30 @@
+# 持续集成：每次推送（任何分支）都在 GitHub 的 Windows 机器上构建整个解决方案（含 WPF 桌面端）并跑全部测试。
+# 部分测试依赖 Windows 路径与文件系统行为，只能在 Windows 上完整运行。
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build src/GameTool.slnx -c Release
+
+      - name: Test
+        run: dotnet test src/GameTool.slnx -c Release --no-build
