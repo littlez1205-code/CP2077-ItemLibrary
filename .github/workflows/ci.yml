@@ -1,5 +1,7 @@
-# 持续集成：每次推送（任何分支）都在 GitHub 的 Windows 机器上构建整个解决方案（含 WPF 桌面端）并跑全部测试。
-# 部分测试依赖 Windows 路径与文件系统行为，只能在 Windows 上完整运行。
+# 持续集成：每次推送（任何分支）都
+# - 在 GitHub 的 Windows 机器上构建整个解决方案（含 WPF 桌面端）并跑全部测试
+#   （部分测试依赖 Windows 路径与文件系统行为，只能在 Windows 上完整运行）；
+# - 在 Linux 机器上用 Chromium 跑界面测试（src/ui-tests：模拟宿主驱动真实的 wwwroot 页面）。
 name: CI
 
 on:
@@ -28,3 +30,34 @@ jobs:
 
       - name: Test
         run: dotnet test src/GameTool.slnx -c Release --no-build
+
+  ui-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/ui-tests
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/ui-tests/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Test
+        run: npx playwright test
+
+      - name: Upload traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-results
+          path: src/ui-tests/test-results
+          retention-days: 7
