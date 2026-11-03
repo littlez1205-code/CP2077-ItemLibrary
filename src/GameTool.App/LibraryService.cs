@@ -256,7 +256,7 @@ public sealed class LibraryService
         var report = PatchEngine.Patch(working, saveFilePath, [new ResourceChange(resource.Id, after)], new PatchOptions(null));
         if (report.Outcome != PatchOutcome.Patched)
             throw new PatchRejectedException($"{item.Label} 没有写入（{report.Outcome}）。");
-        _enable.AcceptOwnWrite(saveFilePath, report.WrittenLastWriteTimeUtc);
+        _enable.AcceptOwnWrite(saveFilePath, report.WrittenLastWriteTimeUtc, report.WrittenLength);
         var inserted = report.Results.Any(result => result.Outcome == ChangeOutcome.Inserted);
         return new ObtainReport(item.Target, item.Label, true, quantity, before, after, inserted, null, clock.ElapsedMilliseconds);
     }

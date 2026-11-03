@@ -33,7 +33,7 @@ public sealed class SaveWatcher : IAsyncDisposable
     private readonly CancellationTokenSource _stop = new();
     private readonly object _gate = new();
     private readonly Dictionary<string, Pending> _pending = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, DateTime> _ownWrites = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, OwnWrite> _ownWrites = new(StringComparer.OrdinalIgnoreCase);
     private Task? _worker;
 
     public SaveWatcher(
@@ -79,8 +79,12 @@ public sealed class SaveWatcher : IAsyncDisposable
         _watcher.EnableRaisingEvents = true;
     }
 
-    public void NoteOwnWrite(string path, DateTime lastWriteTimeUtc) =>
-        _ownWrites[Path.GetFullPath(path)] = lastWriteTimeUtc;
+    /// <summary>
+    /// 记下自己写出的文件：之后修改时间（以及给出的长度）都相同的变化当作自己写的，不再处理。
+    /// 只看修改时间时，紧挨着的一次外部写入（落在同一个时间刻度里）会被误当成自己写的而漏掉，所以尽量带上长度。
+    /// </summary>
+    public void NoteOwnWrite(string path, DateTime lastWriteTimeUtc, long? length = null) =>
+        _ownWrites[Path.GetFullPath(path)] = new OwnWrite(lastWriteTimeUtc, length);
 
     public async ValueTask DisposeAsync()
     {
@@ -219,7 +223,7 @@ public sealed class SaveWatcher : IAsyncDisposable
                 : PatchEngine.Patch(_adapter, item.Path, _changes, _patchOptions);
             var elapsed = ready.ElapsedMilliseconds;
             if (report.Outcome == PatchOutcome.Patched && report.WrittenLastWriteTimeUtc is DateTime written)
-                _ownWrites[item.Path] = written;
+                _ownWrites[item.Path] = new OwnWrite(written, report.WrittenLength);
             var outcome = report.Outcome;
             if (outcome == PatchOutcome.Patched
                 && report.Results.Any(result => result.Outcome == ChangeOutcome.Inserted)
@@ -283,8 +287,15 @@ public sealed class SaveWatcher : IAsyncDisposable
         _onEvent(new WatchEvent(item.Path, outcome, results, error, writeCompleteToDoneMs, firstToDone));
     }
 
-    private bool IsOwnWrite(string path) =>
-        _ownWrites.TryGetValue(path, out var writeTime) && File.Exists(path) && File.GetLastWriteTimeUtc(path) == writeTime;
+    private bool IsOwnWrite(string path)
+    {
+        if (!_ownWrites.TryGetValue(path, out var own))
+            return false;
+        var info = new FileInfo(path);
+        return info.Exists && info.LastWriteTimeUtc == own.LastWriteTimeUtc && (own.Length is null || info.Length == own.Length);
+    }
+
+    private readonly record struct OwnWrite(DateTime LastWriteTimeUtc, long? Length);
 
     private static bool IsMatch(string relativePath, IReadOnlyList<string> globs)
     {

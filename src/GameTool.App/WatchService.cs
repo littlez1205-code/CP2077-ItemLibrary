@@ -20,8 +20,8 @@ public sealed class WatchService : IAsyncDisposable
 
     public void Start() => _watcher.Start();
 
-    public void NoteOwnWrite(string path, DateTime lastWriteTimeUtc) =>
-        _watcher.NoteOwnWrite(path, lastWriteTimeUtc);
+    public void NoteOwnWrite(string path, DateTime lastWriteTimeUtc, long? length = null) =>
+        _watcher.NoteOwnWrite(path, lastWriteTimeUtc, length);
 
     public ValueTask DisposeAsync() => _watcher.DisposeAsync();
 }
