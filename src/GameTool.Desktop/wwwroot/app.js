@@ -37,8 +37,17 @@ const batchSubmitBtn = document.querySelector("#batch-submit-btn");
 const batchClearBtn = document.querySelector("#batch-clear-btn");
 const batchCancelBtn = document.querySelector("#batch-cancel-btn");
 
-let uiLang = "zh-cn";
+// 启动时的界面语言：宿主把设置里保存的语言放在地址里（?lang=），首屏直接用它，不会先闪一下简体中文。
+let uiLang = startLanguage();
 
+function isLanguage(lang) {
+  return typeof lang === "string" && Object.hasOwn(I18N, lang);
+}
+
+function startLanguage() {
+  const lang = new URLSearchParams(location.search).get("lang");
+  return isLanguage(lang) ? lang : "zh-cn";
+}
 
 function t() {
   return I18N[uiLang] || I18N["zh-cn"];
@@ -1649,7 +1658,7 @@ function applyAppInfo(info) {
     if (helpVersionEl)
       helpVersionEl.textContent = "v" + info.version;
   }
-  if (info && info.language && I18N[info.language] && info.language !== uiLang) {
+  if (info && isLanguage(info.language) && info.language !== uiLang) {
     uiLang = info.language;
     applyUiLang();
   }
@@ -1948,7 +1957,9 @@ call("window.state", {}).then(applyWindowState).catch(() => {});
 
 function applyUiLang() {
   const L = t();
-  titleEl.textContent = (gameName || L.gameFallback) + L.titleSuffix;
+  titleEl.textContent = gameName ? gameName + L.titleSuffix : L.appTitle;
+  if (!selected && !selectedBackup)
+    slotNameEl.textContent = L.noSlot;
   document.title = L.appTitle;
   document.querySelector("#lang-switch").setAttribute("aria-label", L.ariaLang);
   document.querySelector("#caption").setAttribute("aria-label", L.ariaCaption);
@@ -2030,7 +2041,7 @@ function applyUiLang() {
 }
 
 async function switchLanguage(lang) {
-  if (!I18N[lang] || lang === uiLang)
+  if (!isLanguage(lang) || lang === uiLang)
     return;
   uiLang = lang;
   applyUiLang();
@@ -2787,8 +2798,8 @@ async function runFullSelfTest() {
   }
 }
 
-// 说明的内容先按默认语言填好：即使启动失败，说明也能打开。boot 里读到设置的语言后会再填一次。
-renderHelpPanes();
+// 静态文字和说明先按启动语言填好：首屏就是正确的语言，即使启动失败说明也能打开。
+applyUiLang();
 boot().catch((error) => {
   showError(error);
   const query = new URLSearchParams(location.search);
