@@ -27,6 +27,12 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     private readonly Func<IGearCatalog>? _gearFactory;
     private IGearCatalog? _gear;
 
+    // 只读查询反复要用、但要扫一遍背包才能得到的派生数据；第一次用到时算，存档结构或堆叠数量一变就清空
+    // （所有改动都经过 ReloadInventory 或 Apply 的原地改数量，见 ForgetDerived）。
+    private HashSet<ulong>? _ownedGear;
+    private HashSet<ulong>? _heldStacks;
+    private bool? _stashUsable;
+
     private Cp2077SaveDocument(
         SaveContainer container,
         SaveVersionInfo version,
@@ -74,7 +80,20 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     public int StashItemCount => StashInventoryItemCount;
 
     /// <summary>与生成时的判断同一条规则（<see cref="ItemInserter.Layout.StashUsable"/>），不只看储藏箱物品数。</summary>
-    public bool StashAvailable => StashInventoryItemCount > 0 && ItemInserter.Layout.Read(_container).StashUsable;
+    public bool StashAvailable => StashInventoryItemCount > 0 && (_stashUsable ??= ItemInserter.Layout.Read(_container).StashUsable);
+
+    /// <summary>背包和储藏箱里非堆叠物品（装备）的 TweakDBID。</summary>
+    private HashSet<ulong> OwnedGear => _ownedGear ??= ItemInserter.ListNonStacks(_container).Select(slot => slot.Tweak).ToHashSet();
+
+    /// <summary>玩家背包里数量大于 0 的堆叠物品的 TweakDBID。</summary>
+    private HashSet<ulong> HeldStacks => _heldStacks ??= _stacks.Where(stack => stack.Quantity > 0).Select(stack => stack.TweakDbId).ToHashSet();
+
+    private void ForgetDerived()
+    {
+        _ownedGear = null;
+        _heldStacks = null;
+        _stashUsable = null;
+    }
 
     public bool NamesAvailable => Names?.Available == true;
 
@@ -185,6 +204,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             BinaryPrimitives.WriteUInt32LittleEndian(bytes, (uint)change.TargetQuantity);
             _container.WritePayload(matches[0].stack.QuantityOffset, bytes);
             _stacks[matches[0].index] = matches[0].stack with { Quantity = change.TargetQuantity };
+            ForgetDerived();
             results.Add(new ResourceChangeResult(change.Id, current, change.TargetQuantity, ChangeOutcome.Changed));
         }
 
@@ -213,6 +233,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         var inventory = InventoryReader.Read(_container.Payload, nodes);
         _stacks.Clear();
         _stacks.AddRange(inventory.PlayerStacks);
+        ForgetDerived();
         PlayerInventoryItemCount = inventory.PlayerItemCount;
         StashInventoryItemCount = inventory.StashItemCount;
     }
@@ -393,7 +414,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
                 (string.IsNullOrEmpty(kind) || entry.Kind == kind)
                 && words.All(word => Haystack(entry).Contains(word, StringComparison.OrdinalIgnoreCase)))
             .ToArray();
-        var owned = ItemInserter.ListNonStacks(_container).Select(slot => slot.Tweak).ToHashSet();
+        var owned = OwnedGear;
         var items = matches.Skip(skip).Take(take).Select(entry => ToItem(entry, owned)).ToArray();
         return new GenerateCatalogPage(matches.Length, items);
     }
@@ -412,7 +433,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         if (!GenerateAvailable)
             return new GenerateGroupPage(0, 0, []);
         var words = SearchWords(query);
-        var owned = ItemInserter.ListNonStacks(_container).Select(slot => slot.Tweak).ToHashSet();
+        var owned = OwnedGear;
         var matches = new List<(GearGroup Group, int Default)>();
         foreach (var group in Gear!.Groups)
         {
@@ -436,7 +457,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         if (!GenerateAvailable)
             return counts;
         var words = SearchWords(query);
-        var owned = ItemInserter.ListNonStacks(_container).Select(slot => slot.Tweak).ToHashSet();
+        var owned = OwnedGear;
         foreach (var group in Gear!.Groups)
         {
             if (counts.TryGetValue(group.Kind, out var count)
@@ -453,7 +474,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     private bool IsGroupOwned(GearGroup group, HashSet<ulong> ownedGear)
     {
         if (group.Stackable)
-            return group.Variants.Any(v => _stacks.Any(s => s.TweakDbId == v.TweakDbId && s.Quantity > 0));
+            return group.Variants.Any(v => HeldStacks.Contains(v.TweakDbId));
         return group.Variants.Any(v => ownedGear.Contains(v.TweakDbId));
     }
 
@@ -512,7 +533,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         var entry = Catalog().FirstOrDefault(item => item.RecordName == target);
         if (entry is null)
             return null;
-        var owned = entry.Stackable ? new HashSet<ulong>() : ItemInserter.ListNonStacks(_container).Select(slot => slot.Tweak).ToHashSet();
+        var owned = entry.Stackable ? new HashSet<ulong>() : OwnedGear;
         return ToItem(entry, owned);
     }
 
