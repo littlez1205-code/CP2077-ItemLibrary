@@ -504,4 +504,21 @@ public class TweakSourceTests
         var formattedKiroshi = GearCatalog.FormatEffectText("高亮 {float_0 } 米内的敌人。持续 {int_0} 秒。未提供: {int_1} {stat_0}。", "5", "8.5");
         Assert.Equal("高亮 8.5 米内的敌人。持续 5 秒。未提供: 。", formattedKiroshi);
     }
+
+    [Fact]
+    public void FormatEffectText_IgnoresCaseTheSameWayInEveryCulture()
+    {
+        // 土耳其语区域里 i 的大写是 İ、I 的小写是 ı：按系统区域忽略大小写时 {INT_0} 既替换不了也清理不掉。
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("tr-TR");
+        try
+        {
+            Assert.Equal("回复 10 点生命，20 点护甲。", GearCatalog.FormatEffectText("回复 {INT_0} 点生命，{Int_1} 点护甲。", "10,20", null));
+            Assert.Equal("未提供：。", GearCatalog.FormatEffectText("未提供：{INT_5}。", "10", null));
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = culture;
+        }
+    }
 }
