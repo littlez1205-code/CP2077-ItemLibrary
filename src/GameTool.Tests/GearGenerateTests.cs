@@ -988,6 +988,21 @@ public class GearGenerateTests : IDisposable
             }
             """;
 
+        // 数值徽章不随系统区域变化：德语等区域的小数点是逗号，这里用 de-DE 跑，仍要得到「0.9」。
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+        try
+        {
+            AssertRifleBadges(customTweaks);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = culture;
+        }
+    }
+
+    private static void AssertRifleBadges(string customTweaks)
+    {
         var index = TweakSourceIndex.Parse([("test.tweak", customTweaks)]);
         var entries = new LocEntry[]
         {

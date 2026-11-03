@@ -1,3 +1,5 @@
+using static System.FormattableString;
+
 namespace GameTool.Adapters.Cyberpunk2077.Names;
 
 public static class GearKinds
@@ -826,9 +828,9 @@ public sealed partial class GearCatalog
                     var rate = 1.0f / cycle;
                     badges.Add(normLang switch
                     {
-                        "zh-tw" => $"射速 {rate:0.#}發/秒",
-                        "en-us" => $"Fire Rate {rate:0.#}/s",
-                        _ => $"射速 {rate:0.#}发/秒"
+                        "zh-tw" => Invariant($"射速 {rate:0.#}發/秒"),
+                        "en-us" => Invariant($"Fire Rate {rate:0.#}/s"),
+                        _ => Invariant($"射速 {rate:0.#}发/秒")
                     });
                 }
 
@@ -864,9 +866,9 @@ public sealed partial class GearCatalog
                 {
                     badges.Add(normLang switch
                     {
-                        "zh-tw" => $"裝填 {reload:0.##}秒",
-                        "en-us" => $"Reload {reload:0.##}s",
-                        _ => $"装弹 {reload:0.##}秒"
+                        "zh-tw" => Invariant($"裝填 {reload:0.##}秒"),
+                        "en-us" => Invariant($"Reload {reload:0.##}s"),
+                        _ => Invariant($"装弹 {reload:0.##}秒")
                     });
                 }
 
@@ -901,14 +903,14 @@ public sealed partial class GearCatalog
                 if (float.TryParse(meleeDurStr, System.Globalization.CultureInfo.InvariantCulture, out var meleeDur) && meleeDur > 0f)
                 {
                     var speed = 1.0f / meleeDur;
-                    badges.Add(normLang == "en-us" ? $"Atk Speed {speed:0.#}/s" : $"攻速 {speed:0.#}次/秒");
+                    badges.Add(normLang == "en-us" ? Invariant($"Atk Speed {speed:0.#}/s") : Invariant($"攻速 {speed:0.#}次/秒"));
                 }
                 else
                 {
                     var apsStr = index.StatModifierValueOf(targetRecord, "AttacksPerSecond");
                     if (float.TryParse(apsStr, System.Globalization.CultureInfo.InvariantCulture, out var aps) && aps > 0f)
                     {
-                        badges.Add(normLang == "en-us" ? $"Atk Speed {aps:0.#}/s" : $"攻速 {aps:0.#}次/秒");
+                        badges.Add(normLang == "en-us" ? Invariant($"Atk Speed {aps:0.#}/s") : Invariant($"攻速 {aps:0.#}次/秒"));
                     }
                 }
             }
