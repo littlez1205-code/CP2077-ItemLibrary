@@ -246,14 +246,15 @@ public partial class MainWindow : Window
                 urlLauncher: _selfTest ? _selfTestLauncher : new ShellUrlLauncher());
             // T030：游戏存档后自动刷新存档列表（宿主监视存档根目录，去抖后推送 saves.changed），随桥接一起在关闭时释放。
             _bridge.WatchSaveRoots();
-            var query = new List<string>();
+            // 设置里保存的界面语言放进地址：页面首屏直接用它，不必等桥接应答。
+            var query = new List<string> { "lang=" + UiText.Normalize(App.StartupLanguage) };
             if (_fullSelfTest)
                 query.Add("selftest=full");
             else if (_selfTest)
                 query.Add("selftest=1");
             if (!string.IsNullOrWhiteSpace(_show))
                 query.Add("show=" + Uri.EscapeDataString(_show));
-            var start = Origin + "index.html" + (query.Count == 0 ? "" : "?" + string.Join("&", query));
+            var start = Origin + "index.html?" + string.Join("&", query);
             core.Navigate(start);
         }
         catch (WebView2RuntimeNotFoundException)
