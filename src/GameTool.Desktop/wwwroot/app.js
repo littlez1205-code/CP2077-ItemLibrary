@@ -2046,6 +2046,7 @@ const HELP_PANES_HTML = {
             <li>遊戲機制規定：不朽武器升階到 5++（傳說++）需要角色達到 51 級以上並擁有《自由幻局》，且武器的掉落等級必須經過遊戲引擎校準。</li>
             <li>直接放入背包的注入武器缺少掉落時的時間戳校準，在工坊升到 5 階後會無法繼續升級到 5++。</li>
             <li><strong>解決方案</strong>：選擇<strong>「放入儲藏室」</strong>，修改後進遊戲從載具後備箱或公寓儲藏點將武器取出，遊戲原生腳本就會自動觸發等級校準，使其完美解鎖 5++ 升階！</li>
+            <li>如果存檔裡還沒有儲藏室記錄（從沒往載具後備箱或公寓儲藏處放過東西），「放入儲藏室」會暫時無法選擇；在遊戲裡往儲藏處放一件東西並存檔後即可使用。</li>
           </ul>
         </dd>
         <dt>會不會把存檔改壞？</dt>
@@ -2054,7 +2055,7 @@ const HELP_PANES_HTML = {
         <dd>
           <ul class="help-list">
             <li><strong>狀態篩選</strong>：分類列下方提供「全部 / 未擁有 / 已擁有」切換，點擊「未擁有」可直接查看目前存檔尚未收集的所有裝備，分類標籤上的數字也會即時同步為未收集數量。</li>
-            <li><strong>批量選擇模式</strong>：點擊工具列的「批量選擇」按鈕進入多選模式，直接點選多張物品卡片進行勾選，在底部浮動操作列中選擇存放位置後，點擊「一鍵獲得」即可一次性全部注入存檔。</li>
+            <li><strong>批量選擇模式</strong>：點擊工具列的「批量選擇」按鈕進入多選模式，直接點選多張物品卡片進行勾選，在底部浮動操作列中選擇存放位置後，點擊「一鍵獲得」即可逐件寫入存檔。個別物品失敗（如數量超過上限）不影響其他物品，失敗的物品和原因會逐條列出，並保留在多選裡，可以直接再點「一鍵獲得」重試。</li>
           </ul>
         </dd>
       </dl>`,
@@ -2121,6 +2122,7 @@ const HELP_PANES_HTML = {
             <li>Under REDengine 2.0+, upgrading iconic weapons to Tier 5++ requires Phantom Liberty, player level 51+, and engine-calibrated loot tier data.</li>
             <li>Injected iconic weapons directly placed into personal backpack lack the game's drop loot calibration, capping manual crafting upgrades at Tier 5.</li>
             <li><strong>Solution</strong>: Choose <strong>"Stash (Vehicle Trunk / Apartment)"</strong>. Upon retrieving the weapon from your car trunk or apartment stash in game, the game's native script triggers level calibration, unlocking upgrades up to Tier 5++!</li>
+            <li>If the save has no stash record yet (nothing has ever been put into a vehicle trunk or apartment stash), the Stash option is unavailable; put any item into a stash in game and save, and it becomes available.</li>
           </ul>
         </dd>
         <dt>Will this corrupt my save file?</dt>
@@ -2129,7 +2131,7 @@ const HELP_PANES_HTML = {
         <dd>
           <ul class="help-list">
             <li><strong>Ownership Filter</strong>: Switch between "All / Unowned / Owned" below the category bar. Clicking "Unowned" displays all equipment not yet collected in this save, and category counts will dynamically show uncollected amounts.</li>
-            <li><strong>Batch Mode</strong>: Click "Batch Select" in the toolbar to enter multi-select mode. Click multiple item cards to check them, configure destination in the floating bottom bar, and click "Obtain All" to inject them in a single batch.</li>
+            <li><strong>Batch Mode</strong>: Click "Batch Select" in the toolbar to enter multi-select mode. Click multiple item cards to check them, configure destination in the floating bottom bar, and click "Obtain" to write them into the save one by one. If an item fails (for example, it would exceed the quantity cap), the others are still written; failed items are listed with the reason and stay selected, so you can click "Obtain" again to retry.</li>
           </ul>
         </dd>
       </dl>`,
