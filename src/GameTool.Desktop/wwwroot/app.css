@@ -1081,6 +1081,21 @@ input[type="number"]::-webkit-outer-spin-button:hover {
   flex: none;
 }
 
+/* 批量获得失败列表：原因可能较长，换行显示 */
+.batch-failed-row {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.batch-failed-reason {
+  flex: 1 1 60%;
+  min-width: 0;
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 /* ---------- 提示 ---------- */
 
 .toast {
