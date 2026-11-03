@@ -128,6 +128,9 @@ const I18N = {
     destStash: "放入储藏室（载具后备箱 / 公寓）",
     destIconicTip: "💡 推荐存入储藏室：进游戏后从车后备箱或公寓储藏点取出，可直接触发官方等级校准并升阶至 5++！",
     destIconicBackpackWarn: "⚠️ 注意：直接放入背包的不朽武器受游戏机制限制最高只能升至 5 阶；存入储藏室取出可升至 5++。",
+    destStashUnavailable: "这个存档还没有储藏室记录，暂时只能放入背包。在游戏里往载具后备箱或公寓储藏处放一件东西并存档后，就可以选择储藏室。",
+    batchFailedIntro: (succ, fail) => "成功 " + succ + " 件，失败 " + fail + " 件。以下物品没有写入：",
+    batchFailedOk: "知道了",
     toastObtained: (label, amount, toStash) => (toStash ? "已存入储藏室：" : "已放入背包：") + label + amount + "，读档后生效",
     batchToggle: "批量选择",
     batchToggleActive: "退出多选",
@@ -255,6 +258,9 @@ const I18N = {
     destStash: "放入儲藏室（載具後備箱 / 公寓）",
     destIconicTip: "💡 推薦存入儲藏室：進遊戲後從車後備箱或公寓儲藏點取出，可直接啟動官方等級校準並升階至 5++！",
     destIconicBackpackWarn: "⚠️ 注意：直接放入背包的不朽武器受遊戲機制限制最高只能升至 5 階；存入儲藏室取出可升至 5++。",
+    destStashUnavailable: "這個存檔還沒有儲藏室記錄，暫時只能放入背包。在遊戲裡往載具後備箱或公寓儲藏處放一件東西並存檔後，就可以選擇儲藏室。",
+    batchFailedIntro: (succ, fail) => "成功 " + succ + " 件，失敗 " + fail + " 件。以下物品沒有寫入：",
+    batchFailedOk: "知道了",
     toastObtained: (label, amount, toStash) => (toStash ? "已存入儲藏室：" : "已放入個人背包：") + label + amount + "，讀檔後生效",
     batchToggle: "批量選擇",
     batchToggleActive: "退出多選",
@@ -382,6 +388,9 @@ const I18N = {
     destStash: "Stash (Vehicle Trunk / Apartment)",
     destIconicTip: "💡 Recommended to store in Stash: retrieving it from vehicle trunk or apartment stash triggers game level-scaling up to Tier 5++!",
     destIconicBackpackWarn: "⚠️ Note: Iconic weapons placed directly in backpack cannot upgrade past Tier 5 due to game mechanics; storing in Stash allows upgrading to Tier 5++.",
+    destStashUnavailable: "This save has no stash record yet, so items can only go to the backpack. Put any item into a vehicle trunk or apartment stash in game and save, then Stash becomes available.",
+    batchFailedIntro: (succ, fail) => succ + " succeeded, " + fail + " failed. These items were not written:",
+    batchFailedOk: "OK",
     toastObtained: (label, amount, toStash) => (toStash ? "Stored in Stash: " : "Added to backpack: ") + label + amount + "; reload save in game",
     batchToggle: "Batch Select",
     batchToggleActive: "Exit Batch",
@@ -462,6 +471,8 @@ const library = {
   ownership: "all",
   batchMode: false,
   selected: new Map(),
+  // 存档里已有储藏室记录（library.catalog 的 stashAvailable）；没有时不能把装备直接放进储藏室。
+  stashAvailable: true,
   page: 1,
   size: readPageSize(),
   groups: [],
@@ -1036,6 +1047,7 @@ async function loadLibrary(reset, autoKind, keepScroll) {
   library.kinds = page.kinds || [];
   library.kind = page.kind || "";
   library.counts = page.kindCounts || null;
+  library.stashAvailable = page.stashAvailable !== false;
   const better = autoKind ? betterKind() : null;
   if (better) {
     library.kind = better;
@@ -1279,10 +1291,17 @@ function toggleBatchSelection(group) {
       label: group.label,
       iconic: group.iconic,
       stackable: group.stackable,
-      quantity: group.stackable ? (group.kind === "consumable" ? 10 : 100) : 1
+      quantity: group.stackable ? batchQuantity(group, chosen) : 1
     });
   }
   updateBatchUI();
+}
+
+/** 批量里堆叠物品的默认数量：消耗品 10、其他 100，但不超过离上限还剩的数量（至少 1，满了由后端说明原因）。 */
+function batchQuantity(group, item) {
+  const wanted = group.kind === "consumable" ? 10 : 100;
+  const room = item.maxQuantity != null ? item.maxQuantity - (item.held || 0) : wanted;
+  return Math.max(1, Math.min(wanted, room));
 }
 
 function updateBatchUI() {
@@ -1302,6 +1321,15 @@ function updateBatchUI() {
   if (batchSubmitBtn) {
     batchSubmitBtn.textContent = t().batchSubmit(library.selected.size);
     batchSubmitBtn.disabled = library.selected.size === 0;
+  }
+  if (batchDestSelect) {
+    // 存档里还没有储藏室记录：「全部放入储藏室」必然失败，禁用它；智能推荐会自动全部放进背包。
+    const stashOption = batchDestSelect.querySelector('option[value="stash"]');
+    if (stashOption)
+      stashOption.disabled = !library.stashAvailable;
+    if (!library.stashAvailable && batchDestSelect.value === "stash")
+      batchDestSelect.value = "smart";
+    batchDestSelect.title = library.stashAvailable ? "" : t().destStashUnavailable;
   }
   for (const card of gridEl.querySelectorAll(".item")) {
     const key = card.dataset.key;
@@ -1360,35 +1388,72 @@ function openBatchConfirmDialog() {
       toStash: null
     }));
 
+    let res;
     try {
-      const res = await call("library.batchObtain", {
+      res = await call("library.batchObtain", {
         gameId,
         slot: slot.slot,
         items,
         destinationMode: destMode
       });
-      closeDialog();
-      if (res.succeeded === res.totalRequested) {
-        showToast(t().batchToastSuccess(res.succeeded, res.elapsedMilliseconds));
-      } else {
-        showToast(t().batchToastPartial(res.succeeded, res.failed));
-      }
-      library.selected.clear();
-      toggleBatchMode(false);
-      await refreshQuietly();
-      await loadLibrary(false, false, true);
     } catch (err) {
+      // 整批被拒绝（如参数错误、存档读不了）：一件都没写，可以直接重试。
       confirmError.textContent = t().obtainNotWritten(messageOf(err));
       confirmError.hidden = false;
       run.disabled = false;
       cancel.disabled = false;
       run.textContent = t().obtainRetry;
       busy = false;
+      return;
+    }
+
+    // 到这里成功的物品已经写进存档：之后刷新出错只报刷新的错，不能再说「未写入」或给出会重复写入的「重试」。
+    closeDialog();
+    const failures = (res.results || []).filter((result) => !result.success);
+    // 成功的从选择里去掉；失败的留在多选里，修正后（如游戏刚好在存档）可以直接再点「一键获得」重试。
+    const failedTargets = new Set(failures.map((failure) => failure.target));
+    for (const [key, item] of library.selected) {
+      if (!failedTargets.has(item.target))
+        library.selected.delete(key);
+    }
+    if (failures.length === 0) {
+      showToast(t().batchToastSuccess(res.succeeded, res.elapsedMilliseconds));
+      toggleBatchMode(false);
+    } else {
+      showBatchFailures(res, failures);
+      updateBatchUI();
+    }
+    try {
+      await refreshQuietly();
+      await loadLibrary(false, false, true);
+    } catch (err) {
+      showError(err);
     }
   });
 
   confirmActions.append(cancel, run);
-  bindKeys(run, () => closeDialog());
+  // 回车 = 点「一键获得」，Esc = 取消；写入中两个按钮都禁用，按键也不起作用（不能在写入途中关掉确认框）。
+  bindKeys(() => { if (!run.disabled) run.click(); }, () => { if (!cancel.disabled) closeDialog(); });
+}
+
+/** 批量获得部分失败：逐件列出没写入的物品和原因（成功的已经写入存档）。 */
+function showBatchFailures(res, failures) {
+  openDialog(t().batchTitle, t().batchFailedIntro(res.succeeded, res.failed));
+  const list = element("div", "batch-preview-list batch-failed-list");
+  for (const failure of failures) {
+    const row = element("div", "batch-preview-row batch-failed-row");
+    row.append(
+      element("span", "batch-preview-name", failure.label || failure.target),
+      element("span", "batch-failed-reason", failure.error || ""));
+    list.append(row);
+  }
+  confirmBody.append(list);
+  const ok = element("button", "primary", t().batchFailedOk);
+  ok.type = "button";
+  ok.addEventListener("click", () => closeDialog());
+  confirmActions.append(ok);
+  bindKeys(() => closeDialog(), () => closeDialog());
+  ok.focus();
 }
 
 function cardOf(target) {
@@ -1595,6 +1660,13 @@ function openObtain(group, initialIndex) {
   let limit = 1;
   let selectedDest = null;
 
+  /** 这一条最终放不放储藏室：只有能放储藏室的装备、并且存档里已有储藏室记录时才可能；没手动选过时标志性装备默认放储藏室。 */
+  function stashChosen(item) {
+    if (item.stackable || item.canStash === false || !library.stashAvailable)
+      return false;
+    return selectedDest != null ? selectedDest === "stash" : Boolean(item.iconic);
+  }
+
   function current() {
     return variants[index];
   }
@@ -1715,14 +1787,14 @@ function openObtain(group, initialIndex) {
       detail.append(element("p", "dialog-note", t().ownedNote));
     }
 
-    if (!item.stackable) {
+    if (!item.stackable && item.canStash !== false) {
       const destBox = element("div", "dest-box");
       const caption = element("p", "dest-caption", t().destLabel);
       const row = element("div", "segmented", null);
       row.id = "obtain-destination";
       row.setAttribute("role", "radiogroup");
 
-      const isStash = selectedDest != null ? selectedDest === "stash" : Boolean(item.iconic);
+      const isStash = stashChosen(item);
 
       const btnBackpack = element("button", "seg" + (!isStash ? " active" : ""), t().destBackpack);
       btnBackpack.type = "button";
@@ -1733,6 +1805,7 @@ function openObtain(group, initialIndex) {
       btnStash.type = "button";
       btnStash.setAttribute("role", "radio");
       btnStash.setAttribute("aria-checked", isStash ? "true" : "false");
+      btnStash.disabled = !library.stashAvailable;
 
       btnBackpack.addEventListener("click", () => {
         selectedDest = "backpack";
@@ -1748,8 +1821,12 @@ function openObtain(group, initialIndex) {
       destBox.append(caption, row);
 
       if (item.iconic) {
-        const tipText = isStash ? t().destIconicTip : t().destIconicBackpackWarn;
+        // 标志性武器：储藏室关系到能否升到 5++，醒目提示；存档没有储藏室记录时说明怎么解锁。
+        const tipText = !library.stashAvailable ? t().destStashUnavailable : isStash ? t().destIconicTip : t().destIconicBackpackWarn;
         destBox.append(element("p", "dest-tip", tipText));
+      } else if (!library.stashAvailable) {
+        // 普通装备只用小字说明「放入储藏室」为什么不能选，不用醒目的黄色提示。
+        destBox.append(element("p", "dialog-note", t().destStashUnavailable));
       }
 
       detail.append(destBox);
@@ -1784,7 +1861,7 @@ function openObtain(group, initialIndex) {
     run.textContent = t().obtainWriting;
     confirmError.hidden = true;
     let outcome;
-    const isStash = !item.stackable && (selectedDest != null ? selectedDest === "stash" : Boolean(item.iconic));
+    const isStash = stashChosen(item);
     try {
       const result = await call("library.obtain", { gameId, slot: slot.slot, target: item.target, quantity: input ? value : null, toStash: isStash });
       outcome = { ok: true, result, target: item.target };

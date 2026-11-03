@@ -73,6 +73,9 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     public int StashInventoryItemCount { get; private set; }
     public int StashItemCount => StashInventoryItemCount;
 
+    /// <summary>与生成时的判断同一条规则（<see cref="ItemInserter.Layout.StashUsable"/>），不只看储藏箱物品数。</summary>
+    public bool StashAvailable => StashInventoryItemCount > 0 && ItemInserter.Layout.Read(_container).StashUsable;
+
     public bool NamesAvailable => Names?.Available == true;
 
     public string? NamesMessage => NamesAvailable ? null : Names?.UnavailableMessage ?? ItemNameCatalog.RedmodUnavailable;
@@ -620,6 +623,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         {
             Quality = entry.Quality,
             Iconic = entry.Iconic,
+            CanStash = !entry.Stackable && GearKinds.CanStash(entry.Kind),
             TypeLabel = entry.TypeLabel,
             Held = held,
             MaxQuantity = max,
