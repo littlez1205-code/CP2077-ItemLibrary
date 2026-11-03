@@ -556,7 +556,7 @@ public partial class MainWindow : Window
         {
             "index.html" => "text/html; charset=utf-8",
             "app.css" => "text/css; charset=utf-8",
-            "app.js" => "text/javascript; charset=utf-8",
+            "app.js" or "i18n.js" => "text/javascript; charset=utf-8",
             _ => ""
         };
         var stream = media.Length == 0

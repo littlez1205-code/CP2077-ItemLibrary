@@ -17,5 +17,6 @@
     <EmbeddedResource Include="wwwroot\index.html" LogicalName="GameTool.Desktop.wwwroot.index.html" />
     <EmbeddedResource Include="wwwroot\app.css" LogicalName="GameTool.Desktop.wwwroot.app.css" />
     <EmbeddedResource Include="wwwroot\app.js" LogicalName="GameTool.Desktop.wwwroot.app.js" />
+    <EmbeddedResource Include="wwwroot\i18n.js" LogicalName="GameTool.Desktop.wwwroot.i18n.js" />
   </ItemGroup>
 </Project>
