@@ -67,7 +67,7 @@ public sealed class SaveContainer
     {
         var expected = stream.Length;
         if (expected > Array.MaxLength)
-            throw new InvalidDataException("存档文件过大。");
+            throw new InvalidDataException(UiText.T("存档文件过大。", "存檔檔案過大。", "The save file is too large."));
         var buffer = new byte[expected];
         var read = 0;
         while (read < buffer.Length)
@@ -102,14 +102,14 @@ public sealed class SaveContainer
         {
             throw new ArgumentOutOfRangeException(
                 nameof(decompressedChunks),
-                $"块数必须在 1..{Cp2077Format.ChunkSlotCount}。");
+                UiText.T($"块数必须在 1..{Cp2077Format.ChunkSlotCount}。", $"塊數必須在 1..{Cp2077Format.ChunkSlotCount}。", $"The chunk count must be within 1..{Cp2077Format.ChunkSlotCount}."));
         }
 
         var total = 0;
         foreach (var plain in decompressedChunks)
         {
             if (plain is null)
-                throw new ArgumentException("块不能为 null。", nameof(decompressedChunks));
+                throw new ArgumentException(UiText.T("块不能为 null。", "塊不能為 null。", "A chunk cannot be null."), nameof(decompressedChunks));
             total = checked(total + plain.Length);
         }
 
@@ -155,11 +155,11 @@ public sealed class SaveContainer
     {
         ArgumentNullException.ThrowIfNull(payload);
         if (payload.Length == 0)
-            throw new ArgumentOutOfRangeException(nameof(payload), "解压数据不能为空。");
+            throw new ArgumentOutOfRangeException(nameof(payload), UiText.T("解压数据不能为空。", "解壓資料不能為空。", "The decompressed data cannot be empty."));
         var size = Cp2077Format.DecompressedChunkSize;
         var count = (payload.Length + size - 1) / size;
         if (count > Cp2077Format.ChunkSlotCount)
-            throw new InvalidDataException($"块数 {count} 超出安全范围 1..{Cp2077Format.ChunkSlotCount}。");
+            throw new InvalidDataException(UiText.T($"块数 {count} 超出安全范围 1..{Cp2077Format.ChunkSlotCount}。", $"塊數 {count} 超出安全範圍 1..{Cp2077Format.ChunkSlotCount}。", $"Chunk count {count} is outside the safe range 1..{Cp2077Format.ChunkSlotCount}."));
 
         var chunks = new Chunk[count];
         var offset = 0;
@@ -181,7 +181,7 @@ public sealed class SaveContainer
     {
         ArgumentNullException.ThrowIfNull(nodeTable);
         if (nodeTable.Length < 5)
-            throw new ArgumentException("节点表过短。", nameof(nodeTable));
+            throw new ArgumentException(UiText.T("节点表过短。", "節點表過短。", "The node table is too short."), nameof(nodeTable));
         _nodeTable = nodeTable.ToArray();
     }
 
@@ -196,7 +196,7 @@ public sealed class SaveContainer
     public void WritePayload(int offset, ReadOnlySpan<byte> data)
     {
         if (offset < 0 || data.Length > _payload.Length - offset)
-            throw new ArgumentOutOfRangeException(nameof(offset), "写入超出解压数据范围。");
+            throw new ArgumentOutOfRangeException(nameof(offset), UiText.T("写入超出解压数据范围。", "寫入超出解壓資料範圍。", "The write goes beyond the decompressed data."));
         data.CopyTo(_payload.AsSpan(offset));
         var end = offset + data.Length;
         foreach (var chunk in _chunks)
@@ -267,13 +267,13 @@ public sealed class SaveContainer
     {
         ReadOnlySpan<byte> file = fileBytes;
         if (file.Length < Cp2077Format.FirstChunkOffset + 8)
-            throw new InvalidDataException("存档短于容器头。");
+            throw new InvalidDataException(UiText.T("存档短于容器头。", "存檔短於容器頭。", "The save is shorter than the container header."));
         if (!file.StartsWith(Cp2077Format.Vasc))
-            throw new InvalidDataException("缺少 VASC 魔数。");
+            throw new InvalidDataException(UiText.T("缺少 VASC 魔数。", "缺少 VASC 魔數。", "The VASC magic number is missing."));
         if (file[12] != 0)
-            throw new InvalidDataException("元数据字符串不是实测的空串（单字节 00）。");
+            throw new InvalidDataException(UiText.T("元数据字符串不是实测的空串（单字节 00）。", "後設資料字串不是實測的空串（單位元組 00）。", "The metadata string is not the expected empty string (a single 00 byte)."));
         if (!file.Slice(Cp2077Format.FzlcOffset, 4).SequenceEqual(Cp2077Format.Fzlc))
-            throw new InvalidDataException("缺少 FZLC 魔数。");
+            throw new InvalidDataException(UiText.T("缺少 FZLC 魔数。", "缺少 FZLC 魔數。", "The FZLC magic number is missing."));
 
         var saveVersion = BinaryPrimitives.ReadUInt32LittleEndian(file.Slice(4));
         var gameVersion = BinaryPrimitives.ReadUInt32LittleEndian(file.Slice(8));
@@ -283,7 +283,7 @@ public sealed class SaveContainer
         if (count is < 1 or > Cp2077Format.ChunkSlotCount)
         {
             throw new InvalidDataException(
-                $"块数 {count} 超出安全范围 1..{Cp2077Format.ChunkSlotCount}。");
+                UiText.T($"块数 {count} 超出安全范围 1..{Cp2077Format.ChunkSlotCount}。", $"塊數 {count} 超出安全範圍 1..{Cp2077Format.ChunkSlotCount}。", $"Chunk count {count} is outside the safe range 1..{Cp2077Format.ChunkSlotCount}."));
         }
 
         if (!Cp2077Format.IsSupported(saveVersion, gameVersion))
@@ -291,7 +291,7 @@ public sealed class SaveContainer
             throw new UnsupportedSaveException(
                 saveVersion,
                 gameVersion,
-                $"存档版本 {saveVersion}、游戏版本 {gameVersion} 不在白名单内。支持范围：v2.31（存档 269，游戏 2310）或 v2.5（存档 277，游戏 2500）。");
+                UiText.T($"存档版本 {saveVersion}、游戏版本 {gameVersion} 不在白名单内。支持范围：v2.31（存档 269，游戏 2310）或 v2.5（存档 277，游戏 2500）。", $"存檔版本 {saveVersion}、遊戲版本 {gameVersion} 不在白名單內。支援範圍：v2.31（存檔 269，遊戲 2310）或 v2.5（存檔 277，遊戲 2500）。", $"Save version {saveVersion} / game version {gameVersion} is not supported. Supported: v2.31 (save 269, game 2310) or v2.5 (save 277, game 2500)."));
         }
 
         // 先按分块表算出解压后的总长，一次分配载荷，各块直接解压进去（原来每块单独分配，最后再整体拷贝一遍）。
@@ -309,11 +309,11 @@ public sealed class SaveContainer
             var compressedLength = BinaryPrimitives.ReadUInt32LittleEndian(file.Slice(entry + 4));
             var decompressedLength = BinaryPrimitives.ReadUInt32LittleEndian(file.Slice(entry + 8));
             if (offset != cursor)
-                throw new InvalidDataException($"第 {i} 块偏移 {offset} 与连续布局 {cursor} 不一致。");
+                throw new InvalidDataException(UiText.T($"第 {i} 块偏移 {offset} 与连续布局 {cursor} 不一致。", $"第 {i} 塊偏移 {offset} 與連續佈局 {cursor} 不一致。", $"Chunk {i} starts at offset {offset} instead of the contiguous position {cursor}."));
             if (compressedLength < Cp2077Format.ChunkHeaderSize)
-                throw new InvalidDataException($"第 {i} 块压缩长度 {compressedLength} 短于块头。");
+                throw new InvalidDataException(UiText.T($"第 {i} 块压缩长度 {compressedLength} 短于块头。", $"第 {i} 塊壓縮長度 {compressedLength} 短於塊頭。", $"Chunk {i} has a compressed length of {compressedLength}, shorter than its header."));
             if (cursor > file.Length - 8 || compressedLength > file.Length - 8 - cursor)
-                throw new InvalidDataException($"第 {i} 块超出文件范围。");
+                throw new InvalidDataException(UiText.T($"第 {i} 块超出文件范围。", $"第 {i} 塊超出檔案範圍。", $"Chunk {i} extends beyond the end of the file."));
 
             var image = file.Slice(cursor, (int)compressedLength);
             int plainLength;
@@ -336,13 +336,13 @@ public sealed class SaveContainer
         var chunkTable = file.Slice(Cp2077Format.ChunkTableOffset, Cp2077Format.ChunkSlotCount * Cp2077Format.ChunkEntrySize).ToArray();
 
         if (file.Length < cursor + 8)
-            throw new InvalidDataException("文件在节点表之前被截断。");
+            throw new InvalidDataException(UiText.T("文件在节点表之前被截断。", "檔案在節點表之前被截斷。", "The file is truncated before the node table."));
         if (!file.Slice(file.Length - 4, 4).SequenceEqual(Cp2077Format.Done))
-            throw new InvalidDataException("缺少 DONE 魔数。");
+            throw new InvalidDataException(UiText.T("缺少 DONE 魔数。", "缺少 DONE 魔數。", "The DONE magic number is missing."));
 
         var nodeOffset = BinaryPrimitives.ReadUInt32LittleEndian(file.Slice(file.Length - 8, 4));
         if (nodeOffset != cursor)
-            throw new InvalidDataException($"节点表偏移 {nodeOffset} 与最后一块末尾 {cursor} 不一致。");
+            throw new InvalidDataException(UiText.T($"节点表偏移 {nodeOffset} 与最后一块末尾 {cursor} 不一致。", $"節點表偏移 {nodeOffset} 與最後一塊末尾 {cursor} 不一致。", $"The node table offset {nodeOffset} does not match the end of the last chunk {cursor}."));
 
         if (payload is null)
         {

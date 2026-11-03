@@ -34,7 +34,7 @@ public static class CloneService
         ArgumentNullException.ThrowIfNull(adapter);
         ArgumentException.ThrowIfNullOrWhiteSpace(saveFilePath);
         if (adapter.Load(saveFilePath) is not IItemCloneCapable document)
-            throw new PatchRejectedException("这个存档不能复制装备。");
+            throw new PatchRejectedException(UiText.T("这个存档不能复制装备。", "這個存檔不能複製裝備。", "This save does not support copying gear."));
         return document;
     }
 }

@@ -41,7 +41,7 @@ internal sealed class CatalogDocumentCache
 
     private static IItemGenerateCapable Load(IGameAdapter adapter, string saveFilePath) =>
         adapter.Load(saveFilePath) as IItemGenerateCapable
-            ?? throw new PatchRejectedException("这个存档不能生成物品。");
+            ?? throw new PatchRejectedException(UiText.T("这个存档不能生成物品。", "這個存檔不能生成物品。", "This save does not support generating items."));
 
     private readonly record struct CacheKey(
         IGameAdapter Adapter,

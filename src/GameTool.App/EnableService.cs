@@ -67,7 +67,7 @@ public sealed class EnableService : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(adapter);
         ArgumentNullException.ThrowIfNull(changes);
         if (changes.Count == 0)
-            throw new PatchRejectedException("没有改动");
+            throw new PatchRejectedException(UiText.T("没有改动", "沒有改動", "No changes"));
 
         StopCurrent(notify: true);
         string? backupId = null;
@@ -110,13 +110,13 @@ public sealed class EnableService : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(changes);
         if (changes.Count == 0)
-            throw new PatchRejectedException("没有改动");
+            throw new PatchRejectedException(UiText.T("没有改动", "沒有改動", "No changes"));
         IGameAdapter adapter;
         string slot;
         lock (_gate)
         {
             if (_adapter is null || _slot is null)
-                throw new PatchRejectedException("当前没有使能。");
+                throw new PatchRejectedException(UiText.T("当前没有使能。", "當前沒有使能。", "Auto-apply is not enabled."));
             adapter = _adapter;
             slot = _slot;
         }

@@ -1,3 +1,4 @@
+using GameTool.Core;
 using System.Buffers.Binary;
 using System.IO.Compression;
 
@@ -11,9 +12,9 @@ public static class PngEncoder
     public static byte[] EncodeRgba(ReadOnlySpan<byte> rgba, int width, int height, CompressionLevel level = CompressionLevel.Optimal)
     {
         if (width <= 0 || height <= 0)
-            throw new ArgumentException("图片尺寸必须是正数。");
+            throw new ArgumentException(UiText.T("图片尺寸必须是正数。", "圖片尺寸必須是正數。", "The image size must be positive."));
         if (rgba.Length != width * height * 4)
-            throw new ArgumentException("像素数据长度和尺寸不一致。", nameof(rgba));
+            throw new ArgumentException(UiText.T("像素数据长度和尺寸不一致。", "畫素資料長度和尺寸不一致。", "The pixel data length does not match the size."), nameof(rgba));
 
         var stride = width * 4;
         var filtered = new byte[(stride + 1) * height];

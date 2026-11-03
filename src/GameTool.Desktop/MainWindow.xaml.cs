@@ -257,7 +257,10 @@ public partial class MainWindow : Window
             if (_selfTest)
                 FinishSelfTest(1, ex.ToString());
             else
-                MessageBox.Show(PathDisplay.Current.Mask(ex.Message), "游戏工具", MessageBoxButton.OK, MessageBoxImage.Error);
+            {
+                using var language = UiText.Use(App.StartupLanguage);
+                MessageBox.Show(PathDisplay.Current.Mask(ex.Message), App.DialogTitle, MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
     }
 

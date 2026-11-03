@@ -19,8 +19,11 @@ public static class Cp2077Paths
     public const string PhantomLibertyKey = "phantomLiberty";
 
     /// <summary>设置面板上游戏目录的检测结果（D023）。</summary>
-    public const string DetectedWithExpansion = "已检测到：本体 + 往日之影";
-    public const string DetectedBaseOnly = "已检测到：仅本体（往日之影物品将不显示）";
+    public static string DetectedWithExpansion => UiText.T(
+        "已检测到：本体 + 往日之影", "已偵測到：本體 + 往日之影", "Detected: base game + Phantom Liberty");
+
+    public static string DetectedBaseOnly => UiText.T(
+        "已检测到：仅本体（往日之影物品将不显示）", "已偵測到：僅本體（往日之影物品將不顯示）", "Detected: base game only (Phantom Liberty items will be hidden)");
 
     /// <summary>用户选到游戏目录下面的子目录（如 bin\x64）时，最多往上找这么多层。</summary>
     private const int MaxWalkUp = 4;
@@ -31,24 +34,26 @@ public static class Cp2077Paths
         "CD Projekt Red",
         "Cyberpunk 2077");
 
-    public const string GameDirectoryHint =
-        @"例如 …\steamapps\common\Cyberpunk 2077（Steam），或 GOG / Epic 的安装目录（里面有 bin、archive 文件夹）";
+    public static string GameDirectoryHint => UiText.T(
+        @"例如 …\steamapps\common\Cyberpunk 2077（Steam），或 GOG / Epic 的安装目录（里面有 bin、archive 文件夹）",
+        @"例如 …\steamapps\common\Cyberpunk 2077（Steam），或 GOG / Epic 的安裝目錄（裡面有 bin、archive 資料夾）",
+        @"e.g. …\steamapps\common\Cyberpunk 2077 (Steam), or the GOG / Epic install folder (it contains the bin and archive folders)");
 
     public static PathCheck CheckSaveRoot(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
-            return new PathCheck(false, null, "请选择存档目录。");
+            return new PathCheck(false, null, UiText.T("请选择存档目录。", "請選擇存檔目錄。", "Please choose the save folder."));
         if (!TryNormalize(path, out var full))
-            return new PathCheck(false, null, "路径无效：" + path);
+            return new PathCheck(false, null, UiText.T("路径无效：", "路徑無效：", "Invalid path: ") + path);
         try
         {
             if (!Directory.Exists(full))
-                return new PathCheck(false, null, "目录不存在：" + full);
+                return new PathCheck(false, null, UiText.T("目录不存在：", "目錄不存在：", "The folder does not exist: ") + full);
 
             // 1. 优先检查当前目录本身是否就是包含存档子文件夹的根目录（即便根目录底下不小心散落了单独的 sav.dat 也不误判）。
             var count = CountSlots(full);
             if (count > 0)
-                return new PathCheck(true, full, "找到 " + count + " 个存档。");
+                return new PathCheck(true, full, FoundSaves(count));
 
             // 2. 选到了某一个存档自己的文件夹（里面直接有 sav.dat，或选到了存档文件夹内部的子目录）：改用上一级。
             var current = full;
@@ -61,8 +66,14 @@ public static class Cp2077Paths
                     if (siblings == 0 && parent is not null)
                         siblings = CountVascSlots(parent);
                     if (parent is not null && siblings > 0)
-                        return new PathCheck(true, parent, "你选的是单个存档的文件夹，已改用上一级目录（共 " + siblings + " 个存档）：" + parent);
-                    return new PathCheck(false, null, "你选的是单个存档的文件夹，但上一级目录不像存档目录。请选择包含 ManualSave-… / AutoSave-… 等文件夹的那一层。");
+                        return new PathCheck(true, parent, UiText.T(
+                            $"你选的是单个存档的文件夹，已改用上一级目录（共 {siblings} 个存档）：{parent}",
+                            $"你選的是單個存檔的資料夾，已改用上一層目錄（共 {siblings} 個存檔）：{parent}",
+                            $"You picked a single save's folder; using its parent folder instead ({siblings} saves): {parent}"));
+                    return new PathCheck(false, null, UiText.T(
+                        "你选的是单个存档的文件夹，但上一级目录不像存档目录。请选择包含 ManualSave-… / AutoSave-… 等文件夹的那一层。",
+                        "你選的是單個存檔的資料夾，但上一層目錄不像存檔目錄。請選擇包含 ManualSave-… / AutoSave-… 等資料夾的那一層。",
+                        "You picked a single save's folder, but its parent does not look like the save folder. Choose the folder that contains ManualSave-… / AutoSave-… folders."));
                 }
                 current = Path.GetDirectoryName(current);
             }
@@ -75,55 +86,78 @@ public static class Cp2077Paths
                 if (subCount == 0)
                     subCount = CountVascSlots(subSaveRoot);
                 if (subCount > 0)
-                    return new PathCheck(true, subSaveRoot, "已自动定位到存档目录（共 " + subCount + " 个存档）：" + subSaveRoot);
+                    return new PathCheck(true, subSaveRoot, UiText.T(
+                        $"已自动定位到存档目录（共 {subCount} 个存档）：{subSaveRoot}",
+                        $"已自動定位到存檔目錄（共 {subCount} 個存檔）：{subSaveRoot}",
+                        $"Found the save folder automatically ({subCount} saves): {subSaveRoot}"));
             }
 
             // 4. 兼容被第三方存档管理器改过文件夹名（不含 Save- 字样，但子文件夹里有真实 VASC 存档头 sav.dat）的情况。
             var vascCount = CountVascSlots(full);
             if (vascCount > 0)
-                return new PathCheck(true, full, "找到 " + vascCount + " 个存档。");
+                return new PathCheck(true, full, FoundSaves(vascCount));
 
             // 5. 误把游戏安装目录选成了存档目录：给出明确纠错提示。
             if (FindGameRoot(full) is not null)
-                return new PathCheck(false, null, "这个目录里没有找到存档（你选的是游戏安装目录，不是存档目录！请选择包含 ManualSave-…、AutoSave-… 的存档目录，常见位置：" + DefaultSaveRoot + "）。");
+                return new PathCheck(false, null, UiText.T(
+                    $"这个目录里没有找到存档（你选的是游戏安装目录，不是存档目录！请选择包含 ManualSave-…、AutoSave-… 的存档目录，常见位置：{DefaultSaveRoot}）。",
+                    $"這個目錄裡沒有找到存檔（你選的是遊戲安裝目錄，不是存檔目錄！請選擇包含 ManualSave-…、AutoSave-… 的存檔目錄，常見位置：{DefaultSaveRoot}）。",
+                    $"No saves were found here. This is the game install folder, not the save folder. Choose the folder that contains ManualSave-…, AutoSave-… folders, usually: {DefaultSaveRoot}"));
 
-            return new PathCheck(false, null, "这个目录里没有找到存档。存档目录里应有 ManualSave-…、AutoSave-…、QuickSave-… 等文件夹，每个里面有 sav.dat。");
+            return new PathCheck(false, null, UiText.T(
+                "这个目录里没有找到存档。存档目录里应有 ManualSave-…、AutoSave-…、QuickSave-… 等文件夹，每个里面有 sav.dat。",
+                "這個目錄裡沒有找到存檔。存檔目錄裡應有 ManualSave-…、AutoSave-…、QuickSave-… 等資料夾，每個裡面有 sav.dat。",
+                "No saves were found in this folder. The save folder should contain ManualSave-…, AutoSave-…, QuickSave-… folders, each with a sav.dat."));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return new PathCheck(false, null, "无法读取这个目录：" + ex.Message);
+            return new PathCheck(false, null, UiText.T("无法读取这个目录：", "無法讀取這個目錄：", "Cannot read this folder: ") + ex.Message);
         }
     }
+
+    private static string FoundSaves(int count) => UiText.T($"找到 {count} 个存档。", $"找到 {count} 個存檔。", $"Found {count} saves.");
 
     public static PathCheck CheckGameDirectory(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
-            return new PathCheck(false, null, "请选择游戏目录。");
+            return new PathCheck(false, null, UiText.T("请选择游戏目录。", "請選擇遊戲目錄。", "Please choose the game folder."));
         if (!TryNormalize(path, out var full))
-            return new PathCheck(false, null, "路径无效：" + path);
+            return new PathCheck(false, null, UiText.T("路径无效：", "路徑無效：", "Invalid path: ") + path);
         try
         {
             if (!Directory.Exists(full))
-                return new PathCheck(false, null, "目录不存在：" + full);
+                return new PathCheck(false, null, UiText.T("目录不存在：", "目錄不存在：", "The folder does not exist: ") + full);
 
             var root = FindGameRoot(full);
             if (root is null)
             {
                 if (CountSlots(full) > 0 || File.Exists(Path.Combine(full, "sav.dat")))
-                    return new PathCheck(false, null, "没有找到 " + ExeRelative + "（你选的是存档目录，不是游戏安装目录！请选择装有 bin、archive 文件夹的游戏目录，如 " + GameDirectoryHint + "）。");
-                return new PathCheck(false, null, "没有找到 " + ExeRelative + "。请选择游戏的安装目录（" + GameDirectoryHint + "）。");
+                    return new PathCheck(false, null, UiText.T(
+                        $"没有找到 {ExeRelative}（你选的是存档目录，不是游戏安装目录！请选择装有 bin、archive 文件夹的游戏目录，如 {GameDirectoryHint}）。",
+                        $"沒有找到 {ExeRelative}（你選的是存檔目錄，不是遊戲安裝目錄！請選擇裝有 bin、archive 資料夾的遊戲目錄，如 {GameDirectoryHint}）。",
+                        $"{ExeRelative} was not found. This is the save folder, not the game install folder. Choose the game folder that contains the bin and archive folders, {GameDirectoryHint}."));
+                return new PathCheck(false, null, UiText.T(
+                    $"没有找到 {ExeRelative}。请选择游戏的安装目录（{GameDirectoryHint}）。",
+                    $"沒有找到 {ExeRelative}。請選擇遊戲的安裝目錄（{GameDirectoryHint}）。",
+                    $"{ExeRelative} was not found. Choose the game's install folder ({GameDirectoryHint})."));
             }
             if (!Directory.Exists(Path.Combine(root, ContentRelative)))
-                return new PathCheck(false, null, "游戏文件不完整：缺少 " + ContentRelative + "。请确认选的是完整的游戏安装目录。");
+                return new PathCheck(false, null, UiText.T(
+                    $"游戏文件不完整：缺少 {ContentRelative}。请确认选的是完整的游戏安装目录。",
+                    $"遊戲檔案不完整：缺少 {ContentRelative}。請確認選的是完整的遊戲安裝目錄。",
+                    $"The game files are incomplete: {ContentRelative} is missing. Make sure you picked the complete game install folder."));
 
             var message = string.Equals(root, full, StringComparison.OrdinalIgnoreCase)
-                ? "游戏目录可用。"
-                : "已改用游戏根目录：" + root;
+                ? UiText.T("游戏目录可用。", "遊戲目錄可用。", "The game folder is usable.")
+                : UiText.T("已改用游戏根目录：", "已改用遊戲根目錄：", "Using the game's root folder instead: ") + root;
             var tweaksDir = Path.Combine(root, TweaksRelative);
             string? warning = null;
             if (!Directory.Exists(tweaksDir))
             {
-                warning = "没有找到 REDmod（" + TweaksRelative + "）。物品库需要它才能列出物品：" + ItemNameCatalog.RedmodUnavailable;
+                warning = UiText.T(
+                    $"没有找到 REDmod（{TweaksRelative}）。物品库需要它才能列出物品：",
+                    $"沒有找到 REDmod（{TweaksRelative}）。物品庫需要它才能列出物品：",
+                    $"REDmod was not found ({TweaksRelative}). The item library needs it to list items: ") + ItemNameCatalog.RedmodUnavailable;
             }
             var expansion = HasPhantomLiberty(root);
             return new PathCheck(true, root, message, warning)
@@ -134,7 +168,7 @@ public static class Cp2077Paths
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return new PathCheck(false, null, "无法读取这个目录：" + ex.Message);
+            return new PathCheck(false, null, UiText.T("无法读取这个目录：", "無法讀取這個目錄：", "Cannot read this folder: ") + ex.Message);
         }
     }
 

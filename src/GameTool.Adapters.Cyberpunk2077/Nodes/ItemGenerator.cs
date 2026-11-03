@@ -69,18 +69,18 @@ public static class ItemGenerator
         ArgumentException.ThrowIfNullOrWhiteSpace(targetRecord);
         var layout = ItemInserter.Layout.Read(container);
         if (layout.PlayerItems.Count == 0)
-            throw new InvalidDataException("玩家背包是空的。");
+            throw new InvalidDataException(UiText.T("玩家背包是空的。", "玩家背包是空的。", "The player's backpack is empty."));
         var template = ItemInserter.Find(layout, templateKey);
         if (template.Length == ItemInserter.StackLength)
-            throw new InvalidDataException("堆叠物品不能当装备模板。");
+            throw new InvalidDataException(UiText.T("堆叠物品不能当装备模板。", "堆疊物品不能當裝備模板。", "A stackable item cannot be used as a gear template."));
         if (template.Child >= 0)
-            throw new InvalidDataException("模板带子节点，暂不支持。");
+            throw new InvalidDataException(UiText.T("模板带子节点，暂不支持。", "模板帶子節點，暫不支援。", "Templates with child nodes are not supported."));
         var target = TweakDbId.FromName(targetRecord);
         if (target == template.Tweak)
-            throw new InvalidDataException("目标和模板是同一个记录，请改用 clone。");
+            throw new InvalidDataException(UiText.T("目标和模板是同一个记录，请改用 clone。", "目標和模板是同一個記錄，請改用 clone。", "The target and the template are the same record; use clone instead."));
         var parsed = ItemPartTree.Parse(template.Body);
         if (!parsed.RootId.AsSpan().SequenceEqual(template.Header))
-            throw new InvalidDataException("模板 itemData 的根 ItemID 与物品头不一致。");
+            throw new InvalidDataException(UiText.T("模板 itemData 的根 ItemID 与物品头不一致。", "模板 itemData 的根 ItemID 與物品頭不一致。", "The template's root ItemID does not match its item header."));
 
         var taken = new HashSet<uint>();
         var built = Build(
@@ -106,7 +106,7 @@ public static class ItemGenerator
         if (region.Offset < ItemInserter.HeaderLength
             || !after.Payload.AsSpan(region.Offset, region.Length).SequenceEqual(body)
             || !after.Payload.AsSpan(region.Offset - ItemInserter.HeaderLength, ItemInserter.HeaderLength).SequenceEqual(header))
-            throw new InvalidDataException("严格校验失败：写入的物品头或 itemData 与生成结果不一致。");
+            throw new InvalidDataException(UiText.T("严格校验失败：写入的物品头或 itemData 与生成结果不一致。", "嚴格校驗失敗：寫入的物品頭或 itemData 與生成結果不一致。", "Strict check failed: the written item header or itemData does not match the generated item."));
         Cp2077SaveDocument.VerifyInsertedStructure(
             before, after, beforeNodes, NodeTable.Parse(container.CopyNodeTable()), diff, added, insertion.AddedBytes, []);
 
@@ -154,13 +154,13 @@ public static class ItemGenerator
         ArgumentException.ThrowIfNullOrWhiteSpace(targetRecord);
         ArgumentNullException.ThrowIfNull(gear);
         if (copies is < 1 or > 10)
-            throw new InvalidDataException("生成件数必须在 1 到 10 之间。");
+            throw new InvalidDataException(UiText.T("生成件数必须在 1 到 10 之间。", "生成件數必須在 1 到 10 之間。", "The number of items to generate must be between 1 and 10."));
         if (!gear.Available)
-            throw new InvalidDataException(gear.UnavailableMessage ?? "名字表不可用，无法生成。");
+            throw new InvalidDataException(gear.UnavailableMessage ?? UiText.T("名字表不可用，无法生成。", "名字表不可用，無法生成。", "The name table is unavailable, so items cannot be generated."));
         if (gear.IsHidden(targetRecord))
             throw new InvalidDataException(GearCatalog.ExpansionHiddenMessage);
         var entry = gear.Gear.FirstOrDefault(item => item.RecordName == targetRecord)
-            ?? throw new InvalidDataException($"{targetRecord} 不在可生成目录里。");
+            ?? throw new InvalidDataException(UiText.T($"{targetRecord} 不在可生成目录里。", $"{targetRecord} 不在可生成目錄裡。", $"{targetRecord} is not in the catalog of obtainable items."));
         var kind = entry.Kind;
         var ranged = kind == GearKinds.Ranged;
         var loose = GearKinds.UsesPrefixSource(kind);
@@ -184,21 +184,21 @@ public static class ItemGenerator
             if (!layout.StashUsable)
                 throw new InvalidDataException(ItemInserter.NoStashMessage);
             if (!GearKinds.CanStash(kind))
-                throw new InvalidDataException(grenade ? "手雷不支持存入储藏箱。" : "这类物品不支持存入储藏箱。");
+                throw new InvalidDataException(grenade ? UiText.T("手雷不支持存入储藏箱。", "手雷不支援存入儲藏箱。", "Grenades cannot be put into the stash.") : UiText.T("这类物品不支持存入储藏箱。", "這類物品不支援存入儲藏箱。", "This kind of item cannot be put into the stash."));
         }
         else
         {
             if (layout.PlayerItems.Count == 0)
-                throw new InvalidDataException("玩家背包是空的。");
+                throw new InvalidDataException(UiText.T("玩家背包是空的。", "玩家背包是空的。", "The player's backpack is empty."));
         }
         if (grenade)
         {
             // 手雷的 ItemID 固定为「记录 + 种子 2 + 结构 3」，玩家背包里同一种手雷只有一份（按数量叠加），不能重复插入同一 ID。
             // 世界里的容器（ContainerManager）也会用同一个 ID 记同种手雷，那不算重复。
             if (copies != 1)
-                throw new InvalidDataException("手雷每次只能生成 1 件（同一种手雷的 ID 固定，按数量叠加）。");
+                throw new InvalidDataException(UiText.T("手雷每次只能生成 1 件（同一种手雷的 ID 固定，按数量叠加）。", "手雷每次只能生成 1 件（同一種手雷的 ID 固定，按數量疊加）。", "Grenades can only be generated one at a time (each grenade type has a fixed ID and stacks by quantity)."));
             if (HoldsQuantityItem(layout, entry.TweakDbId))
-                throw new InvalidDataException("背包里已经有这种手雷，不能再插入一份（同一种手雷按数量叠加）。");
+                throw new InvalidDataException(UiText.T("背包里已经有这种手雷，不能再插入一份（同一种手雷按数量叠加）。", "背包裡已經有這種手雷，不能再插入一份（同一種手雷按數量疊加）。", "This grenade type is already in the backpack and cannot be inserted again (grenades of one type stack by quantity)."));
         }
 
         var choice = Choose(layout, kind, gear) ?? throw new InvalidDataException(NoTemplateMessage(kind));
@@ -239,8 +239,8 @@ public static class ItemGenerator
     /// <summary>远程武器（T030）在没有同类模板时也回退到前缀来源，所以和近战武器、义体等用同一句说明。</summary>
     public static string NoTemplateMessage(string kind) => kind switch
     {
-        _ when kind == GearKinds.Ranged || GearKinds.UsesPrefixSource(kind) => "背包或储物箱里至少要有一件能解析的装备（提供物品前缀）。",
-        _ => "背包或储物箱里至少要有一件服装作为模板。"
+        _ when kind == GearKinds.Ranged || GearKinds.UsesPrefixSource(kind) => UiText.T("背包或储物箱里至少要有一件能解析的装备（提供物品前缀）。", "背包或儲物箱裡至少要有一件能解析的裝備（提供物品字首）。", "The backpack or stash must contain at least one readable piece of gear (it provides the item prefix)."),
+        _ => UiText.T("背包或储物箱里至少要有一件服装作为模板。", "背包或儲物箱裡至少要有一件服裝作為模板。", "The backpack or stash must contain at least one piece of clothing to use as a template.")
     };
 
     /// <summary>按生成规则选模板（近战武器、义体及第三批各类是前缀来源，远程武器没有同类模板时也回退到前缀来源），返回物品键；没有可用模板返回 null。</summary>
@@ -435,9 +435,9 @@ public static class ItemGenerator
         var body = ItemPartTree.Write(new ItemDataBody(prefix, root));
         var check = ItemPartTree.Parse(body);
         if (!ItemPartTree.Write(check).AsSpan().SequenceEqual(body) || !check.RootId.AsSpan().SequenceEqual(header))
-            throw new InvalidDataException("自检失败：新 itemData 无法按配件树语法原样解析。");
+            throw new InvalidDataException(UiText.T("自检失败：新 itemData 无法按配件树语法原样解析。", "自檢失敗：新 itemData 無法按配件樹語法原樣解析。", "Self-check failed: the new itemData cannot be parsed back exactly as a part tree."));
         if (quantityItem != (check.Quantity is not null))
-            throw new InvalidDataException("自检失败：新 itemData 的前缀形态与结构字节不符。");
+            throw new InvalidDataException(UiText.T("自检失败：新 itemData 的前缀形态与结构字节不符。", "自檢失敗：新 itemData 的字首形態與結構位元組不符。", "Self-check failed: the new itemData prefix does not match its structure byte."));
         return new BuiltItem(header, body, seed, check);
     }
 
@@ -476,9 +476,9 @@ public static class ItemGenerator
     private static ItemPart BuildParts(ItemPart templateRoot, IReadOnlyList<TweakPresetPart>? preset, Func<uint> fresh)
     {
         if (preset is null || preset.Count == 0)
-            throw new InvalidDataException("目标没有带 itemPartPreset 的 slotPartListPreset 条目。");
+            throw new InvalidDataException(UiText.T("目标没有带 itemPartPreset 的 slotPartListPreset 条目。", "目標沒有帶 itemPartPreset 的 slotPartListPreset 條目。", "The target has no slotPartListPreset entry with an itemPartPreset."));
         var receiver = preset.FirstOrDefault(part => part.Slot == ReceiverSlot)
-            ?? throw new InvalidDataException("目标的 slotPartListPreset 没有 AttachmentSlots.Receiver。");
+            ?? throw new InvalidDataException(UiText.T("目标的 slotPartListPreset 没有 AttachmentSlots.Receiver。", "目標的 slotPartListPreset 沒有 AttachmentSlots.Receiver。", "The target's slotPartListPreset has no AttachmentSlots.Receiver."));
         var model = templateRoot.Children.FirstOrDefault() ?? templateRoot;
         var rootId = PartId(receiver.Item, fresh(), templateRoot.ItemId);
         var children = preset
@@ -500,7 +500,7 @@ public static class ItemGenerator
     private static ItemPart BuildMelee(ItemPart sourceRoot, IReadOnlyList<TweakPresetPart>? preset, Func<uint> fresh)
     {
         var grip = preset?.FirstOrDefault(part => part.Slot == GearCatalog.GripSlot && part.Item.Length > 0)
-            ?? throw new InvalidDataException("目标的 slotPartListPreset 没有 AttachmentSlots.Grip。");
+            ?? throw new InvalidDataException(UiText.T("目标的 slotPartListPreset 没有 AttachmentSlots.Grip。", "目標的 slotPartListPreset 沒有 AttachmentSlots.Grip。", "The target's slotPartListPreset has no AttachmentSlots.Grip."));
         var model = sourceRoot.Children.FirstOrDefault() ?? sourceRoot;
         var rootId = PartId(grip.Item, fresh(), sourceRoot.ItemId);
         var children = preset
@@ -520,7 +520,7 @@ public static class ItemGenerator
         if (preset is { Count: 0 })
             preset = [new TweakPresetPart(GearCatalog.GenericItemRootSlot, GearCatalog.GenericItemRoot)];
         if (!GearCatalog.IsCyberwareShape(preset))
-            throw new InvalidDataException("目标的 slotPartListPreset 不是 GenericItemRoot + 属性碎片的形态。");
+            throw new InvalidDataException(UiText.T("目标的 slotPartListPreset 不是 GenericItemRoot + 属性碎片的形态。", "目標的 slotPartListPreset 不是 GenericItemRoot + 屬性碎片的形態。", "The target's slotPartListPreset is not GenericItemRoot plus stat shards."));
         var model = sourceRoot.Children.FirstOrDefault() ?? sourceRoot;
         var rootId = new byte[ItemPartTree.ItemIdLength];
         BinaryPrimitives.WriteUInt64LittleEndian(rootId, TweakDbId.FromName(GearCatalog.GenericItemRoot));
@@ -561,7 +561,7 @@ public static class ItemGenerator
     private static ItemPart BuildPresetTree(ItemPart sourceRoot, IReadOnlyList<TweakPresetPart>? preset, string rootSlot, Func<uint> fresh)
     {
         if (preset is not { Count: > 0 } || preset[0].Slot != rootSlot || preset[0].Item.Length == 0)
-            throw new InvalidDataException($"目标的 slotPartListPreset 第一条不是 {rootSlot} 上的配件。");
+            throw new InvalidDataException(UiText.T($"目标的 slotPartListPreset 第一条不是 {rootSlot} 上的配件。", $"目標的 slotPartListPreset 第一條不是 {rootSlot} 上的配件。", $"The first entry of the target's slotPartListPreset is not a part on {rootSlot}."));
         var model = sourceRoot.Children.FirstOrDefault() ?? sourceRoot;
         var rootId = PartId(preset[0].Item, fresh(), sourceRoot.ItemId);
         var children = preset
@@ -579,7 +579,7 @@ public static class ItemGenerator
     private static ItemPart BuildSelfRoot(byte[] header, string? slot)
     {
         if (string.IsNullOrEmpty(slot))
-            throw new InvalidDataException("目标没有 placementSlots，不知道根配件的挂点。");
+            throw new InvalidDataException(UiText.T("目标没有 placementSlots，不知道根配件的挂点。", "目標沒有 placementSlots，不知道根配件的掛點。", "The target has no placementSlots, so the root part's slot is unknown."));
         return new ItemPart(header.ToArray(), NoneName, TweakDbId.FromName(slot), [], BlankTrailer());
     }
 

@@ -3,6 +3,8 @@ using System.IO;
 using System.Windows;
 using GameTool.Adapters.Cyberpunk2077;
 using GameTool.Adapters.Cyberpunk2077.Localization;
+using GameTool.App;
+using GameTool.Core;
 using Microsoft.Web.WebView2.Core;
 
 namespace GameTool.Desktop;
@@ -47,6 +49,8 @@ public partial class App : Application
             if (string.IsNullOrWhiteSpace(gameDir))
                 gameDir = SteamGameLocator.FindInstalledGame() ?? "";
         }
+        // 界面加载前的提示（如缺少 WebView2）也按设置里的界面语言显示。
+        StartupLanguage = new SettingsStore(string.IsNullOrWhiteSpace(settingsFile) ? null : settingsFile).GetLanguage();
         if (!HasWebView2Runtime())
         {
             ReportMissingWebView2(selfTest);
@@ -59,8 +63,16 @@ public partial class App : Application
         window.Show();
     }
 
-    internal const string MissingWebView2Message =
-        "缺少 Microsoft Edge WebView2 运行时，界面无法显示。请从微软官网下载安装（" + RuntimeDownloadUrl + "），然后重新打开本工具。";
+    /// <summary>设置里的界面语言，启动时读一次；界面加载前和加载失败时弹出的提示用它。</summary>
+    internal static string? StartupLanguage { get; private set; }
+
+    /// <summary>对话框标题（程序名）。</summary>
+    internal static string DialogTitle => UiText.T("游戏工具", "遊戲工具", "Game Tool");
+
+    internal static string MissingWebView2Message => UiText.T(
+        "缺少 Microsoft Edge WebView2 运行时，界面无法显示。请从微软官网下载安装（" + RuntimeDownloadUrl + "），然后重新打开本工具。",
+        "缺少 Microsoft Edge WebView2 執行階段，介面無法顯示。請從微軟官網下載安裝（" + RuntimeDownloadUrl + "），然後重新開啟本工具。",
+        "The Microsoft Edge WebView2 runtime is missing, so the window cannot be shown. Download and install it from Microsoft (" + RuntimeDownloadUrl + "), then open this tool again.");
 
     /// <summary>
     /// 缺少 WebView2 运行时（D022）：弹出中文提示，可选用默认浏览器打开下载页，然后退出（退出码 2）。
@@ -68,6 +80,7 @@ public partial class App : Application
     /// </summary>
     internal static void ReportMissingWebView2(bool selfTest)
     {
+        using var language = UiText.Use(StartupLanguage);
         if (selfTest)
         {
             try
@@ -84,8 +97,8 @@ public partial class App : Application
         }
 
         var choice = MessageBox.Show(
-            MissingWebView2Message + "\n\n现在打开下载页面吗？",
-            "游戏工具",
+            MissingWebView2Message + UiText.T("\n\n现在打开下载页面吗？", "\n\n現在開啟下載頁面嗎？", "\n\nOpen the download page now?"),
+            DialogTitle,
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning,
             MessageBoxResult.Yes);
@@ -98,8 +111,8 @@ public partial class App : Application
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or PlatformNotSupportedException)
         {
             MessageBox.Show(
-                "无法打开浏览器，请手动访问：\n" + RuntimeDownloadUrl,
-                "游戏工具",
+                UiText.T("无法打开浏览器，请手动访问：\n", "無法開啟瀏覽器，請手動造訪：\n", "Could not open the browser. Please visit:\n") + RuntimeDownloadUrl,
+                DialogTitle,
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
