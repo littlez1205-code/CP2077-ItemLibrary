@@ -16,10 +16,9 @@ public sealed class SaveWatcherTests : IDisposable
     {
         var adapter = Adapter();
         var events = new List<WatchEvent>();
+        var path = SlotFile("slot-1");
         await using var watcher = Create(adapter, events);
         watcher.Start();
-        var path = Path.Combine(_root, "slot-1", "save.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await File.WriteAllTextAsync(path, """{"gold":1}""");
 
         var patched = await WaitForAsync(events, item => item.Outcome == "patched");
@@ -34,14 +33,13 @@ public sealed class SaveWatcherTests : IDisposable
     {
         var adapter = Adapter();
         var events = new List<WatchEvent>();
+        var path = SlotFile("slot-2");
         await using var watcher = Create(adapter, events);
         watcher.Start();
         await File.WriteAllTextAsync(Path.Combine(_root, "notes.txt"), """{"gold":1}""");
         await Task.Delay(400);
         Assert.Empty(events);
 
-        var path = Path.Combine(_root, "slot-2", "save.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await File.WriteAllTextAsync(path, """{"gold":1}""");
         await WaitForAsync(events, item => item.Outcome == "patched");
         Assert.Equal(40, adapter.Load(path).GetQuantity(new ResourceId("gold")));
@@ -52,10 +50,9 @@ public sealed class SaveWatcherTests : IDisposable
     {
         var adapter = Adapter();
         var events = new List<WatchEvent>();
+        var path = SlotFile("slot-3");
         await using var watcher = Create(adapter, events);
         watcher.Start();
-        var path = Path.Combine(_root, "slot-3", "save.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
         {
             var bytes = System.Text.Encoding.UTF8.GetBytes("""{"gold":1}""");
@@ -73,16 +70,14 @@ public sealed class SaveWatcherTests : IDisposable
     {
         var adapter = Adapter();
         var events = new List<WatchEvent>();
+        var bad = SlotFile("slot-bad");
+        var good = SlotFile("slot-good");
         await using var watcher = Create(adapter, events);
         watcher.Start();
-        var bad = Path.Combine(_root, "slot-bad", "save.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(bad)!);
         await File.WriteAllTextAsync(bad, """{"badVersion":true}""");
         var error = await WaitForAsync(events, item => item.Path == bad && item.Outcome == "error");
         Assert.Contains("不受支持", error.Error);
 
-        var good = Path.Combine(_root, "slot-good", "save.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(good)!);
         await File.WriteAllTextAsync(good, """{"gold":1}""");
         await WaitForAsync(events, item => item.Path == good && item.Outcome == "patched");
         Assert.Equal(40, adapter.Load(good).GetQuantity(new ResourceId("gold")));
@@ -93,10 +88,9 @@ public sealed class SaveWatcherTests : IDisposable
     {
         var adapter = Adapter();
         var events = new List<WatchEvent>();
+        var path = SlotFile("slot-rapid");
         await using var watcher = Create(adapter, events);
         watcher.Start();
-        var path = Path.Combine(_root, "slot-rapid", "save.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         for (var i = 0; i < 5; i++)
             await File.WriteAllTextAsync(path, """{"gold":1}""");
 
@@ -132,10 +126,10 @@ public sealed class SaveWatcherTests : IDisposable
     {
         var adapter = Adapter();
         var events = new List<WatchEvent>();
-        await using var watcher = Create(adapter, events);
-        watcher.Start();
         var directory = Path.Combine(_root, "slot-replace");
         Directory.CreateDirectory(directory);
+        await using var watcher = Create(adapter, events);
+        watcher.Start();
         var target = Path.Combine(directory, "other.dat");
         await File.WriteAllBytesAsync(target, new byte[64 * 1024]);
         for (var i = 0; i < 150; i++)
@@ -148,6 +142,17 @@ public sealed class SaveWatcherTests : IDisposable
         Assert.Equal((64 * 1024) + 149, new FileInfo(target).Length);
         lock (events)
             Assert.Empty(events);
+    }
+
+    /// <summary>
+    /// 槽位目录在开始监听前建好，用例只测存档文件的变化。Linux 的 inotify 给新建的子目录补监视有延迟，
+    /// 紧接着写进去的文件可能收不到事件（Windows 没有这个问题），在监听期间新建目录会让用例时好时坏。
+    /// </summary>
+    private string SlotFile(string slot)
+    {
+        var directory = Path.Combine(_root, slot);
+        Directory.CreateDirectory(directory);
+        return Path.Combine(directory, "save.json");
     }
 
     private SaveWatcher Create(FakeJsonGameAdapter adapter, List<WatchEvent> events) =>

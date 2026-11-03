@@ -159,7 +159,7 @@ public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
             string? reason = null;
             if (!catalog.Available)
             {
-                var tweaksDir = Path.Combine(game, Cp2077Paths.TweaksRelative);
+                var tweaksDir = Cp2077Paths.Under(game, Cp2077Paths.TweaksRelative);
                 reason = Directory.Exists(tweaksDir)
                     ? UiText.T("tools\\redmod\\tweaks 文件夹内没有找到 .tweak 数据文件，请确认 REDmod DLC 已完整下载", "tools\\redmod\\tweaks 資料夾內沒有找到 .tweak 資料檔案，請確認 REDmod DLC 已完整下載", "No .tweak data files were found in tools\\redmod\\tweaks. Make sure the REDmod DLC is fully downloaded")
                     : null;
