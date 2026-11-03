@@ -1,3 +1,4 @@
+using GameTool.Core;
 using System.Text;
 
 namespace GameTool.Adapters.Cyberpunk2077.Localization;
@@ -13,28 +14,28 @@ public static class OnscreensReader
     public static IReadOnlyList<LocEntry> Read(ReadOnlySpan<byte> data)
     {
         if (data.Length < 40 || data[0] != (byte)'C' || data[1] != (byte)'R' || data[2] != (byte)'2' || data[3] != (byte)'W')
-            throw new InvalidDataException("不是 CR2W 资源。");
+            throw new InvalidDataException(UiText.T("不是 CR2W 资源。", "不是 CR2W 資源。", "This is not a CR2W resource."));
         var tableCount = ReadInt(data, 36);
         if (tableCount < 2)
-            throw new InvalidDataException("CR2W 表数量不足。");
+            throw new InvalidDataException(UiText.T("CR2W 表数量不足。", "CR2W 表數量不足。", "The CR2W resource has too few tables."));
         var directory = 40;
         if (data.Length < directory + tableCount * 12)
-            throw new InvalidDataException("CR2W 表目录越界。");
+            throw new InvalidDataException(UiText.T("CR2W 表目录越界。", "CR2W 表目錄越界。", "The CR2W table directory is out of range."));
         var poolOffset = ReadInt(data, directory);
         var poolSize = ReadInt(data, directory + 4);
         var nameOffset = ReadInt(data, directory + 12);
         var nameCount = ReadInt(data, directory + 16);
         if (poolOffset < 0 || poolSize < 0 || poolOffset > data.Length - poolSize)
-            throw new InvalidDataException("CR2W 字符串池越界。");
+            throw new InvalidDataException(UiText.T("CR2W 字符串池越界。", "CR2W 字串池越界。", "The CR2W string pool is out of range."));
         if (nameCount < 1 || nameOffset < 0 || nameOffset > data.Length - nameCount * 8)
-            throw new InvalidDataException("CR2W 名字表越界。");
+            throw new InvalidDataException(UiText.T("CR2W 名字表越界。", "CR2W 名字表越界。", "The CR2W name table is out of range."));
 
         var names = new string[nameCount];
         for (var i = 0; i < nameCount; i++)
         {
             var relative = ReadInt(data, nameOffset + i * 8);
             if (relative < 0 || relative > poolSize)
-                throw new InvalidDataException("CR2W 名字偏移越界。");
+                throw new InvalidDataException(UiText.T("CR2W 名字偏移越界。", "CR2W 名字偏移越界。", "A CR2W name offset is out of range."));
             var end = relative;
             while (end < poolSize && data[poolOffset + end] != 0)
                 end++;
@@ -68,7 +69,7 @@ public static class OnscreensReader
                 }
 
                 if (cursor + 8 > data.Length)
-                    throw new InvalidDataException("CR2W 属性越界。");
+                    throw new InvalidDataException(UiText.T("CR2W 属性越界。", "CR2W 屬性越界。", "A CR2W property is out of range."));
                 var type = BitConverter.ToUInt16(data.Slice(cursor + 2, 2));
                 size = ReadSize(data, cursor);
                 if (type == text)
@@ -93,7 +94,7 @@ public static class OnscreensReader
         }
 
         if (entries.Count == 0)
-            throw new InvalidDataException("没有读到本地化条目。");
+            throw new InvalidDataException(UiText.T("没有读到本地化条目。", "沒有讀到本地化條目。", "No localization entries were read."));
         return entries;
     }
 
@@ -112,7 +113,7 @@ public static class OnscreensReader
     {
         var size = ReadInt(data, cursor + 4);
         if (size < 4 || cursor > data.Length - 4 - size)
-            throw new InvalidDataException("CR2W 属性长度无效。");
+            throw new InvalidDataException(UiText.T("CR2W 属性长度无效。", "CR2W 屬性長度無效。", "A CR2W property has an invalid length."));
         return size;
     }
 
@@ -122,11 +123,11 @@ public static class OnscreensReader
     internal static string ReadText(ReadOnlySpan<byte> payload)
     {
         if (payload.Length == 0)
-            throw new InvalidDataException("字符串载荷为空。");
+            throw new InvalidDataException(UiText.T("字符串载荷为空。", "字串載荷為空。", "A string payload is empty."));
         var index = 0;
         var head = payload[index++];
         if ((head & 0x80) == 0)
-            throw new InvalidDataException("未识别的字符串长度前缀。");
+            throw new InvalidDataException(UiText.T("未识别的字符串长度前缀。", "未識別的字串長度字首。", "Unrecognized string length prefix."));
         int length;
         if ((head & 0x40) == 0)
             length = head & 0x7F;
@@ -137,7 +138,7 @@ public static class OnscreensReader
             while (true)
             {
                 if (index >= payload.Length || shift > 28)
-                    throw new InvalidDataException("字符串长度前缀不完整。");
+                    throw new InvalidDataException(UiText.T("字符串长度前缀不完整。", "字串長度字首不完整。", "A string length prefix is incomplete."));
                 var next = payload[index++];
                 length |= (next & 0x7F) << shift;
                 if ((next & 0x80) == 0)
@@ -147,7 +148,7 @@ public static class OnscreensReader
         }
 
         if (index + length != payload.Length)
-            throw new InvalidDataException("字符串长度和属性长度不一致。");
+            throw new InvalidDataException(UiText.T("字符串长度和属性长度不一致。", "字串長度和屬性長度不一致。", "A string length does not match its property length."));
         return Encoding.UTF8.GetString(payload.Slice(index, length));
     }
 
@@ -159,13 +160,13 @@ public static class OnscreensReader
                 return i;
         }
 
-        throw new InvalidDataException($"CR2W 名字表里没有 {expected}。");
+        throw new InvalidDataException(UiText.T($"CR2W 名字表里没有 {expected}。", $"CR2W 名字表裡沒有 {expected}。", $"The CR2W name table has no {expected}."));
     }
 
     private static int ReadInt(ReadOnlySpan<byte> data, int offset)
     {
         if (offset < 0 || offset > data.Length - 4)
-            throw new InvalidDataException("CR2W 字段越界。");
+            throw new InvalidDataException(UiText.T("CR2W 字段越界。", "CR2W 欄位越界。", "A CR2W field is out of range."));
         return BitConverter.ToInt32(data.Slice(offset, 4));
     }
 }

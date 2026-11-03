@@ -101,6 +101,8 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
 
     public string Dispatch(string requestJson)
     {
+        // 这次请求里给出的提示（含报错）都用界面语言；切换语言的请求本身沿用切换前的语言。
+        using var language = UiText.Use(CurrentLanguage());
         string? id = null;
         string? game = null;
         try
@@ -108,11 +110,11 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
             using var document = JsonDocument.Parse(requestJson);
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object)
-                throw new BridgeArgumentException("请求必须是 JSON 对象。");
+                throw new BridgeArgumentException(UiText.T("请求必须是 JSON 对象。", "請求必須是 JSON 物件。", "The request must be a JSON object."));
             id = ReadString(root, "id");
             var method = ReadString(root, "method");
             if (string.IsNullOrWhiteSpace(method))
-                throw new BridgeArgumentException("缺少 method。");
+                throw new BridgeArgumentException(UiText.T("缺少 method。", "缺少 method。", "Missing method."));
             var parameters = root.TryGetProperty("params", out var value) ? value : default;
             if (parameters.ValueKind is JsonValueKind.Undefined)
                 parameters = default;
@@ -152,7 +154,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
                 "settings.validate" => SettingsValidate(id, parameters),
                 "settings.pickFolder" => SettingsPickFolder(id, parameters),
                 "settings.save" => SettingsSave(id, parameters),
-                _ => throw new BridgeArgumentException($"未知方法 {method}。")
+                _ => throw new BridgeArgumentException(UiText.T($"未知方法 {method}。", $"未知方法 {method}。", $"Unknown method {method}."))
             };
         }
         catch (BridgeArgumentException ex)
@@ -161,7 +163,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         }
         catch (JsonException)
         {
-            return Fail(id, game, "bad_args", "请求不是合法 JSON。");
+            return Fail(id, game, "bad_args", UiText.T("请求不是合法 JSON。", "請求不是合法 JSON。", "The request is not valid JSON."));
         }
         catch (Exception ex)
         {
@@ -309,14 +311,14 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
     private string OpenAuthorPage(string? id)
     {
         if (_urlLauncher is null)
-            return Fail(id, null, "failed", "当前环境不能打开浏览器，请手动访问：" + AuthorPage.Url);
+            return Fail(id, null, "failed", UiText.T("当前环境不能打开浏览器，请手动访问：", "當前環境不能開啟瀏覽器，請手動訪問：", "A browser cannot be opened here. Please visit: ") + AuthorPage.Url);
         try
         {
             _urlLauncher.Open(AuthorPage.Url);
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or PlatformNotSupportedException)
         {
-            return Fail(id, null, "failed", "无法打开浏览器，请手动访问：" + AuthorPage.Url);
+            return Fail(id, null, "failed", UiText.T("无法打开浏览器，请手动访问：", "無法開啟瀏覽器，請手動訪問：", "Could not open the browser. Please visit: ") + AuthorPage.Url);
         }
 
         return Ok(id, null, new { Opened = true });
@@ -428,7 +430,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var adapter = RequireGame(parameters);
         var backupId = ReadString(parameters, "backupId");
         if (string.IsNullOrWhiteSpace(backupId))
-            throw new BridgeArgumentException("缺少 backupId。");
+            throw new BridgeArgumentException(UiText.T("缺少 backupId。", "缺少 backupId。", "Missing backupId."));
         return Ok(id, adapter.GameId, _backups.Describe(adapter, backupId, Root(adapter)));
     }
 
@@ -437,7 +439,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var adapter = RequireGame(parameters);
         var backupId = ReadString(parameters, "backupId");
         if (string.IsNullOrWhiteSpace(backupId))
-            throw new BridgeArgumentException("缺少 backupId。");
+            throw new BridgeArgumentException(UiText.T("缺少 backupId。", "缺少 backupId。", "Missing backupId."));
         _backups.Restore(adapter, backupId, Root(adapter), _enable.IsEnabled);
         return Ok(id, adapter.GameId, new { Restored = true });
     }
@@ -447,7 +449,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var adapter = RequireGame(parameters);
         var backupId = ReadString(parameters, "backupId");
         if (string.IsNullOrWhiteSpace(backupId))
-            throw new BridgeArgumentException("缺少 backupId。");
+            throw new BridgeArgumentException(UiText.T("缺少 backupId。", "缺少 backupId。", "Missing backupId."));
         _backups.Delete(backupId);
         return Ok(id, adapter.GameId, new { Deleted = true });
     }
@@ -501,9 +503,9 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var fileName = ReadString(parameters, "fileName");
         var encoded = ReadString(parameters, "dataBase64");
         if (string.IsNullOrWhiteSpace(fileName))
-            throw new BridgeArgumentException("缺少 fileName。");
+            throw new BridgeArgumentException(UiText.T("缺少 fileName。", "缺少 fileName。", "Missing fileName."));
         if (string.IsNullOrWhiteSpace(encoded))
-            throw new BridgeArgumentException("缺少 dataBase64。");
+            throw new BridgeArgumentException(UiText.T("缺少 dataBase64。", "缺少 dataBase64。", "Missing dataBase64."));
         byte[] data;
         try
         {
@@ -511,7 +513,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         }
         catch (FormatException)
         {
-            throw new BridgeArgumentException("dataBase64 不是合法的 Base64。");
+            throw new BridgeArgumentException(UiText.T("dataBase64 不是合法的 Base64。", "dataBase64 不是合法的 Base64。", "dataBase64 is not valid Base64."));
         }
 
         return Ok(id, adapter.GameId, Skins.ImportImage(adapter.GameId, fileName, data));
@@ -521,7 +523,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
     {
         var adapter = RequireGame(parameters);
         if (parameters.ValueKind != JsonValueKind.Object || !parameters.TryGetProperty("value", out var raw) || raw.ValueKind != JsonValueKind.Number || !raw.TryGetDouble(out var value))
-            throw new BridgeArgumentException("缺少 value。");
+            throw new BridgeArgumentException(UiText.T("缺少 value。", "缺少 value。", "Missing value."));
         return Ok(id, adapter.GameId, Skins.SetOverlay(adapter.GameId, value));
     }
 
@@ -535,14 +537,14 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
     {
         var gameId = parameters.ValueKind == JsonValueKind.Object ? ReadString(parameters, "gameId") : null;
         if (string.IsNullOrWhiteSpace(gameId))
-            throw new BridgeArgumentException("缺少 gameId。");
+            throw new BridgeArgumentException(UiText.T("缺少 gameId。", "缺少 gameId。", "Missing gameId."));
         try
         {
             return _registry.GetRequired(gameId);
         }
         catch (KeyNotFoundException)
         {
-            throw new BridgeArgumentException($"未知游戏 {gameId}。");
+            throw new BridgeArgumentException(UiText.T($"未知游戏 {gameId}。", $"未知遊戲 {gameId}。", $"Unknown game {gameId}."));
         }
     }
 
@@ -552,7 +554,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var slot = RequireSlot(parameters, adapter);
         var document = adapter.Load(slot);
         if (document is not IItemCloneCapable cloneable)
-            throw new BridgeArgumentException("这个存档不能复制装备。");
+            throw new BridgeArgumentException(UiText.T("这个存档不能复制装备。", "這個存檔不能複製裝備。", "This save does not support copying gear."));
         return Ok(id, adapter.GameId, new
         {
             cloneable.NamesAvailable,
@@ -567,7 +569,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var slot = RequireSlot(parameters, adapter);
         var key = ReadString(parameters, "key");
         if (string.IsNullOrWhiteSpace(key))
-            throw new BridgeArgumentException("缺少 key。");
+            throw new BridgeArgumentException(UiText.T("缺少 key。", "缺少 key。", "Missing key."));
         var copies = parameters.TryGetProperty("copies", out var value) && value.TryGetInt32(out var parsed) ? parsed : 1;
         var backupFirst = !parameters.TryGetProperty("backupFirst", out var backup) || backup.ValueKind != JsonValueKind.False;
         var report = CloneService.Run(adapter, slot, new CloneRequest(key, copies), backupFirst, _backups, _enable);
@@ -590,9 +592,9 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var skip = ReadInt(parameters, "skip", 0);
         var take = ReadInt(parameters, "take", GenerateService.DefaultTake);
         if (skip < 0)
-            throw new BridgeArgumentException("skip 不能是负数。");
+            throw new BridgeArgumentException(UiText.T("skip 不能是负数。", "skip 不能是負數。", "skip cannot be negative."));
         if (take is < 1 or > GenerateService.MaxTake)
-            throw new BridgeArgumentException($"take 必须在 1 到 {GenerateService.MaxTake} 之间。");
+            throw new BridgeArgumentException(UiText.T($"take 必须在 1 到 {GenerateService.MaxTake} 之间。", $"take 必須在 1 到 {GenerateService.MaxTake} 之間。", $"take must be between 1 and {GenerateService.MaxTake}."));
         return Ok(id, adapter.GameId, GenerateService.Catalog(adapter, slot, string.IsNullOrEmpty(kind) ? null : kind, query, skip, take));
     }
 
@@ -610,9 +612,9 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var skip = ReadInt(parameters, "skip", 0);
         var take = ReadInt(parameters, "take", GenerateService.DefaultTake);
         if (skip < 0)
-            throw new BridgeArgumentException("skip 不能是负数。");
+            throw new BridgeArgumentException(UiText.T("skip 不能是负数。", "skip 不能是負數。", "skip cannot be negative."));
         if (take is < 1 or > GenerateService.MaxTake)
-            throw new BridgeArgumentException($"take 必须在 1 到 {GenerateService.MaxTake} 之间。");
+            throw new BridgeArgumentException(UiText.T($"take 必须在 1 到 {GenerateService.MaxTake} 之间。", $"take 必須在 1 到 {GenerateService.MaxTake} 之間。", $"take must be between 1 and {GenerateService.MaxTake}."));
         var kindFallback = parameters.TryGetProperty("kindFallback", out var fallback) && fallback.ValueKind == JsonValueKind.True;
         return Ok(id, adapter.GameId, GenerateService.Groups(adapter, slot, string.IsNullOrEmpty(kind) ? null : kind, query, skip, take, kindFallback, ownership));
     }
@@ -623,7 +625,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var slot = RequireSlot(parameters, adapter);
         var target = ReadString(parameters, "target");
         if (string.IsNullOrWhiteSpace(target))
-            throw new BridgeArgumentException("缺少 target。");
+            throw new BridgeArgumentException(UiText.T("缺少 target。", "缺少 target。", "Missing target."));
         var copies = ReadInt(parameters, "copies", 1);
         var backupFirst = !parameters.TryGetProperty("backupFirst", out var backup) || backup.ValueKind != JsonValueKind.False;
         var toStash = parameters.TryGetProperty("toStash", out var stashProp) && stashProp.ValueKind is JsonValueKind.True;
@@ -648,12 +650,12 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var slot = RequireSlot(parameters, adapter);
         var target = ReadString(parameters, "target");
         if (string.IsNullOrWhiteSpace(target))
-            throw new BridgeArgumentException("缺少 target。");
+            throw new BridgeArgumentException(UiText.T("缺少 target。", "缺少 target。", "Missing target."));
         long? quantity = null;
         if (parameters.TryGetProperty("quantity", out var raw) && raw.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined))
         {
             if (raw.ValueKind != JsonValueKind.Number || !raw.TryGetInt64(out var parsed))
-                throw new BridgeArgumentException("quantity 必须是整数。");
+                throw new BridgeArgumentException(UiText.T("quantity 必须是整数。", "quantity 必須是整數。", "quantity must be an integer."));
             quantity = parsed;
         }
         var toStash = parameters.TryGetProperty("toStash", out var stashProp) && stashProp.ValueKind is JsonValueKind.True;
@@ -667,7 +669,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var adapter = RequireGame(parameters);
         var slot = RequireSlot(parameters, adapter);
         if (!parameters.TryGetProperty("items", out var itemsElem) || itemsElem.ValueKind != JsonValueKind.Array)
-            throw new BridgeArgumentException("缺少 items 列表。");
+            throw new BridgeArgumentException(UiText.T("缺少 items 列表。", "缺少 items 列表。", "Missing items list."));
 
         var list = new List<BatchItemRequest>();
         foreach (var elem in itemsElem.EnumerateArray())
@@ -680,7 +682,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
             if (elem.TryGetProperty("quantity", out var q) && q.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined))
             {
                 if (q.ValueKind != JsonValueKind.Number || !q.TryGetInt64(out var parsedQty))
-                    throw new BridgeArgumentException($"{target} 的 quantity 必须是整数。");
+                    throw new BridgeArgumentException(UiText.T($"{target} 的 quantity 必须是整数。", $"{target} 的 quantity 必須是整數。", $"The quantity of {target} must be an integer."));
                 qty = parsedQty;
             }
             bool? toStash = null;
@@ -690,7 +692,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         }
 
         if (list.Count == 0)
-            throw new BridgeArgumentException("未选择任何要添加的物品。");
+            throw new BridgeArgumentException(UiText.T("未选择任何要添加的物品。", "未選擇任何要新增的物品。", "No items were selected."));
 
         var destMode = ReadString(parameters, "destinationMode") ?? "smart";
         var report = _library.BatchObtain(adapter, slot, list, destMode);
@@ -721,12 +723,12 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         if (adapter is IGamePathSetup setup)
             return kind == SaveRootKind ? setup.CheckSaveRoot(path) : setup.CheckGameDirectory(path);
         if (kind == GameDirKind)
-            return new PathCheck(true, path, "这个游戏不需要游戏目录。");
+            return new PathCheck(true, path, UiText.T("这个游戏不需要游戏目录。", "這個遊戲不需要遊戲目錄。", "This game does not need a game folder."));
         if (string.IsNullOrWhiteSpace(path))
-            return new PathCheck(false, null, "请选择存档目录。");
+            return new PathCheck(false, null, UiText.T("请选择存档目录。", "請選擇存檔目錄。", "Please choose the save folder."));
         return Directory.Exists(path)
-            ? new PathCheck(true, Path.GetFullPath(path), "目录可用。")
-            : new PathCheck(false, null, "目录不存在：" + path);
+            ? new PathCheck(true, Path.GetFullPath(path), UiText.T("目录可用。", "目錄可用。", "The folder is usable."))
+            : new PathCheck(false, null, UiText.T("目录不存在：", "目錄不存在：", "The folder does not exist: ") + path);
     }
 
     private static object CheckPayload(PathCheck check) => new
@@ -764,7 +766,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var kind = ReadString(parameters, "kind");
         return kind is SaveRootKind or GameDirKind
             ? kind
-            : throw new BridgeArgumentException("kind 必须是 saveRoot 或 gameDir。");
+            : throw new BridgeArgumentException(UiText.T("kind 必须是 saveRoot 或 gameDir。", "kind 必須是 saveRoot 或 gameDir。", "kind must be saveRoot or gameDir."));
     }
 
     private string SettingsGet(string? id, JsonElement parameters)
@@ -790,12 +792,12 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var adapter = RequireGame(parameters);
         var kind = RequireKind(parameters);
         if (_pickFolder is null)
-            throw new BridgeArgumentException("这里不能打开选择文件夹的对话框。");
+            throw new BridgeArgumentException(UiText.T("这里不能打开选择文件夹的对话框。", "這裡不能開啟選擇資料夾的對話方塊。", "The folder picker cannot be opened here."));
         var paths = PathsOf(adapter);
         var current = kind == SaveRootKind ? paths.SaveRoot : paths.GameDir;
         var hint = kind == SaveRootKind ? (adapter as IGamePathSetup)?.SaveRootHint : null;
         var initial = new[] { current, hint }.FirstOrDefault(path => !string.IsNullOrWhiteSpace(path) && Directory.Exists(path));
-        var picked = _pickFolder(kind == SaveRootKind ? "选择存档目录" : "选择游戏目录", initial);
+        var picked = _pickFolder(kind == SaveRootKind ? UiText.T("选择存档目录", "選擇存檔目錄", "Choose the save folder") : UiText.T("选择游戏目录", "選擇遊戲目錄", "Choose the game folder"), initial);
         if (string.IsNullOrWhiteSpace(picked))
             return Ok(id, adapter.GameId, new { Cancelled = true });
         var check = CheckPath(adapter, kind, picked);
@@ -818,10 +820,10 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         var adapter = RequireGame(parameters);
         var saveCheck = CheckPath(adapter, SaveRootKind, ReadPath(parameters, SaveRootKind));
         if (!saveCheck.Ok)
-            throw new BridgeArgumentException("存档目录：" + saveCheck.Message);
+            throw new BridgeArgumentException(UiText.T("存档目录：", "存檔目錄：", "Save folder: ") + saveCheck.Message);
         var gameCheck = CheckPath(adapter, GameDirKind, ReadPath(parameters, GameDirKind));
         if (!gameCheck.Ok)
-            throw new BridgeArgumentException("游戏目录：" + gameCheck.Message);
+            throw new BridgeArgumentException(UiText.T("游戏目录：", "遊戲目錄：", "Game folder: ") + gameCheck.Message);
         var next = new GamePaths(saveCheck.Path, adapter is IGamePathSetup ? gameCheck.Path : null);
         _settings?.Set(adapter.GameId, next);
         var previous = PathsOf(adapter);
@@ -841,7 +843,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
             || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
             return fallback;
         if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var parsed))
-            throw new BridgeArgumentException($"{name} 必须是整数。");
+            throw new BridgeArgumentException(UiText.T($"{name} 必须是整数。", $"{name} 必須是整數。", $"{name} must be an integer."));
         return parsed;
     }
 
@@ -853,7 +855,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
     {
         var slot = parameters.ValueKind == JsonValueKind.Object ? ReadPath(parameters, "slot") : null;
         if (string.IsNullOrWhiteSpace(slot))
-            throw new BridgeArgumentException("缺少 slot。");
+            throw new BridgeArgumentException(UiText.T("缺少 slot。", "缺少 slot。", "Missing slot."));
         string full;
         try
         {
@@ -861,18 +863,18 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {
-            throw new BridgeArgumentException("槽位路径无效。");
+            throw new BridgeArgumentException(UiText.T("槽位路径无效。", "槽位路徑無效。", "The slot path is invalid."));
         }
 
         var root = Path.GetFullPath(Root(adapter));
         var prefix = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (!full.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            throw new BridgeArgumentException("槽位不在存档根目录内。");
+            throw new BridgeArgumentException(UiText.T("槽位不在存档根目录内。", "槽位不在存檔根目錄內。", "The slot is not inside the save folder."));
         var known = SaveQueryService.ListSlots(adapter, root)
             .Select(item => Path.GetFullPath(item.SaveFilePath))
             .Any(path => path.Equals(full, StringComparison.OrdinalIgnoreCase));
         if (!known)
-            throw new BridgeArgumentException("不是已发现的槽位文件。");
+            throw new BridgeArgumentException(UiText.T("不是已发现的槽位文件。", "不是已發現的槽位檔案。", "This is not a known save slot file."));
         return full;
     }
 
@@ -884,18 +886,18 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         if (array.ValueKind == JsonValueKind.Null)
             return changes;
         if (array.ValueKind != JsonValueKind.Array)
-            throw new BridgeArgumentException("changes 必须是数组。");
+            throw new BridgeArgumentException(UiText.T("changes 必须是数组。", "changes 必須是陣列。", "changes must be an array."));
         foreach (var item in array.EnumerateArray())
         {
             if (item.ValueKind != JsonValueKind.Object)
-                throw new BridgeArgumentException("changes 的每一项必须是对象。");
+                throw new BridgeArgumentException(UiText.T("changes 的每一项必须是对象。", "changes 的每一項必須是物件。", "Each entry in changes must be an object."));
             var resourceId = ReadString(item, "id");
             if (string.IsNullOrWhiteSpace(resourceId))
-                throw new BridgeArgumentException("changes 缺少 id。");
+                throw new BridgeArgumentException(UiText.T("changes 缺少 id。", "changes 缺少 id。", "An entry in changes is missing id."));
             if (!item.TryGetProperty("value", out var raw) || raw.ValueKind != JsonValueKind.Number || !raw.TryGetInt64(out var value))
-                throw new BridgeArgumentException($"资源 {resourceId} 的 value 不是整数。");
+                throw new BridgeArgumentException(UiText.T($"资源 {resourceId} 的 value 不是整数。", $"資源 {resourceId} 的 value 不是整數。", $"The value of resource {resourceId} is not an integer."));
             if (!adapter.Resources.Any(resource => resource.Id.Value == resourceId))
-                throw new BridgeArgumentException($"未知资源 {resourceId}。");
+                throw new BridgeArgumentException(UiText.T($"未知资源 {resourceId}。", $"未知資源 {resourceId}。", $"Unknown resource {resourceId}."));
             changes.Add(new ResourceChange(new ResourceId(resourceId), value));
         }
 
@@ -904,7 +906,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
 
     /// <summary>存档根目录：来自 --save-root 或用户设置（D020），不再用适配器的默认位置。</summary>
     private string Root(IGameAdapter adapter) =>
-        PathsOf(adapter).SaveRoot ?? throw new BridgeArgumentException("还没有设置存档目录，请先点右上角的齿轮选择存档目录。");
+        PathsOf(adapter).SaveRoot ?? throw new BridgeArgumentException(UiText.T("还没有设置存档目录，请先点右上角的齿轮选择存档目录。", "還沒有設定存檔目錄，請先點右上角的齒輪選擇存檔目錄。", "No save folder is set yet. Click the gear icon in the top right to choose one."));
 
     private static bool ReadBool(JsonElement parameters, string name)
     {
@@ -915,7 +917,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
             JsonValueKind.True => true,
             JsonValueKind.False => false,
             JsonValueKind.Null or JsonValueKind.Undefined => false,
-            _ => throw new BridgeArgumentException($"{name} 必须是布尔值。")
+            _ => throw new BridgeArgumentException(UiText.T($"{name} 必须是布尔值。", $"{name} 必須是布林值。", $"{name} must be true or false."))
         };
     }
 

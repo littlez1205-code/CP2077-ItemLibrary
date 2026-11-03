@@ -1,3 +1,4 @@
+using GameTool.Core;
 using System.Buffers.Binary;
 using System.Text;
 
@@ -21,41 +22,41 @@ public sealed class NodeTable
             if (node.Name != name)
                 continue;
             if (found is not null)
-                throw new InvalidDataException($"节点 {name} 出现了多次。");
+                throw new InvalidDataException(UiText.T($"节点 {name} 出现了多次。", $"節點 {name} 出現了多次。", $"Node {name} appears more than once."));
             found = node;
         }
 
-        return found ?? throw new InvalidDataException($"缺少节点 {name}。");
+        return found ?? throw new InvalidDataException(UiText.T($"缺少节点 {name}。", $"缺少節點 {name}。", $"Node {name} is missing."));
     }
 
     public static NodeTable Parse(ReadOnlySpan<byte> bytes)
     {
         if (bytes.Length < 5 || !bytes.StartsWith(Cp2077Format.Node))
-            throw new InvalidDataException("节点表缺少 NODE 魔数。");
+            throw new InvalidDataException(UiText.T("节点表缺少 NODE 魔数。", "節點表缺少 NODE 魔數。", "The node table is missing the NODE magic number."));
 
         var cursor = 4;
         var count = ReadCompactInt(bytes, ref cursor);
         if (count is < 0 or > Cp2077Format.MaxNodeCount)
-            throw new InvalidDataException($"节点个数 {count} 超出安全范围 0..{Cp2077Format.MaxNodeCount}。");
+            throw new InvalidDataException(UiText.T($"节点个数 {count} 超出安全范围 0..{Cp2077Format.MaxNodeCount}。", $"節點個數 {count} 超出安全範圍 0..{Cp2077Format.MaxNodeCount}。", $"Node count {count} is outside the safe range 0..{Cp2077Format.MaxNodeCount}."));
 
         var nodes = new SaveNode[count];
         for (var i = 0; i < count; i++)
         {
             var name = ReadName(bytes, ref cursor);
             if (cursor + 16 > bytes.Length)
-                throw new InvalidDataException("节点表在节点字段处被截断。");
+                throw new InvalidDataException(UiText.T("节点表在节点字段处被截断。", "節點表在節點欄位處被截斷。", "The node table is truncated in the node fields."));
             var next = BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(cursor, 4));
             var child = BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(cursor + 4, 4));
             var offset = BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(cursor + 8, 4));
             var length = BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(cursor + 12, 4));
             cursor += 16;
             if (length < 0)
-                throw new InvalidDataException($"节点 {name} 的长度为负。");
+                throw new InvalidDataException(UiText.T($"节点 {name} 的长度为负。", $"節點 {name} 的長度為負。", $"Node {name} has a negative length."));
             nodes[i] = new SaveNode(i, name, next, child, offset, length);
         }
 
         if (cursor != bytes.Length)
-            throw new InvalidDataException($"节点表解析停在 {cursor}，表长 {bytes.Length}，没有正好读完。");
+            throw new InvalidDataException(UiText.T($"节点表解析停在 {cursor}，表长 {bytes.Length}，没有正好读完。", $"節點表解析停在 {cursor}，表長 {bytes.Length}，沒有正好讀完。", $"Node table parsing stopped at {cursor} of {bytes.Length} bytes instead of reaching the end."));
         return new NodeTable(nodes);
     }
 
@@ -63,7 +64,7 @@ public sealed class NodeTable
     {
         ArgumentNullException.ThrowIfNull(nodes);
         if (nodes.Count is < 1 or > Cp2077Format.MaxNodeCount)
-            throw new InvalidDataException($"节点个数 {nodes.Count} 超出安全范围 1..{Cp2077Format.MaxNodeCount}。");
+            throw new InvalidDataException(UiText.T($"节点个数 {nodes.Count} 超出安全范围 1..{Cp2077Format.MaxNodeCount}。", $"節點個數 {nodes.Count} 超出安全範圍 1..{Cp2077Format.MaxNodeCount}。", $"Node count {nodes.Count} is outside the safe range 1..{Cp2077Format.MaxNodeCount}."));
         var buffer = new List<byte>(4 + nodes.Count * 24);
         buffer.AddRange(Cp2077Format.Node.ToArray());
         WriteCompact(buffer, nodes.Count);
@@ -71,7 +72,7 @@ public sealed class NodeTable
         {
             var node = nodes[i];
             if (node.Index != i)
-                throw new InvalidDataException($"节点序号 {node.Index} 不在位置 {i}。");
+                throw new InvalidDataException(UiText.T($"节点序号 {node.Index} 不在位置 {i}。", $"節點序號 {node.Index} 不在位置 {i}。", $"Node index {node.Index} is not at position {i}."));
             var name = Encoding.ASCII.GetBytes(node.Name);
             WriteCompact(buffer, -name.Length);
             buffer.AddRange(name);
@@ -116,12 +117,12 @@ public sealed class NodeTable
     {
         var length = ReadCompactInt(bytes, ref cursor);
         if (length > 0)
-            throw new InvalidDataException($"节点名长度 {length} 为正数，当前只接受负数 ASCII 长度。");
+            throw new InvalidDataException(UiText.T($"节点名长度 {length} 为正数，当前只接受负数 ASCII 长度。", $"節點名長度 {length} 為正數，當前只接受負數 ASCII 長度。", $"Node name length {length} is positive; only negative (ASCII) lengths are supported."));
         var size = -length;
         if (size > 1024)
-            throw new InvalidDataException($"节点名长度 {size} 超出安全范围 0..1024。");
+            throw new InvalidDataException(UiText.T($"节点名长度 {size} 超出安全范围 0..1024。", $"節點名長度 {size} 超出安全範圍 0..1024。", $"Node name length {size} is outside the safe range 0..1024."));
         if (cursor + size > bytes.Length)
-            throw new InvalidDataException("节点表在名字处被截断。");
+            throw new InvalidDataException(UiText.T("节点表在名字处被截断。", "節點表在名字處被截斷。", "The node table is truncated in a node name."));
         var name = Encoding.ASCII.GetString(bytes.Slice(cursor, size));
         cursor += size;
         return name;
@@ -133,7 +134,7 @@ public sealed class NodeTable
     internal static int ReadCompactInt(ReadOnlySpan<byte> bytes, ref int cursor)
     {
         if (cursor >= bytes.Length)
-            throw new InvalidDataException("紧凑整数被截断。");
+            throw new InvalidDataException(UiText.T("紧凑整数被截断。", "緊湊整數被截斷。", "A compact integer is truncated."));
         var first = bytes[cursor++];
         var negative = (first & 0x80) != 0;
         var more = (first & 0x40) != 0;
@@ -142,9 +143,9 @@ public sealed class NodeTable
         while (more)
         {
             if (cursor >= bytes.Length)
-                throw new InvalidDataException("紧凑整数被截断。");
+                throw new InvalidDataException(UiText.T("紧凑整数被截断。", "緊湊整數被截斷。", "A compact integer is truncated."));
             if (shift > 31)
-                throw new InvalidDataException("紧凑整数超出 32 位。");
+                throw new InvalidDataException(UiText.T("紧凑整数超出 32 位。", "緊湊整數超出 32 位。", "A compact integer exceeds 32 bits."));
             var next = bytes[cursor++];
             more = (next & 0x80) != 0;
             value |= (long)(next & 0x7F) << shift;
@@ -152,7 +153,7 @@ public sealed class NodeTable
         }
 
         if (value > int.MaxValue)
-            throw new InvalidDataException("紧凑整数超出 int 范围。");
+            throw new InvalidDataException(UiText.T("紧凑整数超出 int 范围。", "緊湊整數超出 int 範圍。", "A compact integer is outside the int range."));
         var magnitude = (int)value;
         return negative ? -magnitude : magnitude;
     }
@@ -165,7 +166,7 @@ public readonly record struct SaveNode(int Index, string Name, int Next, int Chi
         get
         {
             if (FileOffset < Cp2077Format.FirstChunkOffset)
-                throw new InvalidDataException($"节点 {Name} 的文件偏移 {FileOffset} 落在解压流之前。");
+                throw new InvalidDataException(UiText.T($"节点 {Name} 的文件偏移 {FileOffset} 落在解压流之前。", $"節點 {Name} 的檔案偏移 {FileOffset} 落在解壓流之前。", $"Node {Name} has file offset {FileOffset}, which lies before the decompressed stream."));
             return FileOffset - Cp2077Format.FirstChunkOffset;
         }
     }

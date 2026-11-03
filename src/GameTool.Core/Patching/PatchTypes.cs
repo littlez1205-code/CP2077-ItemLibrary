@@ -18,7 +18,7 @@ public static class PatchOutcome
 public sealed class AmbiguousResourceException : Exception
 {
     public AmbiguousResourceException(ResourceId id)
-        : base($"资源 {id.Value} 存在多个堆叠，拒绝把它当成未持有。")
+        : base(UiText.T($"资源 {id.Value} 存在多个堆叠，拒绝把它当成未持有。", $"資源 {id.Value} 存在多個堆疊，拒絕把它當成未持有。", $"Resource {id.Value} has multiple stacks; refusing to treat it as not held."))
     {
         ResourceId = id;
     }
@@ -36,7 +36,7 @@ public class PatchRejectedException : Exception
 /// <summary>补丁写回前发现存档已被改写。调用方可以重试。</summary>
 public sealed class SaveChangedDuringPatchException : PatchRejectedException
 {
-    public SaveChangedDuringPatchException() : base("存档在补丁过程中被改写")
+    public SaveChangedDuringPatchException() : base(UiText.T("存档在补丁过程中被改写", "存檔在補丁過程中被改寫", "The save was modified while it was being patched"))
     {
     }
 }

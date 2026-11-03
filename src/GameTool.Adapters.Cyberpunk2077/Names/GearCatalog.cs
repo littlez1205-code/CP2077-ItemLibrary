@@ -1,3 +1,6 @@
+using GameTool.Core;
+using static System.FormattableString;
+
 namespace GameTool.Adapters.Cyberpunk2077.Names;
 
 public static class GearKinds
@@ -350,7 +353,7 @@ public sealed partial class GearCatalog
     public const string StatsShardSlot = "AttachmentSlots.StatsShardSlot";
 
     /// <summary>没装往日之影时生成往日之影物品的拒绝说明（D023）。</summary>
-    public const string ExpansionHiddenMessage = "这件物品属于往日之影资料片，当前游戏目录未检测到往日之影。";
+    public static string ExpansionHiddenMessage => UiText.T("这件物品属于往日之影资料片，当前游戏目录未检测到往日之影。", "這件物品屬於往日之影資料片，當前遊戲目錄未檢測到往日之影。", "This item belongs to the Phantom Liberty expansion, which was not detected in the current game folder.");
 
     // CPO 是多人模式原型残留（如 CPO_Base_Lexington），一并排除。
     private static readonly string[] Excluded = ["notQueryable", "Debug", "DisabledContent", "abstract", "CPO"];
@@ -826,9 +829,9 @@ public sealed partial class GearCatalog
                     var rate = 1.0f / cycle;
                     badges.Add(normLang switch
                     {
-                        "zh-tw" => $"射速 {rate:0.#}發/秒",
-                        "en-us" => $"Fire Rate {rate:0.#}/s",
-                        _ => $"射速 {rate:0.#}发/秒"
+                        "zh-tw" => Invariant($"射速 {rate:0.#}發/秒"),
+                        "en-us" => Invariant($"Fire Rate {rate:0.#}/s"),
+                        _ => Invariant($"射速 {rate:0.#}发/秒")
                     });
                 }
 
@@ -864,9 +867,9 @@ public sealed partial class GearCatalog
                 {
                     badges.Add(normLang switch
                     {
-                        "zh-tw" => $"裝填 {reload:0.##}秒",
-                        "en-us" => $"Reload {reload:0.##}s",
-                        _ => $"装弹 {reload:0.##}秒"
+                        "zh-tw" => Invariant($"裝填 {reload:0.##}秒"),
+                        "en-us" => Invariant($"Reload {reload:0.##}s"),
+                        _ => Invariant($"装弹 {reload:0.##}秒")
                     });
                 }
 
@@ -901,14 +904,14 @@ public sealed partial class GearCatalog
                 if (float.TryParse(meleeDurStr, System.Globalization.CultureInfo.InvariantCulture, out var meleeDur) && meleeDur > 0f)
                 {
                     var speed = 1.0f / meleeDur;
-                    badges.Add(normLang == "en-us" ? $"Atk Speed {speed:0.#}/s" : $"攻速 {speed:0.#}次/秒");
+                    badges.Add(normLang == "en-us" ? Invariant($"Atk Speed {speed:0.#}/s") : Invariant($"攻速 {speed:0.#}次/秒"));
                 }
                 else
                 {
                     var apsStr = index.StatModifierValueOf(targetRecord, "AttacksPerSecond");
                     if (float.TryParse(apsStr, System.Globalization.CultureInfo.InvariantCulture, out var aps) && aps > 0f)
                     {
-                        badges.Add(normLang == "en-us" ? $"Atk Speed {aps:0.#}/s" : $"攻速 {aps:0.#}次/秒");
+                        badges.Add(normLang == "en-us" ? Invariant($"Atk Speed {aps:0.#}/s") : Invariant($"攻速 {aps:0.#}次/秒"));
                     }
                 }
             }

@@ -171,7 +171,7 @@ public sealed class Cp2077Adapter : IGameAdapter, ISaveSupportProbe, IThemeProvi
             using var stream = new FileStream(saveFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             var head = new byte[12];
             if (stream.Read(head, 0, head.Length) != head.Length || !head.AsSpan(0, 4).SequenceEqual(Cp2077Format.Vasc))
-                return new SaveSupport(false, "不是可识别的存档。");
+                return new SaveSupport(false, UiText.T("不是可识别的存档。", "不是可識別的存檔。", "This is not a recognizable save."));
             var saveVersion = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(head.AsSpan(4));
             var gameVersion = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(head.AsSpan(8));
             if (Cp2077Format.IsSupported(saveVersion, gameVersion))
@@ -180,14 +180,14 @@ public sealed class Cp2077Adapter : IGameAdapter, ISaveSupportProbe, IThemeProvi
             if (saveVersion > Cp2077Format.LatestSaveVersion || gameVersion > Cp2077Format.LatestGameVersion)
                 return new SaveSupport(
                     false,
-                    $"游戏 {FormatGameVersion(gameVersion)} 版本的存档（存档格式 {saveVersion}），比本工具支持的 2.5 更新；需要等待工具适配新版本");
+                    UiText.T($"游戏 {FormatGameVersion(gameVersion)} 版本的存档（存档格式 {saveVersion}），比本工具支持的 2.5 更新；需要等待工具适配新版本", $"遊戲 {FormatGameVersion(gameVersion)} 版本的存檔（存檔格式 {saveVersion}），比本工具支援的 2.5 更新；需要等待工具適配新版本", $"Save from game version {FormatGameVersion(gameVersion)} (save format {saveVersion}) is newer than 2.5, the newest version this tool supports; wait for an update of the tool"));
             return new SaveSupport(
                 false,
-                $"游戏 {FormatGameVersion(gameVersion)} 版本的存档（存档格式 {saveVersion}），本工具支持 2.31 与 2.5；在游戏里读取后重新存档即可升级");
+                UiText.T($"游戏 {FormatGameVersion(gameVersion)} 版本的存档（存档格式 {saveVersion}），本工具支持 2.31 与 2.5；在游戏里读取后重新存档即可升级", $"遊戲 {FormatGameVersion(gameVersion)} 版本的存檔（存檔格式 {saveVersion}），本工具支援 2.31 與 2.5；在遊戲裡讀取後重新存檔即可升級", $"Save from game version {FormatGameVersion(gameVersion)} (save format {saveVersion}); this tool supports 2.31 and 2.5. Load it in game and save again to upgrade it"));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return new SaveSupport(false, "暂时无法读取存档头。");
+            return new SaveSupport(false, UiText.T("暂时无法读取存档头。", "暫時無法讀取存檔頭。", "The save header cannot be read right now."));
         }
     }
 

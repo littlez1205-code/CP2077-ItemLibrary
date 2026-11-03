@@ -102,7 +102,7 @@ public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
         ? null
         : string.IsNullOrWhiteSpace(_diagnosticReason)
             ? ItemNameCatalog.RedmodUnavailable
-            : ItemNameCatalog.RedmodUnavailable + "（诊断详情：" + _diagnosticReason + "）";
+            : ItemNameCatalog.RedmodUnavailable + UiText.T("（诊断详情：", "（診斷詳情：", " (details: ") + _diagnosticReason + UiText.T("）", "）", ")");
 
     public IReadOnlyList<GearEntry> Gear => Available ? _catalog!.Gear?.Entries ?? [] : [];
 
@@ -161,15 +161,19 @@ public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
             {
                 var tweaksDir = Path.Combine(game, Cp2077Paths.TweaksRelative);
                 reason = Directory.Exists(tweaksDir)
-                    ? "tools\\redmod\\tweaks 文件夹内没有找到 .tweak 数据文件，请确认 REDmod DLC 已完整下载"
+                    ? UiText.T("tools\\redmod\\tweaks 文件夹内没有找到 .tweak 数据文件，请确认 REDmod DLC 已完整下载", "tools\\redmod\\tweaks 資料夾內沒有找到 .tweak 資料檔案，請確認 REDmod DLC 已完整下載", "No .tweak data files were found in tools\\redmod\\tweaks. Make sure the REDmod DLC is fully downloaded")
                     : null;
             }
             return new Cp2077ItemNames(catalog, game, reason, sharedIcons);
         }
-        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException or DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // 名字表只影响显示；读不出来时按不可用处理，复制功能照常，但保留具体诊断原因方便排查。
-            return new Cp2077ItemNames(null, game, ex.Message, sharedIcons);
+            // 游戏更新改了文件格式时，解析器可能抛出任何类型的异常（越界、溢出等）：同样按不可用处理，
+            // 不让每次打开物品库都变成内部错误；意料之外的异常在诊断里带上类型名。
+            var expected = ex is InvalidDataException or IOException or UnauthorizedAccessException
+                or DllNotFoundException or EntryPointNotFoundException or BadImageFormatException;
+            return new Cp2077ItemNames(null, game, expected ? ex.Message : ex.GetType().Name + ": " + ex.Message, sharedIcons);
         }
     }
 }

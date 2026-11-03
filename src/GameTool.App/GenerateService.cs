@@ -76,16 +76,16 @@ public static class GenerateService
         string? ownership = null)
     {
         if (skip < 0)
-            throw new PatchRejectedException("skip 不能是负数。");
+            throw new PatchRejectedException(UiText.T("skip 不能是负数。", "skip 不能是負數。", "skip cannot be negative."));
         if (take is < 1 or > MaxTake)
-            throw new PatchRejectedException($"take 必须在 1 到 {MaxTake} 之间。");
+            throw new PatchRejectedException(UiText.T($"take 必须在 1 到 {MaxTake} 之间。", $"take 必須在 1 到 {MaxTake} 之間。", $"take must be between 1 and {MaxTake}."));
         return Documents.Query(adapter, saveFilePath, document =>
         {
             var listed = kind;
             var kinds = document.GenerateKinds;
             var known = !string.IsNullOrEmpty(listed) && kinds.Any(item => item.Id == listed);
             if (!string.IsNullOrEmpty(listed) && !known && !kindFallback)
-                throw new PatchRejectedException($"未知分类 {listed}。");
+                throw new PatchRejectedException(UiText.T($"未知分类 {listed}。", $"未知分類 {listed}。", $"Unknown category {listed}."));
             if (kindFallback && !known)
                 listed = kinds.Count > 0 ? kinds[0].Id : null;
             var page = document.ListGeneratableGroups(string.IsNullOrEmpty(listed) ? null : listed, query, skip, take, ownership);
@@ -119,13 +119,13 @@ public static class GenerateService
         int take)
     {
         if (skip < 0)
-            throw new PatchRejectedException("skip 不能是负数。");
+            throw new PatchRejectedException(UiText.T("skip 不能是负数。", "skip 不能是負數。", "skip cannot be negative."));
         if (take is < 1 or > MaxTake)
-            throw new PatchRejectedException($"take 必须在 1 到 {MaxTake} 之间。");
+            throw new PatchRejectedException(UiText.T($"take 必须在 1 到 {MaxTake} 之间。", $"take 必須在 1 到 {MaxTake} 之間。", $"take must be between 1 and {MaxTake}."));
         return Documents.Query(adapter, saveFilePath, document =>
         {
             if (!string.IsNullOrEmpty(kind) && document.GenerateKinds.All(item => item.Id != kind))
-                throw new PatchRejectedException($"未知分类 {kind}。");
+                throw new PatchRejectedException(UiText.T($"未知分类 {kind}。", $"未知分類 {kind}。", $"Unknown category {kind}."));
             var page = document.ListGeneratable(kind, query, skip, take);
             return new GenerateCatalogView(
                 document.GenerateAvailable,
@@ -173,7 +173,7 @@ public static class GenerateService
         ArgumentNullException.ThrowIfNull(adapter);
         ArgumentException.ThrowIfNullOrWhiteSpace(saveFilePath);
         if (adapter.Load(saveFilePath) is not IItemGenerateCapable document)
-            throw new PatchRejectedException("这个存档不能生成物品。");
+            throw new PatchRejectedException(UiText.T("这个存档不能生成物品。", "這個存檔不能生成物品。", "This save does not support generating items."));
         return document;
     }
 }

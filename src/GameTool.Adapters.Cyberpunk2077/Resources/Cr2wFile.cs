@@ -1,3 +1,4 @@
+using GameTool.Core;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Text;
@@ -98,7 +99,7 @@ public sealed class Cr2wFile
     {
         ArgumentNullException.ThrowIfNull(bytes);
         if (bytes.Length < HeaderLength + TableCount * 12 || !bytes.AsSpan(0, 4).SequenceEqual("CR2W"u8))
-            throw new InvalidDataException("不是 CR2W 资源。");
+            throw new InvalidDataException(UiText.T("不是 CR2W 资源。", "不是 CR2W 資源。", "This is not a CR2W resource."));
         var version = U32(bytes, 4);
         var tables = new (int Offset, int Count)[TableCount];
         for (var i = 0; i < TableCount; i++)
@@ -108,11 +109,11 @@ public sealed class Cr2wFile
         }
 
         var (poolOffset, poolSize) = tables[0];
-        Check(bytes, poolOffset, poolSize, 1, "字符串池");
+        Check(bytes, poolOffset, poolSize, 1, UiText.T("字符串池", "字串池", "string pool"));
         string Pool(uint offset)
         {
             if (offset >= poolSize)
-                throw new InvalidDataException("CR2W 字符串偏移越界。");
+                throw new InvalidDataException(UiText.T("CR2W 字符串偏移越界。", "CR2W 字串偏移越界。", "A CR2W string offset is out of range."));
             var start = poolOffset + (int)offset;
             var end = Array.IndexOf(bytes, (byte)0, start, poolOffset + poolSize - start);
             if (end < 0)
@@ -120,17 +121,17 @@ public sealed class Cr2wFile
             return Encoding.UTF8.GetString(bytes, start, end - start);
         }
 
-        Check(bytes, tables[1].Offset, tables[1].Count, 8, "名字表");
+        Check(bytes, tables[1].Offset, tables[1].Count, 8, UiText.T("名字表", "名字表", "name table"));
         var names = new string[tables[1].Count];
         for (var i = 0; i < names.Length; i++)
             names[i] = Pool(U32(bytes, tables[1].Offset + i * 8));
 
-        Check(bytes, tables[2].Offset, tables[2].Count, 8, "导入表");
+        Check(bytes, tables[2].Offset, tables[2].Count, 8, UiText.T("导入表", "匯入表", "import table"));
         var imports = new string?[tables[2].Count];
         for (var i = 0; i < imports.Length; i++)
             imports[i] = Pool(U32(bytes, tables[2].Offset + i * 8));
 
-        Check(bytes, tables[4].Offset, tables[4].Count, 24, "导出表");
+        Check(bytes, tables[4].Offset, tables[4].Count, 24, UiText.T("导出表", "匯出表", "export table"));
         var exports = new Export[tables[4].Count];
         for (var i = 0; i < exports.Length; i++)
         {
@@ -139,12 +140,12 @@ public sealed class Cr2wFile
             var size = (int)U32(bytes, at + 8);
             var offset = (int)U32(bytes, at + 12);
             if (classIndex >= names.Length)
-                throw new InvalidDataException("CR2W 导出的类名越界。");
-            Check(bytes, offset, size, 1, "导出数据");
+                throw new InvalidDataException(UiText.T("CR2W 导出的类名越界。", "CR2W 匯出的類名越界。", "A CR2W export class name is out of range."));
+            Check(bytes, offset, size, 1, UiText.T("导出数据", "匯出資料", "export data"));
             exports[i] = new Export(names[classIndex], offset, size);
         }
 
-        Check(bytes, tables[5].Offset, tables[5].Count, 24, "缓冲表");
+        Check(bytes, tables[5].Offset, tables[5].Count, 24, UiText.T("缓冲表", "緩衝表", "buffer table"));
         var buffers = new Cr2wBuffer[tables[5].Count];
         for (var i = 0; i < buffers.Length; i++)
         {
@@ -159,7 +160,7 @@ public sealed class Cr2wFile
     public Cr2wStruct ReadExport(int index)
     {
         if (index < 0 || index >= _exports.Length)
-            throw new InvalidDataException($"CR2W 没有第 {index} 个导出对象。");
+            throw new InvalidDataException(UiText.T($"CR2W 没有第 {index} 个导出对象。", $"CR2W 沒有第 {index} 個匯出物件。", $"CR2W has no export #{index}."));
         var export = _exports[index];
         var cursor = export.Offset;
         return ReadStruct(export.ClassName, ref cursor, export.Offset + export.Size, 0);
@@ -168,27 +169,27 @@ public sealed class Cr2wFile
     private Cr2wStruct ReadStruct(string type, ref int cursor, int end, int depth)
     {
         if (depth > MaxDepth)
-            throw new InvalidDataException("CR2W 嵌套过深。");
+            throw new InvalidDataException(UiText.T("CR2W 嵌套过深。", "CR2W 巢狀過深。", "CR2W data is nested too deeply."));
         var result = new Cr2wStruct(type);
         if (cursor >= end || _bytes[cursor] != 0)
-            throw new InvalidDataException($"CR2W 结构 {type} 不是以 0 字节开头。");
+            throw new InvalidDataException(UiText.T($"CR2W 结构 {type} 不是以 0 字节开头。", $"CR2W 結構 {type} 不是以 0 位元組開頭。", $"CR2W struct {type} does not start with a 0 byte."));
         cursor++;
         while (true)
         {
             if (cursor + 2 > end)
-                throw new InvalidDataException($"CR2W 结构 {type} 被截断。");
+                throw new InvalidDataException(UiText.T($"CR2W 结构 {type} 被截断。", $"CR2W 結構 {type} 被截斷。", $"CR2W struct {type} is truncated."));
             var nameIndex = BinaryPrimitives.ReadUInt16LittleEndian(_bytes.AsSpan(cursor));
             cursor += 2;
             if (nameIndex == 0)
                 return result;
             if (cursor + 6 > end)
-                throw new InvalidDataException($"CR2W 结构 {type} 被截断。");
+                throw new InvalidDataException(UiText.T($"CR2W 结构 {type} 被截断。", $"CR2W 結構 {type} 被截斷。", $"CR2W struct {type} is truncated."));
             var typeIndex = BinaryPrimitives.ReadUInt16LittleEndian(_bytes.AsSpan(cursor));
             var size = BinaryPrimitives.ReadInt32LittleEndian(_bytes.AsSpan(cursor + 2));
             cursor += 6;
             var valueLength = size - 4;
             if (nameIndex >= _names.Length || typeIndex >= _names.Length || valueLength < 0 || cursor + valueLength > end)
-                throw new InvalidDataException($"CR2W 结构 {type} 的属性越界。");
+                throw new InvalidDataException(UiText.T($"CR2W 结构 {type} 的属性越界。", $"CR2W 結構 {type} 的屬性越界。", $"A property of CR2W struct {type} is out of range."));
             var propertyType = _names[typeIndex];
             var valueEnd = cursor + valueLength;
             object? value;
@@ -349,7 +350,7 @@ public sealed class Cr2wFile
         var count = BinaryPrimitives.ReadUInt32LittleEndian(_bytes.AsSpan(cursor));
         cursor += 4;
         if (count > end - cursor)
-            throw new InvalidDataException("CR2W 数组长度越界。");
+            throw new InvalidDataException(UiText.T("CR2W 数组长度越界。", "CR2W 陣列長度越界。", "A CR2W array length is out of range."));
         var items = new List<object?>((int)count);
         for (var i = 0; i < count; i++)
             items.Add(ReadElement(elementType, ref cursor, end, depth + 1));
@@ -392,7 +393,7 @@ public sealed class Cr2wFile
     }
 
     private string Name(int index) =>
-        index < _names.Length ? _names[index] : throw new InvalidDataException("CR2W 名字序号越界。");
+        index < _names.Length ? _names[index] : throw new InvalidDataException(UiText.T("CR2W 名字序号越界。", "CR2W 名字序號越界。", "A CR2W name index is out of range."));
 
     private static bool IsEnumName(string type) =>
         type.Length > 1 && type[0] == 'E' && char.IsUpper(type[1]);
@@ -400,7 +401,7 @@ public sealed class Cr2wFile
     private static void Need(int cursor, int length, int end)
     {
         if (length < 0 || cursor + length > end)
-            throw new InvalidDataException("CR2W 值被截断。");
+            throw new InvalidDataException(UiText.T("CR2W 值被截断。", "CR2W 值被截斷。", "A CR2W value is truncated."));
     }
 
     private static uint U32(byte[] bytes, int at) => BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(at));
@@ -408,7 +409,7 @@ public sealed class Cr2wFile
     private static void Check(byte[] bytes, int offset, int count, int itemSize, string what)
     {
         if (offset < 0 || count < 0 || (long)offset + (long)count * itemSize > bytes.Length)
-            throw new InvalidDataException($"CR2W 的{what}越界。");
+            throw new InvalidDataException(UiText.T($"CR2W 的{what}越界。", $"CR2W 的{what}越界。", $"The CR2W {what} is out of range."));
     }
 
     private readonly record struct Export(string ClassName, int Offset, int Size);

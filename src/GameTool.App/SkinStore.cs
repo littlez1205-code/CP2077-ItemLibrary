@@ -50,7 +50,7 @@ public sealed class SkinStore
         ArgumentNullException.ThrowIfNull(data);
         ConfineFileName(fileName);
         if (data.LongLength > MaxBytes)
-            throw new SkinRejectedException("图片超过 20 MB。");
+            throw new SkinRejectedException(UiText.T("图片超过 20 MB。", "圖片超過 20 MB。", "The image is larger than 20 MB."));
         var format = Detect(data, fileName);
         var directory = DirectoryFor(gameId);
         Directory.CreateDirectory(directory);
@@ -69,7 +69,7 @@ public sealed class SkinStore
     public SkinState SetOverlay(string gameId, double value)
     {
         if (value < 0 || value > 0.8)
-            throw new SkinRejectedException("遮罩透明度超出 0 到 0.8。");
+            throw new SkinRejectedException(UiText.T("遮罩透明度超出 0 到 0.8。", "遮罩透明度超出 0 到 0.8。", "Overlay opacity must be between 0 and 0.8."));
         var directory = DirectoryFor(gameId);
         Directory.CreateDirectory(directory);
         File.WriteAllText(Path.Combine(directory, "skin.json"), JsonSerializer.Serialize(new SkinFile(value), JsonOptions));
@@ -117,7 +117,7 @@ public sealed class SkinStore
         }
         catch (KeyNotFoundException)
         {
-            throw new SkinRejectedException("未知游戏。");
+            throw new SkinRejectedException(UiText.T("未知游戏。", "未知遊戲。", "Unknown game."));
         }
     }
 
@@ -126,7 +126,7 @@ public sealed class SkinStore
         if (string.IsNullOrWhiteSpace(gameId)
             || gameId.Contains("..", StringComparison.Ordinal)
             || gameId.IndexOfAny(['/', '\\', ':']) >= 0)
-            throw new SkinRejectedException("皮肤路径超出皮肤目录。");
+            throw new SkinRejectedException(UiText.T("皮肤路径超出皮肤目录。", "皮膚路徑超出皮膚目錄。", "The skin path points outside the skin folder."));
         RequireGame(gameId);
         var root = Path.GetFullPath(Root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar;
@@ -137,11 +137,11 @@ public sealed class SkinStore
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {
-            throw new SkinRejectedException("皮肤路径超出皮肤目录。");
+            throw new SkinRejectedException(UiText.T("皮肤路径超出皮肤目录。", "皮膚路徑超出皮膚目錄。", "The skin path points outside the skin folder."));
         }
 
         if (!directory.StartsWith(root, StringComparison.OrdinalIgnoreCase))
-            throw new SkinRejectedException("皮肤路径超出皮肤目录。");
+            throw new SkinRejectedException(UiText.T("皮肤路径超出皮肤目录。", "皮膚路徑超出皮膚目錄。", "The skin path points outside the skin folder."));
         return directory;
     }
 
@@ -151,7 +151,7 @@ public sealed class SkinStore
             || fileName.Contains("..", StringComparison.Ordinal)
             || Path.IsPathRooted(fileName)
             || fileName.IndexOfAny(['/', '\\']) >= 0)
-            throw new SkinRejectedException("图片路径超出皮肤目录。");
+            throw new SkinRejectedException(UiText.T("图片路径超出皮肤目录。", "圖片路徑超出皮膚目錄。", "The image path points outside the skin folder."));
     }
 
     private static string? FindImage(string directory)
@@ -189,13 +189,13 @@ public sealed class SkinStore
 
     private static ImageFormat Detect(byte[] data, string fileName)
     {
-        var format = Magic(data) ?? throw new SkinRejectedException("不支持的图片格式。");
+        var format = Magic(data) ?? throw new SkinRejectedException(UiText.T("不支持的图片格式。", "不支援的圖片格式。", "Unsupported image format."));
         var extension = Path.GetExtension(fileName);
         if (extension.Equals(".png", StringComparison.OrdinalIgnoreCase) && format.Extension != ".png"
             || extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) && format.Extension != ".jpg"
             || extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) && format.Extension != ".jpg"
             || extension.Equals(".webp", StringComparison.OrdinalIgnoreCase) && format.Extension != ".webp")
-            throw new SkinRejectedException("文件头与扩展名不符。");
+            throw new SkinRejectedException(UiText.T("文件头与扩展名不符。", "檔案頭與副檔名不符。", "The file content does not match its extension."));
         return format;
     }
 

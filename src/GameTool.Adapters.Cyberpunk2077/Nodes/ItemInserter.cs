@@ -28,7 +28,7 @@ public static class ItemInserter
     public const ulong StashBagId = 1_000_000;
 
     /// <summary>存档里还没有储藏箱记录时，放进储藏箱的说明。</summary>
-    public const string NoStashMessage = "存档中暂无储藏箱记录，请在游戏内先往载具后备箱或公寓储藏处放一件物品并存档。";
+    public static string NoStashMessage => UiText.T("存档中暂无储藏箱记录，请在游戏内先往载具后备箱或公寓储藏处放一件物品并存档。", "存檔中暫無儲藏箱記錄，請在遊戲內先往載具後備箱或公寓儲藏處放一件物品並存檔。", "This save has no stash record yet. Put any item into a vehicle trunk or apartment stash in game and save first.");
 
     public static ItemInsertion InsertStack(SaveContainer container, string tweakName, uint quantity)
     {
@@ -38,9 +38,9 @@ public static class ItemInserter
         var layout = Layout.Read(container);
         // 模板必须不带子节点：新物品的子节点指针照抄模板，带子节点会让两件物品共用同一组子节点。
         var template = layout.PlayerItems.FirstOrDefault(item => item.Length == StackLength && item.Child < 0)
-            ?? throw new InvalidDataException("玩家背包里没有 29 字节堆叠物品可以当模板。");
+            ?? throw new InvalidDataException(UiText.T("玩家背包里没有 29 字节堆叠物品可以当模板。", "玩家背包裡沒有 29 位元組堆疊物品可以當模板。", "The player's backpack has no 29-byte stack to use as a template."));
         if (layout.PlayerItems.Any(item => item.Tweak == tweak))
-            throw new InvalidDataException($"玩家背包里已经有 {tweakName}，请改用 patch。");
+            throw new InvalidDataException(UiText.T($"玩家背包里已经有 {tweakName}，请改用 patch。", $"玩家背包裡已經有 {tweakName}，請改用 patch。", $"{tweakName} is already in the player's backpack; use patch instead."));
 
         var header = template.Header.ToArray();
         var body = template.Body.ToArray();
@@ -57,9 +57,9 @@ public static class ItemInserter
         var layout = Layout.Read(container);
         var source = layout.PlayerItems.FirstOrDefault(item => item.Ordinal == ordinal);
         if (source is null)
-            throw new InvalidDataException($"玩家背包没有序号 {ordinal}。");
+            throw new InvalidDataException(UiText.T($"玩家背包没有序号 {ordinal}。", $"玩家背包沒有序號 {ordinal}。", $"The player's backpack has no item #{ordinal}."));
         if (source.Length < BodySeedOffset + 4)
-            throw new InvalidDataException($"序号 {ordinal} 的物品太短，放不下种子。");
+            throw new InvalidDataException(UiText.T($"序号 {ordinal} 的物品太短，放不下种子。", $"序號 {ordinal} 的物品太短，放不下種子。", $"Item #{ordinal} is too short to hold a seed."));
 
         var header = source.Header.ToArray();
         var body = source.Body.ToArray();
@@ -87,17 +87,17 @@ public static class ItemInserter
     {
         ArgumentNullException.ThrowIfNull(container);
         if (copies is < 1 or > 10)
-            throw new InvalidDataException("复制件数必须在 1 到 10 之间。");
+            throw new InvalidDataException(UiText.T("复制件数必须在 1 到 10 之间。", "複製件數必須在 1 到 10 之間。", "The number of copies must be between 1 and 10."));
         var layout = Layout.Read(container);
         if (layout.PlayerItems.Count == 0)
-            throw new InvalidDataException("玩家背包是空的。");
+            throw new InvalidDataException(UiText.T("玩家背包是空的。", "玩家背包是空的。", "The player's backpack is empty."));
         var source = Find(layout, key);
         if (source.Length == StackLength)
-            throw new InvalidDataException("堆叠物品不能按装备复制。");
+            throw new InvalidDataException(UiText.T("堆叠物品不能按装备复制。", "堆疊物品不能按裝備複製。", "Stackable items cannot be copied as gear."));
         if (source.Length < BodySeedOffset + 4)
-            throw new InvalidDataException("这件物品太短，放不下种子。");
+            throw new InvalidDataException(UiText.T("这件物品太短，放不下种子。", "這件物品太短，放不下種子。", "This item is too short to hold a seed."));
         if (source.Child >= 0)
-            throw new InvalidDataException("这件物品带子节点，暂不支持复制。");
+            throw new InvalidDataException(UiText.T("这件物品带子节点，暂不支持复制。", "這件物品帶子節點，暫不支援複製。", "Copying items with child nodes is not supported."));
 
         var sourceHeader = source.Header.ToArray();
         var sourceBody = source.Body.ToArray();
@@ -109,7 +109,7 @@ public static class ItemInserter
             var current = i == 0 ? layout : Layout.Read(container);
             var again = Find(current, key);
             if (!again.Header.AsSpan().SequenceEqual(sourceHeader))
-                throw new InvalidDataException("物品头已经变化，存档可能被改过。");
+                throw new InvalidDataException(UiText.T("物品头已经变化，存档可能被改过。", "物品頭已經變化，存檔可能被改過。", "The item header has changed; the save may have been modified."));
             var header = sourceHeader.ToArray();
             var body = sourceBody.ToArray();
             var chosen = NewSeed(container.Payload);
@@ -140,9 +140,9 @@ public static class ItemInserter
         var layout = Layout.Read(container);
         var matches = layout.PlayerItems.Where(item => item.Tweak == tweak && item.Length == StackLength).ToArray();
         if (matches.Length == 0)
-            throw new InvalidDataException($"玩家背包里没有 29 字节的 {tweakName}。");
+            throw new InvalidDataException(UiText.T($"玩家背包里没有 29 字节的 {tweakName}。", $"玩家背包裡沒有 29 位元組的 {tweakName}。", $"The player's backpack has no 29-byte {tweakName}."));
         if (matches.Length != 1)
-            throw new InvalidDataException($"玩家背包里的 {tweakName} 不止一个 29 字节堆叠。");
+            throw new InvalidDataException(UiText.T($"玩家背包里的 {tweakName} 不止一个 29 字节堆叠。", $"玩家背包裡的 {tweakName} 不止一個 29 位元組堆疊。", $"{tweakName} has more than one 29-byte stack in the player's backpack."));
 
         var target = matches[0];
         var removed = HeaderLength + target.Length;
@@ -155,7 +155,7 @@ public static class ItemInserter
 
         var count = BinaryPrimitives.ReadUInt32LittleEndian(payload.AsSpan(layout.PlayerCountOffset, 4));
         if (count == 0)
-            throw new InvalidDataException("玩家背包物品数已经是 0。");
+            throw new InvalidDataException(UiText.T("玩家背包物品数已经是 0。", "玩家背包物品數已經是 0。", "The player's backpack item count is already 0."));
         BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(layout.PlayerCountOffset, 4), count - 1);
 
         var nodes = NodeTable.Parse(container.CopyNodeTable());
@@ -167,10 +167,10 @@ public static class ItemInserter
                 continue;
             var shifted = node.PayloadOffset >= removeEnd ? node.PayloadOffset - removed : node.PayloadOffset;
             if (node.Length < 4 || shifted < 0 || shifted + 4 > payload.Length)
-                throw new InvalidDataException($"节点 {node.Index} 太短，放不下自身编号。");
+                throw new InvalidDataException(UiText.T($"节点 {node.Index} 太短，放不下自身编号。", $"節點 {node.Index} 太短，放不下自身編號。", $"Node {node.Index} is too short to hold its own index."));
             var self = BinaryPrimitives.ReadInt32LittleEndian(payload.AsSpan(shifted, 4));
             if (self != node.Index)
-                throw new InvalidDataException($"节点 {node.Index} 的自身编号是 {self}，无法前移。");
+                throw new InvalidDataException(UiText.T($"节点 {node.Index} 的自身编号是 {self}，无法前移。", $"節點 {node.Index} 的自身編號是 {self}，無法前移。", $"Node {node.Index} stores index {self}, so it cannot be shifted down."));
             BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(shifted, 4), node.Index - 1);
         }
 
@@ -199,13 +199,13 @@ public static class ItemInserter
         else
         {
             if (layout.PlayerItems.Count == 0)
-                throw new InvalidDataException("玩家背包是空的。");
+                throw new InvalidDataException(UiText.T("玩家背包是空的。", "玩家背包是空的。", "The player's backpack is empty."));
         }
 
         // 新节点的子节点指针照抄模板（见 Rewrite）：模板带子节点时两件物品会共用同一组子节点，存档结构就坏了。
         // 物品生成和复制挑模板时已经排除了带子节点的物品，这里兜底拒绝。
         if (template.Child >= 0)
-            throw new InvalidDataException("模板物品带子节点，不能用来插入新物品。");
+            throw new InvalidDataException(UiText.T("模板物品带子节点，不能用来插入新物品。", "模板物品帶子節點，不能用來插入新物品。", "The template item has child nodes and cannot be used to insert a new item."));
 
         var countOffset = toStash ? layout.StashCountOffset!.Value : layout.PlayerCountOffset;
         var last = targetList[^1];
@@ -232,10 +232,10 @@ public static class ItemInserter
                 continue;
             var shifted = node.PayloadOffset >= insertAt ? node.PayloadOffset + added : node.PayloadOffset;
             if (node.Length < 4)
-                throw new InvalidDataException($"节点 {node.Index} 太短，放不下自身编号。");
+                throw new InvalidDataException(UiText.T($"节点 {node.Index} 太短，放不下自身编号。", $"節點 {node.Index} 太短，放不下自身編號。", $"Node {node.Index} is too short to hold its own index."));
             var self = BinaryPrimitives.ReadInt32LittleEndian(payload.AsSpan(shifted, 4));
             if (self != node.Index)
-                throw new InvalidDataException($"节点 {node.Index} 的自身编号是 {self}，无法后移。");
+                throw new InvalidDataException(UiText.T($"节点 {node.Index} 的自身编号是 {self}，无法后移。", $"節點 {node.Index} 的自身編號是 {self}，無法後移。", $"Node {node.Index} stores index {self}, so it cannot be shifted up."));
             BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(shifted, 4), node.Index + 1);
         }
 
@@ -354,7 +354,7 @@ public static class ItemInserter
                 return seed;
         }
 
-        throw new InvalidDataException("找不到未使用的种子。");
+        throw new InvalidDataException(UiText.T("找不到未使用的种子。", "找不到未使用的種子。", "No unused seed could be found."));
     }
 
     internal static bool Contains(ReadOnlySpan<byte> payload, uint seed)
@@ -367,9 +367,9 @@ public static class ItemInserter
     private static void RejectSeed(ReadOnlySpan<byte> payload, uint seed)
     {
         if (seed is 0 or 1 or 2)
-            throw new InvalidDataException("种子不能是 0、1 或 2。");
+            throw new InvalidDataException(UiText.T("种子不能是 0、1 或 2。", "種子不能是 0、1 或 2。", "The seed cannot be 0, 1 or 2."));
         if (Contains(payload, seed))
-            throw new InvalidDataException("指定的种子在存档里已经出现。");
+            throw new InvalidDataException(UiText.T("指定的种子在存档里已经出现。", "指定的種子在存檔裡已經出現。", "The given seed already appears in the save."));
     }
 
     internal static PlacedItem Find(Layout layout, string key)
@@ -378,16 +378,16 @@ public static class ItemInserter
         if (parts.Length != 3
             || !ulong.TryParse(parts[0], out var bag)
             || !int.TryParse(parts[1], out var ordinal))
-            throw new InvalidDataException("物品键格式不对。");
+            throw new InvalidDataException(UiText.T("物品键格式不对。", "物品鍵格式不對。", "The item key is malformed."));
         if (bag != InventoryResearch.DefaultBagId && bag != StashBagId)
-            throw new InvalidDataException("只能从玩家背包或储物箱复制。");
+            throw new InvalidDataException(UiText.T("只能从玩家背包或储物箱复制。", "只能從玩家背包或儲物箱複製。", "Items can only be copied from the player's backpack or the stash."));
         var pool = bag == InventoryResearch.DefaultBagId ? layout.PlayerItems : layout.StashItems;
         var item = pool.FirstOrDefault(candidate => candidate.Ordinal == ordinal);
         if (item is null)
-            throw new InvalidDataException("找不到这件物品。");
+            throw new InvalidDataException(UiText.T("找不到这件物品。", "找不到這件物品。", "This item was not found."));
         var hex = Convert.ToHexString(item.Header).ToLowerInvariant();
         if (!hex.Equals(parts[2], StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("物品头已经变化，存档可能被改过。");
+            throw new InvalidDataException(UiText.T("物品头已经变化，存档可能被改过。", "物品頭已經變化，存檔可能被改過。", "The item header has changed; the save may have been modified."));
         return item;
     }
 
@@ -409,12 +409,12 @@ public static class ItemInserter
             var inventory = nodes.RequireSingle("inventory");
             var end = checked(inventory.PayloadOffset + inventory.Length);
             if (end > payload.Length)
-                throw new InvalidDataException("inventory 节点超出解压数据。");
+                throw new InvalidDataException(UiText.T("inventory 节点超出解压数据。", "inventory 節點超出解壓資料。", "The inventory node lies outside the decompressed data."));
 
             var cursor = inventory.PayloadOffset;
             var self = ReadInt32(payload, ref cursor);
             if (self != inventory.Index)
-                throw new InvalidDataException($"inventory 自身节点号 {self} 与索引 {inventory.Index} 不一致。");
+                throw new InvalidDataException(UiText.T($"inventory 自身节点号 {self} 与索引 {inventory.Index} 不一致。", $"inventory 自身節點號 {self} 與索引 {inventory.Index} 不一致。", $"The inventory node stores index {self}, which does not match its position {inventory.Index}."));
             var subCount = ReadUInt32(payload, ref cursor);
             var items = new List<PlacedItem>();
             var stash = new List<PlacedItem>();
@@ -432,25 +432,25 @@ public static class ItemInserter
                 if (player)
                 {
                     if (countOffset is not null)
-                        throw new InvalidDataException("玩家背包 ID=1 出现了多次。");
+                        throw new InvalidDataException(UiText.T("玩家背包 ID=1 出现了多次。", "玩家背包 ID=1 出現了多次。", "The player backpack (ID=1) appears more than once."));
                     countOffset = atCount;
                 }
                 else if (isStash)
                 {
                     if (stashCountOffset is not null)
-                        throw new InvalidDataException("储藏箱 ID=1000000 出现了多次。");
+                        throw new InvalidDataException(UiText.T("储藏箱 ID=1000000 出现了多次。", "儲藏箱 ID=1000000 出現了多次。", "The stash (ID=1000000) appears more than once."));
                     stashCountOffset = atCount;
                 }
 
                 for (var item = 0; item < itemCount; item++)
                 {
                     if (child < 0 || child >= nodes.Count)
-                        throw new InvalidDataException($"itemData 链在第 {item} 项断开（索引 {child}）。");
+                        throw new InvalidDataException(UiText.T($"itemData 链在第 {item} 项断开（索引 {child}）。", $"itemData 鏈在第 {item} 項斷開（索引 {child}）。", $"The itemData chain breaks at entry {item} (index {child})."));
                     var node = nodes[child];
                     if (node.Name != "itemData" || node.PayloadOffset != cursor + HeaderLength)
-                        throw new InvalidDataException($"子节点 {node.Index} 不是紧跟物品头的 itemData。");
+                        throw new InvalidDataException(UiText.T($"子节点 {node.Index} 不是紧跟物品头的 itemData。", $"子節點 {node.Index} 不是緊跟物品頭的 itemData。", $"Child node {node.Index} is not an itemData right after its item header."));
                     if (cursor + HeaderLength + node.Length > payload.Length)
-                        throw new InvalidDataException($"itemData {node.Index} 超出解压数据。");
+                        throw new InvalidDataException(UiText.T($"itemData {node.Index} 超出解压数据。", $"itemData {node.Index} 超出解壓資料。", $"itemData {node.Index} lies outside the decompressed data."));
                     if (tracked)
                     {
                         var header = payload.Slice(cursor, HeaderLength).ToArray();
@@ -477,9 +477,9 @@ public static class ItemInserter
             }
 
             if (countOffset is null)
-                throw new InvalidDataException("没有玩家背包 ID=1。");
+                throw new InvalidDataException(UiText.T("没有玩家背包 ID=1。", "沒有玩家背包 ID=1。", "There is no player backpack (ID=1)."));
             if (cursor != end)
-                throw new InvalidDataException($"inventory 游标 {cursor} 与节点末尾 {end} 相差 {cursor - end}。");
+                throw new InvalidDataException(UiText.T($"inventory 游标 {cursor} 与节点末尾 {end} 相差 {cursor - end}。", $"inventory 遊標 {cursor} 與節點末尾 {end} 相差 {cursor - end}。", $"The inventory cursor {cursor} differs from the node end {end} by {cursor - end}."));
             return new Layout
             {
                 InventoryIndex = inventory.Index,

@@ -1,3 +1,4 @@
+using GameTool.Core;
 namespace GameTool.Adapters.Cyberpunk2077.Textures;
 
 /// <summary>贴图的像素格式（只列图标可能用到的）。</summary>
@@ -36,7 +37,7 @@ public static class BcDecoder
     public static byte[] DecodeRegion(ReadOnlySpan<byte> data, TextureFormat format, int textureWidth, int textureHeight, int rowPitch, int x, int y, int width, int height)
     {
         if (width <= 0 || height <= 0 || x < 0 || y < 0 || x + width > textureWidth || y + height > textureHeight)
-            throw new InvalidDataException("裁切区域超出贴图范围。");
+            throw new InvalidDataException(UiText.T("裁切区域超出贴图范围。", "裁切區域超出貼圖範圍。", "The crop area extends beyond the texture."));
         var output = new byte[width * height * 4];
         if (!IsBlockCompressed(format))
         {
@@ -44,7 +45,7 @@ public static class BcDecoder
             {
                 var source = (long)(y + row) * rowPitch + x * 4;
                 if (source + width * 4 > data.Length)
-                    throw new InvalidDataException("贴图数据比声明的短。");
+                    throw new InvalidDataException(UiText.T("贴图数据比声明的短。", "貼圖資料比宣告的短。", "The texture data is shorter than declared."));
                 data.Slice((int)source, width * 4).CopyTo(output.AsSpan(row * width * 4));
             }
 
@@ -63,7 +64,7 @@ public static class BcDecoder
             {
                 var offset = (long)by * rowPitch + (long)bx * blockSize;
                 if (offset + blockSize > data.Length)
-                    throw new InvalidDataException("贴图数据比声明的短。");
+                    throw new InvalidDataException(UiText.T("贴图数据比声明的短。", "貼圖資料比宣告的短。", "The texture data is shorter than declared."));
                 DecodeBlock(format, data.Slice((int)offset, blockSize), pixels, 16);
                 for (var py = 0; py < 4; py++)
                 {
@@ -122,7 +123,7 @@ public static class BcDecoder
                 Bc7.DecodeBlock(block, destination, stride);
                 break;
             default:
-                throw new InvalidDataException($"不是块压缩格式：{format}");
+                throw new InvalidDataException(UiText.T($"不是块压缩格式：{format}", $"不是塊壓縮格式：{format}", $"Not a block-compressed format: {format}"));
         }
     }
 
