@@ -45,7 +45,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File src\release\package-release.
 
 ### 持续集成
 
-每次推送都会在 GitHub 的 Windows 机器上构建整个解决方案（含 WPF 桌面端）并跑全部测试（`.github/workflows/ci.yml`）。测 Windows 路径行为的用例标为 `[WindowsFact]` / `[WindowsTheory]`，在其他系统上自动跳过；在 Linux / macOS 上也能构建（桌面端加 `-p:EnableWindowsTargeting=true`）并跑其余测试。
+每次推送都会在 GitHub 的 Windows 机器上构建整个解决方案（含 WPF 桌面端）并跑全部测试，同时在 Linux 机器上跑界面测试（`.github/workflows/ci.yml`）。测 Windows 路径行为的用例标为 `[WindowsFact]` / `[WindowsTheory]`，在其他系统上自动跳过；在 Linux / macOS 上也能构建（桌面端加 `-p:EnableWindowsTargeting=true`）并跑其余测试。
+
+界面测试在 `src/ui-tests`：用 Chromium 打开桌面端的 `wwwroot/index.html`，宿主（C# 桥接）由测试模拟，覆盖启动、获得物品、批量获得、多语言等流程。本机运行需要 Node.js：
+
+```powershell
+cd src/ui-tests
+npm ci
+npx playwright install chromium
+npx playwright test
+```
 
 构建启用了 .NET 推荐的代码分析规则（`src/Directory.Build.props`），所有警告一律按错误处理；测试项目的少数例外及理由写在 `src/GameTool.Tests/.editorconfig`。
 
@@ -59,6 +68,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File src\release\package-release.
 | `src/GameTool.Desktop` | WPF + WebView2 桌面端（界面在 `wwwroot/`） |
 | `src/GameTool.Cli` | 命令行工具（开发与研究用） |
 | `src/GameTool.Tests` | 单元测试 |
+| `src/ui-tests` | 界面测试（Playwright + 模拟宿主） |
 | `src/release` | 打包脚本与使用说明 |
 | `docs/formats` | 存档格式说明（Kaitai Struct） |
 

@@ -8,3 +8,8 @@ TestResults/
 
 # 真实存档样本只放本地，不入库
 src/GameTool.Tests/Fixtures/local/
+
+# 界面测试（src/ui-tests）
+node_modules/
+test-results/
+playwright-report/
