@@ -51,6 +51,13 @@ public sealed record PatchReport(
     IReadOnlyList<ResourceChangeResult> Results,
     string? BackupPath,
     long ElapsedMilliseconds,
-    DateTime? WrittenLastWriteTimeUtc = null);
+    DateTime? WrittenLastWriteTimeUtc = null)
+{
+    /// <summary>
+    /// 写出的存档字节数（与 <see cref="WrittenLastWriteTimeUtc"/> 一起识别「这次文件变化是自己写的」：
+    /// 文件时间的精度不够区分紧挨着的两次写入）。没有写文件时为 null。
+    /// </summary>
+    public long? WrittenLength { get; init; }
+}
 
 public sealed record RestoreReport(string SaveFilePath, long ElapsedMilliseconds);
