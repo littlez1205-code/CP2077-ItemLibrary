@@ -179,10 +179,10 @@ public static class ItemGenerator
         var layout = ItemInserter.Layout.Read(container);
         if (toStash)
         {
-            if (layout.StashCountOffset is null || layout.StashItems.Count == 0)
-                throw new InvalidDataException("存档中暂无储藏箱记录，请在游戏内先使用一次载具后备箱或公寓储藏处。");
-            if (grenade)
-                throw new InvalidDataException("手雷不支持存入储藏箱。");
+            if (!layout.StashUsable)
+                throw new InvalidDataException(ItemInserter.NoStashMessage);
+            if (!GearKinds.CanStash(kind))
+                throw new InvalidDataException(grenade ? "手雷不支持存入储藏箱。" : "这类物品不支持存入储藏箱。");
         }
         else
         {

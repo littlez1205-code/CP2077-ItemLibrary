@@ -1388,30 +1388,46 @@ function openBatchConfirmDialog() {
       toStash: null
     }));
 
+    let res;
     try {
-      const res = await call("library.batchObtain", {
+      res = await call("library.batchObtain", {
         gameId,
         slot: slot.slot,
         items,
         destinationMode: destMode
       });
-      closeDialog();
-      const failures = (res.results || []).filter((result) => !result.success);
-      if (failures.length === 0)
-        showToast(t().batchToastSuccess(res.succeeded, res.elapsedMilliseconds));
-      else
-        showBatchFailures(res, failures);
-      library.selected.clear();
-      toggleBatchMode(false);
-      await refreshQuietly();
-      await loadLibrary(false, false, true);
     } catch (err) {
+      // 整批被拒绝（如参数错误、存档读不了）：一件都没写，可以直接重试。
       confirmError.textContent = t().obtainNotWritten(messageOf(err));
       confirmError.hidden = false;
       run.disabled = false;
       cancel.disabled = false;
       run.textContent = t().obtainRetry;
       busy = false;
+      return;
+    }
+
+    // 到这里成功的物品已经写进存档：之后刷新出错只报刷新的错，不能再说「未写入」或给出会重复写入的「重试」。
+    closeDialog();
+    const failures = (res.results || []).filter((result) => !result.success);
+    // 成功的从选择里去掉；失败的留在多选里，修正后（如游戏刚好在存档）可以直接再点「一键获得」重试。
+    const failedTargets = new Set(failures.map((failure) => failure.target));
+    for (const [key, item] of library.selected) {
+      if (!failedTargets.has(item.target))
+        library.selected.delete(key);
+    }
+    if (failures.length === 0) {
+      showToast(t().batchToastSuccess(res.succeeded, res.elapsedMilliseconds));
+      toggleBatchMode(false);
+    } else {
+      showBatchFailures(res, failures);
+      updateBatchUI();
+    }
+    try {
+      await refreshQuietly();
+      await loadLibrary(false, false, true);
+    } catch (err) {
+      showError(err);
     }
   });
 
@@ -1804,11 +1820,13 @@ function openObtain(group, initialIndex) {
       row.append(btnBackpack, btnStash);
       destBox.append(caption, row);
 
-      if (!library.stashAvailable) {
-        destBox.append(element("p", "dest-tip", t().destStashUnavailable));
-      } else if (item.iconic) {
-        const tipText = isStash ? t().destIconicTip : t().destIconicBackpackWarn;
+      if (item.iconic) {
+        // 标志性武器：储藏室关系到能否升到 5++，醒目提示；存档没有储藏室记录时说明怎么解锁。
+        const tipText = !library.stashAvailable ? t().destStashUnavailable : isStash ? t().destIconicTip : t().destIconicBackpackWarn;
         destBox.append(element("p", "dest-tip", tipText));
+      } else if (!library.stashAvailable) {
+        // 普通装备只用小字说明「放入储藏室」为什么不能选，不用醒目的黄色提示。
+        destBox.append(element("p", "dialog-note", t().destStashUnavailable));
       }
 
       detail.append(destBox);

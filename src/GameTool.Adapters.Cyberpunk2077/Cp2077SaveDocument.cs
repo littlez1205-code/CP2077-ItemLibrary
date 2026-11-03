@@ -73,6 +73,9 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     public int StashInventoryItemCount { get; private set; }
     public int StashItemCount => StashInventoryItemCount;
 
+    /// <summary>与生成时的判断同一条规则（<see cref="ItemInserter.Layout.StashUsable"/>），不只看储藏箱物品数。</summary>
+    public bool StashAvailable => StashInventoryItemCount > 0 && ItemInserter.Layout.Read(_container).StashUsable;
+
     public bool NamesAvailable => Names?.Available == true;
 
     public string? NamesMessage => NamesAvailable ? null : Names?.UnavailableMessage ?? ItemNameCatalog.RedmodUnavailable;
@@ -620,8 +623,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         {
             Quality = entry.Quality,
             Iconic = entry.Iconic,
-            // 储藏箱只接受装备：堆叠物品走改数量路径，手雷的 ItemID 按种类固定（见 ItemGenerator），都只能放背包。
-            CanStash = !entry.Stackable && entry.Kind != GearKinds.Grenade,
+            CanStash = !entry.Stackable && GearKinds.CanStash(entry.Kind),
             TypeLabel = entry.TypeLabel,
             Held = held,
             MaxQuantity = max,

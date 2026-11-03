@@ -98,7 +98,7 @@ public static class GenerateService
             IconVersion = (adapter as IItemIconProvider)?.IconVersion,
             Kind = string.IsNullOrEmpty(kind) ? null : kind,
             KindCounts = showCounts ? document.CountGeneratableGroups(query, ownership) : null,
-            StashAvailable = document.StashItemCount > 0,
+            StashAvailable = document.StashAvailable,
             Hidden = document.HiddenKinds,
             HiddenNotice = document.HiddenNotice
         };
