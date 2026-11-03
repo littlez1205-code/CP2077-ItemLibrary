@@ -6,7 +6,7 @@ using GameTool.Tests.Fake;
 namespace GameTool.Tests;
 
 /// <summary>D021：界面上不显示含 Windows 用户名的路径。</summary>
-public class PathDisplayTests : IDisposable
+public sealed class PathDisplayTests : IDisposable
 {
     private const string Profile = @"C:\Users\player";
     private const string Local = @"C:\Users\player\AppData\Local";

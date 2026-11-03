@@ -3,7 +3,7 @@ using GameTool.Tests.Fake;
 
 namespace GameTool.Tests;
 
-public class PatchEngineTests : IDisposable
+public sealed class PatchEngineTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "GameTool-fake-" + Guid.NewGuid().ToString("N"));
 

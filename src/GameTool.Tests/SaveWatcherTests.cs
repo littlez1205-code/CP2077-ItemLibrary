@@ -3,7 +3,7 @@ using GameTool.Tests.Fake;
 
 namespace GameTool.Tests;
 
-public class SaveWatcherTests : IDisposable
+public sealed class SaveWatcherTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "GameTool-watch-" + Guid.NewGuid().ToString("N"));
 

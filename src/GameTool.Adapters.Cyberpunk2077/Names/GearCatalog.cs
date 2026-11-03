@@ -636,7 +636,7 @@ public sealed partial class GearCatalog
             TypeLabel = kind == GearKinds.Recipe
                 ? (craftedKind is null ? null : GearKinds.Label(craftedKind, lang) + recipeSuffix)
                 : TypeLabelOf(kind, index.FieldOf(record, "itemType"), tags, index.FieldOf(record, "equipArea"), lang),
-            RootSlot = kind is GearKinds.Quickhack or GearKinds.Mod ? index.ListOf(record, "placementSlots").FirstOrDefault() : null,
+            RootSlot = kind is GearKinds.Quickhack or GearKinds.Mod && index.ListOf(record, "placementSlots") is [var rootSlot, ..] ? rootSlot : null,
             CraftedItem = crafted,
             Description = description,
             EffectDesc = effectDesc,
@@ -702,7 +702,7 @@ public sealed partial class GearCatalog
                             num *= 100.0;
                         var absNum = Math.Abs(num);
                         var formatted = absNum % 1 == 0
-                            ? ((long)Math.Round(absNum)).ToString()
+                            ? ((long)Math.Round(absNum)).ToString(System.Globalization.CultureInfo.InvariantCulture)
                             : absNum.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
                         return formatted + (hasPercent ? "%" : "");
                     }
@@ -763,7 +763,7 @@ public sealed partial class GearCatalog
 
     private static string? CleanText(string? text, string? lang = null) => FormatEffectText(text, null, null, null, lang);
 
-    private static IReadOnlyList<string> BuildStatBadges(TweakSourceIndex index, string record, string kind, string? crafted, string? lang = null)
+    private static List<string> BuildStatBadges(TweakSourceIndex index, string record, string kind, string? crafted, string? lang = null)
     {
         var normLang = GearKinds.NormalizeLang(lang);
         var badges = new List<string>();
@@ -1078,8 +1078,8 @@ public sealed partial class GearCatalog
         return GearQuality.TierLabel(quality, plus, lang);
     }
 
-    private static string? StyleLabel(IReadOnlyList<string> tags, string lang = "zh-cn") =>
-        tags.Count == 0 ? null : string.Join(" / ", tags.Select(t => StyleWord(t, lang)));
+    private static string? StyleLabel(string[] tags, string lang = "zh-cn") =>
+        tags.Length == 0 ? null : string.Join(" / ", tags.Select(t => StyleWord(t, lang)));
 
     /// <summary>
     /// 去掉几个名字共同的开头和结尾，只留不同的部分；切口退到词边界（下划线后、大写字母或数字与字母交界处），

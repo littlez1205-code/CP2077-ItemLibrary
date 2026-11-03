@@ -47,6 +47,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File src\release\package-release.
 
 每次推送都会在 GitHub 的 Windows 机器上构建整个解决方案（含 WPF 桌面端）并跑全部测试（`.github/workflows/ci.yml`）。部分测试依赖 Windows 路径与文件系统行为，只能在 Windows 上完整运行。
 
+构建启用了 .NET 推荐的代码分析规则（`src/Directory.Build.props`），所有警告一律按错误处理；测试项目的少数例外及理由写在 `src/GameTool.Tests/.editorconfig`。
+
 ## 目录结构
 
 | 目录 | 内容 |

@@ -330,7 +330,7 @@ public static class ItemGenerator
     internal static TemplateChoice? ChoosePrefixSource(ItemInserter.Layout layout, string kind, Func<ulong, string?> kindOf) =>
         Candidates(layout, _ => true)
             .Where(choice => choice.Parsed.Root.Appearance == NoneName
-                && (choice.Parsed.Root.Children.FirstOrDefault()?.Appearance ?? NoneName) == NoneName)
+                && (choice.Parsed.Root.FirstChild?.Appearance ?? NoneName) == NoneName)
             .Select((choice, order) => (Choice: choice, Order: order, Kind: kindOf(choice.Item.Tweak)))
             .OrderBy(candidate => candidate.Kind == kind ? 0 : candidate.Kind is not null ? 1 : 2)
             .ThenBy(candidate => candidate.Order)
@@ -479,7 +479,7 @@ public static class ItemGenerator
             throw new InvalidDataException(UiText.T("目标没有带 itemPartPreset 的 slotPartListPreset 条目。", "目標沒有帶 itemPartPreset 的 slotPartListPreset 條目。", "The target has no slotPartListPreset entry with an itemPartPreset."));
         var receiver = preset.FirstOrDefault(part => part.Slot == ReceiverSlot)
             ?? throw new InvalidDataException(UiText.T("目标的 slotPartListPreset 没有 AttachmentSlots.Receiver。", "目標的 slotPartListPreset 沒有 AttachmentSlots.Receiver。", "The target's slotPartListPreset has no AttachmentSlots.Receiver."));
-        var model = templateRoot.Children.FirstOrDefault() ?? templateRoot;
+        var model = templateRoot.FirstChild ?? templateRoot;
         var rootId = PartId(receiver.Item, fresh(), templateRoot.ItemId);
         var children = preset
             .Where(part => !ReferenceEquals(part, receiver))
@@ -501,7 +501,7 @@ public static class ItemGenerator
     {
         var grip = preset?.FirstOrDefault(part => part.Slot == GearCatalog.GripSlot && part.Item.Length > 0)
             ?? throw new InvalidDataException(UiText.T("目标的 slotPartListPreset 没有 AttachmentSlots.Grip。", "目標的 slotPartListPreset 沒有 AttachmentSlots.Grip。", "The target's slotPartListPreset has no AttachmentSlots.Grip."));
-        var model = sourceRoot.Children.FirstOrDefault() ?? sourceRoot;
+        var model = sourceRoot.FirstChild ?? sourceRoot;
         var rootId = PartId(grip.Item, fresh(), sourceRoot.ItemId);
         var children = preset
             .Where(part => !ReferenceEquals(part, grip) && part.Item.Length > 0)
@@ -521,7 +521,7 @@ public static class ItemGenerator
             preset = [new TweakPresetPart(GearCatalog.GenericItemRootSlot, GearCatalog.GenericItemRoot)];
         if (!GearCatalog.IsCyberwareShape(preset))
             throw new InvalidDataException(UiText.T("目标的 slotPartListPreset 不是 GenericItemRoot + 属性碎片的形态。", "目標的 slotPartListPreset 不是 GenericItemRoot + 屬性碎片的形態。", "The target's slotPartListPreset is not GenericItemRoot plus stat shards."));
-        var model = sourceRoot.Children.FirstOrDefault() ?? sourceRoot;
+        var model = sourceRoot.FirstChild ?? sourceRoot;
         var rootId = new byte[ItemPartTree.ItemIdLength];
         BinaryPrimitives.WriteUInt64LittleEndian(rootId, TweakDbId.FromName(GearCatalog.GenericItemRoot));
         BinaryPrimitives.WriteUInt32LittleEndian(rootId.AsSpan(SeedOffset), GenericRootSeed);
@@ -539,7 +539,7 @@ public static class ItemGenerator
     /// </summary>
     private static ItemPart BuildClothing(ItemPart sourceRoot, IReadOnlyList<TweakPresetPart>? preset, Func<uint> fresh)
     {
-        var model = sourceRoot.Children.FirstOrDefault() ?? sourceRoot;
+        var model = sourceRoot.FirstChild ?? sourceRoot;
         var rootId = new byte[ItemPartTree.ItemIdLength];
         BinaryPrimitives.WriteUInt64LittleEndian(rootId, TweakDbId.FromName(GearCatalog.GenericItemRoot));
         BinaryPrimitives.WriteUInt32LittleEndian(rootId.AsSpan(SeedOffset), GenericRootSeed);
@@ -562,7 +562,7 @@ public static class ItemGenerator
     {
         if (preset is not { Count: > 0 } || preset[0].Slot != rootSlot || preset[0].Item.Length == 0)
             throw new InvalidDataException(UiText.T($"目标的 slotPartListPreset 第一条不是 {rootSlot} 上的配件。", $"目標的 slotPartListPreset 第一條不是 {rootSlot} 上的配件。", $"The first entry of the target's slotPartListPreset is not a part on {rootSlot}."));
-        var model = sourceRoot.Children.FirstOrDefault() ?? sourceRoot;
+        var model = sourceRoot.FirstChild ?? sourceRoot;
         var rootId = PartId(preset[0].Item, fresh(), sourceRoot.ItemId);
         var children = preset
             .Skip(1)

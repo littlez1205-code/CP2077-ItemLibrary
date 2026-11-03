@@ -9,7 +9,7 @@ using GameTool.Core;
 
 namespace GameTool.Tests;
 
-public class ItemInserterTests : IDisposable
+public sealed class ItemInserterTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "GameTool-insert-" + Guid.NewGuid().ToString("N"));
     private readonly Cp2077Adapter _adapter = new();

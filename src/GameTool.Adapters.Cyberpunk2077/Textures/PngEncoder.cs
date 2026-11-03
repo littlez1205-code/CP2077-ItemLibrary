@@ -59,38 +59,9 @@ public static class PngEncoder
         stream.Write(length);
         stream.Write(type);
         stream.Write(data);
-        var crc = Crc32.Update(Crc32.Update(0xFFFFFFFFu, type), data) ^ 0xFFFFFFFFu;
+        var crc = Crc32.Compute(type, data);
         Span<byte> tail = stackalloc byte[4];
         BinaryPrimitives.WriteUInt32BigEndian(tail, crc);
         stream.Write(tail);
-    }
-
-    /// <summary>PNG 用的 CRC-32（多项式 0xEDB88320）。</summary>
-    public static class Crc32
-    {
-        private static readonly uint[] Table = BuildTable();
-
-        public static uint Compute(ReadOnlySpan<byte> data) => Update(0xFFFFFFFFu, data) ^ 0xFFFFFFFFu;
-
-        public static uint Update(uint crc, ReadOnlySpan<byte> data)
-        {
-            foreach (var b in data)
-                crc = Table[(crc ^ b) & 0xFF] ^ (crc >> 8);
-            return crc;
-        }
-
-        private static uint[] BuildTable()
-        {
-            var table = new uint[256];
-            for (uint n = 0; n < 256; n++)
-            {
-                var c = n;
-                for (var k = 0; k < 8; k++)
-                    c = (c & 1) != 0 ? 0xEDB88320u ^ (c >> 1) : c >> 1;
-                table[n] = c;
-            }
-
-            return table;
-        }
     }
 }

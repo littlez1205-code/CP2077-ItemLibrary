@@ -245,7 +245,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
     /// <summary>槽位里的存档文件名：取适配器监听通配的最后一段（2077 为 sav.dat），带通配符或没有时用 sav.dat。</summary>
     private static string SaveFileNameOf(IGameAdapter adapter)
     {
-        var glob = adapter.WatchSpec.IncludeGlobs.FirstOrDefault();
+        var glob = adapter.WatchSpec.IncludeGlobs is [var first, ..] ? first : null;
         var name = string.IsNullOrWhiteSpace(glob) ? null : glob.Replace('\\', '/').Split('/')[^1];
         return string.IsNullOrWhiteSpace(name) || name.Contains('*') || name.Contains('?') ? SaveRootWatcher.DefaultSaveFileName : name;
     }

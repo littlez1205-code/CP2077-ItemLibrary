@@ -238,13 +238,13 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         StashInventoryItemCount = inventory.StashItemCount;
     }
 
-    private void VerifyInsertion(Cp2077SaveDocument source, IReadOnlyList<ResourceChange> changes, IReadOnlyList<ResourceChange> inserts)
+    private void VerifyInsertion(Cp2077SaveDocument source, IReadOnlyList<ResourceChange> changes, ResourceChange[] inserts)
     {
-        var addedBytes = 45 * inserts.Count;
+        var addedBytes = 45 * inserts.Length;
         var before = Cp2077Adapter.ToImage(source._container);
         var after = Cp2077Adapter.ToImage(_container);
         var diff = ResearchDiff.Compare(before, after);
-        var added = AddedItems(diff, inserts.Count);
+        var added = AddedItems(diff, inserts.Length);
         var inventoryIndex = before.Regions.Single(region => region.Name == "inventory").Index;
         var stackTails = before.Regions
             .Where(region => region.Parent == inventoryIndex && region.Length == 29 && region.Offset >= 16)
