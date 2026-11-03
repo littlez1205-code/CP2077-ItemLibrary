@@ -57,6 +57,9 @@ public static class GenerateService
     public const int DefaultTake = 50;
     public const int MaxTake = 200;
 
+    /// <summary>目录查询（只读）复用上一次解析好的存档，见 <see cref="CatalogDocumentCache"/>。</summary>
+    private static readonly CatalogDocumentCache Documents = new();
+
     /// <summary>
     /// 物品库用的卡片目录：同名合并后按卡片搜索和分页（T023）。参数校验同 <see cref="Catalog"/>。
     /// kindFallback（T024，界面没有「全部」标签）：kind 为空或不在这个存档的分类里时，改用第一个分类，不报错。
@@ -76,32 +79,35 @@ public static class GenerateService
             throw new PatchRejectedException("skip 不能是负数。");
         if (take is < 1 or > MaxTake)
             throw new PatchRejectedException($"take 必须在 1 到 {MaxTake} 之间。");
-        var document = Require(adapter, saveFilePath);
-        var kinds = document.GenerateKinds;
-        var known = !string.IsNullOrEmpty(kind) && kinds.Any(item => item.Id == kind);
-        if (!string.IsNullOrEmpty(kind) && !known && !kindFallback)
-            throw new PatchRejectedException($"未知分类 {kind}。");
-        if (kindFallback && !known)
-            kind = kinds.Count > 0 ? kinds[0].Id : null;
-        var page = document.ListGeneratableGroups(string.IsNullOrEmpty(kind) ? null : kind, query, skip, take, ownership);
-        var showCounts = !string.IsNullOrWhiteSpace(query) || (!string.IsNullOrEmpty(ownership) && !ownership.Equals("all", StringComparison.OrdinalIgnoreCase));
-        return new LibraryCatalogView(
-            document.GenerateAvailable,
-            document.GenerateMessage,
-            kinds,
-            page.Total,
-            page.ItemTotal,
-            skip,
-            take,
-            page.Groups)
+        return Documents.Query(adapter, saveFilePath, document =>
         {
-            IconVersion = (adapter as IItemIconProvider)?.IconVersion,
-            Kind = string.IsNullOrEmpty(kind) ? null : kind,
-            KindCounts = showCounts ? document.CountGeneratableGroups(query, ownership) : null,
-            StashAvailable = document.StashAvailable,
-            Hidden = document.HiddenKinds,
-            HiddenNotice = document.HiddenNotice
-        };
+            var listed = kind;
+            var kinds = document.GenerateKinds;
+            var known = !string.IsNullOrEmpty(listed) && kinds.Any(item => item.Id == listed);
+            if (!string.IsNullOrEmpty(listed) && !known && !kindFallback)
+                throw new PatchRejectedException($"未知分类 {listed}。");
+            if (kindFallback && !known)
+                listed = kinds.Count > 0 ? kinds[0].Id : null;
+            var page = document.ListGeneratableGroups(string.IsNullOrEmpty(listed) ? null : listed, query, skip, take, ownership);
+            var showCounts = !string.IsNullOrWhiteSpace(query) || (!string.IsNullOrEmpty(ownership) && !ownership.Equals("all", StringComparison.OrdinalIgnoreCase));
+            return new LibraryCatalogView(
+                document.GenerateAvailable,
+                document.GenerateMessage,
+                kinds,
+                page.Total,
+                page.ItemTotal,
+                skip,
+                take,
+                page.Groups)
+            {
+                IconVersion = (adapter as IItemIconProvider)?.IconVersion,
+                Kind = string.IsNullOrEmpty(listed) ? null : listed,
+                KindCounts = showCounts ? document.CountGeneratableGroups(query, ownership) : null,
+                StashAvailable = document.StashAvailable,
+                Hidden = document.HiddenKinds,
+                HiddenNotice = document.HiddenNotice
+            };
+        });
     }
 
     public static GenerateCatalogView Catalog(
@@ -116,23 +122,25 @@ public static class GenerateService
             throw new PatchRejectedException("skip 不能是负数。");
         if (take is < 1 or > MaxTake)
             throw new PatchRejectedException($"take 必须在 1 到 {MaxTake} 之间。");
-        var document = Require(adapter, saveFilePath);
-        if (!string.IsNullOrEmpty(kind) && document.GenerateKinds.All(item => item.Id != kind))
-            throw new PatchRejectedException($"未知分类 {kind}。");
-        var page = document.ListGeneratable(kind, query, skip, take);
-        return new GenerateCatalogView(
-            document.GenerateAvailable,
-            document.GenerateMessage,
-            document.GenerateKinds,
-            page.Total,
-            skip,
-            take,
-            page.Items)
+        return Documents.Query(adapter, saveFilePath, document =>
         {
-            IconVersion = (adapter as IItemIconProvider)?.IconVersion,
-            Hidden = document.HiddenKinds,
-            HiddenNotice = document.HiddenNotice
-        };
+            if (!string.IsNullOrEmpty(kind) && document.GenerateKinds.All(item => item.Id != kind))
+                throw new PatchRejectedException($"未知分类 {kind}。");
+            var page = document.ListGeneratable(kind, query, skip, take);
+            return new GenerateCatalogView(
+                document.GenerateAvailable,
+                document.GenerateMessage,
+                document.GenerateKinds,
+                page.Total,
+                skip,
+                take,
+                page.Items)
+            {
+                IconVersion = (adapter as IItemIconProvider)?.IconVersion,
+                Hidden = document.HiddenKinds,
+                HiddenNotice = document.HiddenNotice
+            };
+        });
     }
 
     public static GenerateReport Run(

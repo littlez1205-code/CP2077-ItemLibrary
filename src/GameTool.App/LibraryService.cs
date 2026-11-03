@@ -92,8 +92,8 @@ public sealed class LibraryService
         lock (_writeGate)
         {
             var clock = System.Diagnostics.Stopwatch.StartNew();
-            // 分类、是否堆叠、是否标志性、存档里有没有储藏箱，在这一批写入过程中都不会变：只读一次存档来决定每件放哪里，
-            // 不再每件额外读两遍存档（每件真正写入时 ObtainInternal / PatchEngine 仍会各自读取最新存档）。
+            // 分类、是否堆叠、是否标志性、存档里有没有储藏箱，在这一批写入过程中都不会变：只读一次存档，
+            // 用来决定每件放哪里、也用来查每件的目录信息（见 ObtainFrom）；每件真正写入时 PatchEngine 仍会读取最新存档。
             if (adapter.Load(saveFilePath) is not IItemGenerateCapable document)
                 throw new PatchRejectedException("这个存档不能获得物品。");
             var stashAvailable = document.StashAvailable;
@@ -122,7 +122,7 @@ public sealed class LibraryService
                 try
                 {
                     var toStash = ChooseDestination(item, request.ToStash, mode, stashAvailable);
-                    var report = ObtainInternal(adapter, saveFilePath, request.Target, request.Quantity, toStash);
+                    var report = ObtainFrom(adapter, saveFilePath, document, request.Target, request.Quantity, toStash, System.Diagnostics.Stopwatch.StartNew());
                     results.Add(new BatchItemResult(request.Target, report.Label, true, null, report));
                     succeeded++;
                 }
@@ -177,6 +177,22 @@ public sealed class LibraryService
         var clock = System.Diagnostics.Stopwatch.StartNew();
         if (adapter.Load(saveFilePath) is not IItemGenerateCapable document)
             throw new PatchRejectedException("这个存档不能获得物品。");
+        return ObtainFrom(adapter, saveFilePath, document, target, quantity, toStash, clock);
+    }
+
+    /// <summary>
+    /// catalog 只用来查目录：物品是否存在、分类、是否堆叠、名字和堆叠资源描述，这些在一次批量里都不会变，
+    /// 所以批量可以直接用规划时读的那份文档，每件少读一遍存档。持有数量和写入都在后面重新读取最新存档。
+    /// </summary>
+    private ObtainReport ObtainFrom(
+        IGameAdapter adapter,
+        string saveFilePath,
+        IItemGenerateCapable document,
+        string target,
+        long? quantity,
+        bool toStash,
+        System.Diagnostics.Stopwatch clock)
+    {
         if (!document.GenerateAvailable)
             throw new PatchRejectedException(document.GenerateMessage ?? "物品库不可用。");
         var item = document.FindGeneratable(target)

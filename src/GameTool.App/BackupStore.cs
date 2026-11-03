@@ -172,6 +172,7 @@ public sealed class BackupStore
                     File.Replace(item.Temporary, item.Destination, destinationBackupFileName: null);
                 else
                     File.Move(item.Temporary, item.Destination);
+                SaveFileWrites.Record();
             }
         }
         catch
