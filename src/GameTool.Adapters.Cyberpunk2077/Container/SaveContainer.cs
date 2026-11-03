@@ -50,13 +50,43 @@ public sealed class SaveContainer
 
     public static SaveContainer Read(string path)
     {
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using var memory = new MemoryStream();
-        stream.CopyTo(memory);
-        return Read(memory.ToArray());
+        byte[] file;
+        using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            file = ReadToEnd(stream);
+        return Parse(file);
     }
 
-    public static SaveContainer Read(ReadOnlyMemory<byte> file) => Read(file.Span);
+    /// <summary>调用方的内存可能之后被改动，先复制一份；容器会直接引用其中的压缩块。</summary>
+    public static SaveContainer Read(ReadOnlyMemory<byte> file) => Parse(file.ToArray());
+
+    /// <summary>
+    /// 按打开时的长度一次读进一个数组（原来经 MemoryStream 扩容再 ToArray，整个文件要复制两三遍）。
+    /// 与原来一样读到实际的文件末尾：读的过程中文件变短就截短，变长就继续读完。
+    /// </summary>
+    private static byte[] ReadToEnd(FileStream stream)
+    {
+        var expected = stream.Length;
+        if (expected > Array.MaxLength)
+            throw new InvalidDataException("存档文件过大。");
+        var buffer = new byte[expected];
+        var read = 0;
+        while (read < buffer.Length)
+        {
+            var count = stream.Read(buffer, read, buffer.Length - read);
+            if (count == 0)
+                return buffer.AsSpan(0, read).ToArray();
+            read += count;
+        }
+
+        var next = stream.ReadByte();
+        if (next < 0)
+            return buffer;
+        using var rest = new MemoryStream();
+        rest.Write(buffer);
+        rest.WriteByte((byte)next);
+        stream.CopyTo(rest);
+        return rest.ToArray();
+    }
 
     public static SaveContainer Create(
         uint saveVersion,
@@ -136,7 +166,7 @@ public sealed class SaveContainer
         for (var i = 0; i < count; i++)
         {
             var length = Math.Min(size, payload.Length - offset);
-            var chunk = new Chunk(offset, length, []);
+            var chunk = new Chunk(offset, length, ReadOnlyMemory<byte>.Empty);
             chunk.Dirty = true;
             chunks[i] = chunk;
             offset += length;
@@ -186,7 +216,7 @@ public sealed class SaveContainer
 
     public byte[] ToArray()
     {
-        var images = new byte[_chunks.Length][];
+        var images = new ReadOnlyMemory<byte>[_chunks.Length];
         var compressed = 0;
         for (var i = 0; i < _chunks.Length; i++)
         {
@@ -218,7 +248,7 @@ public sealed class SaveContainer
             BinaryPrimitives.WriteUInt32LittleEndian(table.AsSpan(entry), (uint)cursor);
             BinaryPrimitives.WriteUInt32LittleEndian(table.AsSpan(entry + 4), (uint)image.Length);
             BinaryPrimitives.WriteUInt32LittleEndian(table.AsSpan(entry + 8), (uint)_chunks[i].Length);
-            image.CopyTo(span.Slice(cursor));
+            image.Span.CopyTo(span.Slice(cursor));
             cursor += image.Length;
         }
 
@@ -230,8 +260,12 @@ public sealed class SaveContainer
         return file;
     }
 
-    private static SaveContainer Read(ReadOnlySpan<byte> file)
+    /// <summary>
+    /// 解析整个文件。file 归容器所有：未改动的块写回时原样复制，直接引用 file 里的压缩字节，不再逐块复制。
+    /// </summary>
+    private static SaveContainer Parse(byte[] fileBytes)
     {
+        ReadOnlySpan<byte> file = fileBytes;
         if (file.Length < Cp2077Format.FirstChunkOffset + 8)
             throw new InvalidDataException("存档短于容器头。");
         if (!file.StartsWith(Cp2077Format.Vasc))
@@ -260,10 +294,14 @@ public sealed class SaveContainer
                 $"存档版本 {saveVersion}、游戏版本 {gameVersion} 不在白名单内。支持范围：v2.31（存档 269，游戏 2310）或 v2.5（存档 277，游戏 2500）。");
         }
 
-        var plains = new byte[count][];
-        var images = new byte[count][];
+        // 先按分块表算出解压后的总长，一次分配载荷，各块直接解压进去（原来每块单独分配，最后再整体拷贝一遍）。
+        // 分块表里的解压长度有越界、或总长超出 512 个标准块时不预分配，退回原来的做法：逐块解压、最后拼接，
+        // 校验顺序和报错与原来完全相同。
+        var payload = TryAllocatePayload(file, (int)count);
+        var plains = payload is null ? new byte[count][] : null;
+        var chunks = new Chunk[count];
         var cursor = Cp2077Format.FirstChunkOffset;
-        var payloadLength = 0;
+        var payloadCursor = 0;
         for (var i = 0; i < count; i++)
         {
             var entry = Cp2077Format.ChunkTableOffset + (i * Cp2077Format.ChunkEntrySize);
@@ -278,9 +316,20 @@ public sealed class SaveContainer
                 throw new InvalidDataException($"第 {i} 块超出文件范围。");
 
             var image = file.Slice(cursor, (int)compressedLength);
-            plains[i] = Lz4Chunks.Decode(image, (int)decompressedLength);
-            images[i] = image.ToArray();
-            payloadLength = checked(payloadLength + plains[i].Length);
+            int plainLength;
+            if (payload is not null)
+            {
+                Lz4Chunks.DecodeInto(image, payload.AsSpan(payloadCursor, (int)decompressedLength));
+                plainLength = (int)decompressedLength;
+            }
+            else
+            {
+                plains![i] = Lz4Chunks.Decode(image, (int)decompressedLength);
+                plainLength = plains[i].Length;
+            }
+
+            chunks[i] = new Chunk(payloadCursor, plainLength, fileBytes.AsMemory(cursor, (int)compressedLength));
+            payloadCursor = checked(payloadCursor + plainLength);
             cursor += (int)compressedLength;
         }
 
@@ -295,14 +344,15 @@ public sealed class SaveContainer
         if (nodeOffset != cursor)
             throw new InvalidDataException($"节点表偏移 {nodeOffset} 与最后一块末尾 {cursor} 不一致。");
 
-        var payload = new byte[payloadLength];
-        var chunks = new Chunk[count];
-        var payloadCursor = 0;
-        for (var i = 0; i < count; i++)
+        if (payload is null)
         {
-            plains[i].CopyTo(payload.AsSpan(payloadCursor));
-            chunks[i] = new Chunk(payloadCursor, plains[i].Length, images[i]);
-            payloadCursor += plains[i].Length;
+            payload = new byte[payloadCursor];
+            var at = 0;
+            foreach (var plain in plains!)
+            {
+                plain.CopyTo(payload.AsSpan(at));
+                at += plain.Length;
+            }
         }
 
         var nodeTable = file.Slice(cursor, file.Length - 8 - cursor).ToArray();
@@ -318,9 +368,29 @@ public sealed class SaveContainer
             nodeOffset);
     }
 
+    /// <summary>
+    /// 分块表里每块的解压长度都在 1..上限内、且总长不超过 512 个标准块时，按总长分配载荷；否则返回 null，
+    /// 由逐块校验报出与原来相同的错误。
+    /// </summary>
+    private static byte[]? TryAllocatePayload(ReadOnlySpan<byte> file, int count)
+    {
+        const long limit = (long)Cp2077Format.ChunkSlotCount * Cp2077Format.DecompressedChunkSize;
+        long total = 0;
+        for (var i = 0; i < count; i++)
+        {
+            var entry = Cp2077Format.ChunkTableOffset + (i * Cp2077Format.ChunkEntrySize);
+            var length = BinaryPrimitives.ReadUInt32LittleEndian(file.Slice(entry + 8));
+            if (length is < 1 or > Cp2077Format.MaxDecompressedChunkLength)
+                return null;
+            total += length;
+        }
+
+        return total <= limit ? new byte[total] : null;
+    }
+
     private sealed class Chunk
     {
-        public Chunk(int payloadOffset, int length, byte[] image)
+        public Chunk(int payloadOffset, int length, ReadOnlyMemory<byte> image)
         {
             PayloadOffset = payloadOffset;
             Length = length;
@@ -329,7 +399,8 @@ public sealed class SaveContainer
 
         public int PayloadOffset { get; }
         public int Length { get; }
-        public byte[] Image { get; }
+        /// <summary>原样写回用的压缩字节（含块头）；脏块写出时重新压缩，不用它。</summary>
+        public ReadOnlyMemory<byte> Image { get; }
         public bool Dirty { get; set; }
     }
 }

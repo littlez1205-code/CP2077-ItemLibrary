@@ -186,6 +186,7 @@ public static class PatchEngine
                 throw new SaveChangedDuringPatchException();
 
             File.Replace(temporary, saveFilePath, backup);
+            SaveFileWrites.Record();
             written = File.GetLastWriteTimeUtc(saveFilePath);
         }
         catch
@@ -215,6 +216,7 @@ public static class PatchEngine
         {
             File.Copy(backup, temporary);
             File.Replace(temporary, saveFilePath, destinationBackupFileName: null);
+            SaveFileWrites.Record();
         }
         catch
         {

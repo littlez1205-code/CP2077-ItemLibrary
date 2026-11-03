@@ -28,6 +28,24 @@ internal static class Lz4Chunks
 
     public static byte[] Decode(ReadOnlySpan<byte> image, int decompressedLength)
     {
+        Validate(image, decompressedLength);
+        var plain = new byte[decompressedLength];
+        DecodeValidated(image, plain);
+        return plain;
+    }
+
+    /// <summary>
+    /// 与 <see cref="Decode"/> 相同的校验和报错，但直接解压进 destination（长度就是分块表记录的解压长度），
+    /// 读存档时各块直接写进连续载荷，不再每块单独分配再拷贝一次。
+    /// </summary>
+    public static void DecodeInto(ReadOnlySpan<byte> image, Span<byte> destination)
+    {
+        Validate(image, destination.Length);
+        DecodeValidated(image, destination);
+    }
+
+    private static void Validate(ReadOnlySpan<byte> image, int decompressedLength)
+    {
         if (image.Length < Cp2077Format.ChunkHeaderSize)
             throw new InvalidDataException("压缩块短于 8 字节块头。");
         if (decompressedLength is < 1 or > Cp2077Format.MaxDecompressedChunkLength)
@@ -43,11 +61,12 @@ internal static class Lz4Chunks
         var declared = BinaryPrimitives.ReadUInt32LittleEndian(image.Slice(4));
         if (declared != (uint)decompressedLength)
             throw new InvalidDataException("块内解压长度与分块表不一致。");
+    }
 
-        var plain = new byte[decompressedLength];
+    private static void DecodeValidated(ReadOnlySpan<byte> image, Span<byte> plain)
+    {
         var written = LZ4Codec.Decode(image.Slice(Cp2077Format.ChunkHeaderSize), plain);
-        if (written != decompressedLength)
-            throw new InvalidDataException($"LZ4 解压得到 {written} 字节，分块表记录 {decompressedLength} 字节。");
-        return plain;
+        if (written != plain.Length)
+            throw new InvalidDataException($"LZ4 解压得到 {written} 字节，分块表记录 {plain.Length} 字节。");
     }
 }
