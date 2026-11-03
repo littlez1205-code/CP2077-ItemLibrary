@@ -620,6 +620,8 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         {
             Quality = entry.Quality,
             Iconic = entry.Iconic,
+            // 储藏箱只接受装备：堆叠物品走改数量路径，手雷的 ItemID 按种类固定（见 ItemGenerator），都只能放背包。
+            CanStash = !entry.Stackable && entry.Kind != GearKinds.Grenade,
             TypeLabel = entry.TypeLabel,
             Held = held,
             MaxQuantity = max,

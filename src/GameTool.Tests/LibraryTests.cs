@@ -537,6 +537,116 @@ public class LibraryTests : IDisposable
         Assert.True(ownedClothing.Total >= 1);
     }
 
+    [Fact]
+    public async Task BatchObtain_Smart_WithoutStash_PutsIconicInBackpack_InsteadOfFailing()
+    {
+        // 存档里还没有储藏箱记录：智能模式下标志性武器退回背包，不再整件失败。
+        var path = Save("batch-nostash", "ManualSave-0");
+        var before = (Cp2077SaveDocument)_adapter.Load(path);
+        Assert.Equal(0, before.StashItemCount);
+        var backups = new BackupStore(Path.Combine(_root, "batch-nostash-backups"));
+        await using var enable = new EnableService(backups, _ => { });
+        var library = new LibraryService(backups, enable);
+
+        var report = library.BatchObtain(
+            _adapter,
+            path,
+            [new BatchItemRequest("Items.Preset_Lexington_Wilson"), new BatchItemRequest("Items.Jacket_Twin")]);
+
+        Assert.Equal(2, report.Succeeded);
+        Assert.All(report.Results, result => Assert.False(result.Report!.ToStash));
+        var after = (Cp2077SaveDocument)_adapter.Load(path);
+        Assert.Equal(before.PlayerItemCount + 2, after.PlayerItemCount);
+        Assert.Equal(0, after.StashItemCount);
+        Assert.False(GenerateService.Groups(_adapter, path, null, null, 0, 10, kindFallback: true).StashAvailable);
+    }
+
+    [Fact]
+    public async Task BatchObtain_Smart_WithStash_IconicToStash_OthersToBackpack()
+    {
+        var path = GearGenerateTests.WriteSaveAt(
+            Path.Combine(_root, "batch-stash"),
+            "ManualSave-0",
+            (1UL, GearGenerateTests.Clothing("Items.Jacket_01_basic_01", generic: true)),
+            (ItemInserter.StashBagId, GearGenerateTests.Clothing("Items.SQ031_Samurai_Jacket", generic: true)));
+        var before = (Cp2077SaveDocument)_adapter.Load(path);
+        Assert.Equal(1, before.StashItemCount);
+        Assert.True(GenerateService.Groups(_adapter, path, null, null, 0, 10, kindFallback: true).StashAvailable);
+        var backups = new BackupStore(Path.Combine(_root, "batch-stash-backups"));
+        await using var enable = new EnableService(backups, _ => { });
+        var library = new LibraryService(backups, enable);
+
+        var report = library.BatchObtain(
+            _adapter,
+            path,
+            [
+                new BatchItemRequest("Items.Preset_Lexington_Wilson"),
+                new BatchItemRequest("Items.Jacket_Twin"),
+                new BatchItemRequest(Food, 4)
+            ],
+            "smart");
+
+        Assert.Equal(3, report.Succeeded);
+        Assert.True(report.Results[0].Report!.ToStash);
+        Assert.False(report.Results[1].Report!.ToStash);
+        Assert.False(report.Results[2].Report!.ToStash);
+        var after = (Cp2077SaveDocument)_adapter.Load(path);
+        Assert.Equal(before.StashItemCount + 1, after.StashItemCount);
+        Assert.Equal(4, after.FindGeneratable(Food)!.Held);
+    }
+
+    [Fact]
+    public async Task BatchObtain_StashModeWithoutStash_AndBadDestination_RejectBeforeWriting()
+    {
+        var path = Save("batch-reject", "ManualSave-0");
+        var original = File.ReadAllBytes(path);
+        var backups = new BackupStore(Path.Combine(_root, "batch-reject-backups"));
+        await using var enable = new EnableService(backups, _ => { });
+        var library = new LibraryService(backups, enable);
+        BatchItemRequest[] items = [new("Items.Jacket_Twin"), new(Food, 2)];
+
+        var noStash = Assert.Throws<PatchRejectedException>(() => library.BatchObtain(_adapter, path, items, "stash"));
+        Assert.Contains("储藏箱", noStash.Message);
+        Assert.Throws<PatchRejectedException>(() => library.BatchObtain(_adapter, path, items, "trunk"));
+        Assert.Equal(original, File.ReadAllBytes(path));
+
+        // 只有堆叠物品时，「全部放入储藏室」照旧把它们放进背包，不因为没有储藏箱而拒绝。
+        var stacks = library.BatchObtain(_adapter, path, [new(Food, 2)], "stash");
+        Assert.Equal(1, stacks.Succeeded);
+        Assert.False(stacks.Results[0].Report!.ToStash);
+    }
+
+    [Fact]
+    public async Task BatchObtain_Failures_CarryTheCatalogLabel_AndBridgeRejectsBadQuantity()
+    {
+        var saves = Path.Combine(_root, "batch-fail-saves");
+        var path = Save("batch-fail-saves", "ManualSave-1");
+        var backups = new BackupStore(Path.Combine(_root, "batch-fail-backups"));
+        await using var enable = new EnableService(backups, _ => { });
+        var library = new LibraryService(backups, enable);
+
+        var report = library.BatchObtain(
+            _adapter,
+            path,
+            [new BatchItemRequest(Food, Cp2077SaveDocument.DefaultStackMax + 1), new BatchItemRequest("Items.Jacket_Twin")]);
+        Assert.Equal(1, report.Succeeded);
+        Assert.Equal(1, report.Failed);
+        var failure = report.Results[0];
+        Assert.False(failure.Success);
+        Assert.Equal("汉堡", failure.Label);
+        Assert.Contains("数量不能超过", failure.Error);
+
+        var registry = new AdapterRegistry();
+        registry.Register(_adapter);
+        await using var bridge = new BridgeDispatcher(registry, saves, _ => { }, Path.Combine(_root, "batch-fail-bridge-backups"), Path.Combine(_root, "batch-fail-skins"));
+        var slot = JsonSerializer.Serialize(path);
+        var before = File.ReadAllBytes(path);
+        using var bad = JsonDocument.Parse(bridge.Dispatch(
+            "{\"id\":\"b2\",\"method\":\"library.batchObtain\",\"params\":{\"gameId\":\"cp2077\",\"slot\":" + slot + ",\"items\":[{\"target\":\"" + Food + "\",\"quantity\":\"lots\"}]}}"));
+        Assert.Equal("bad_args", bad.RootElement.GetProperty("error").GetProperty("code").GetString());
+        Assert.Equal(before, File.ReadAllBytes(path));
+    }
+
     private static JsonDocument Call(BridgeDispatcher bridge, string fields, string slot) =>
         JsonDocument.Parse(bridge.Dispatch("{\"id\":\"o\",\"method\":\"library.obtain\",\"params\":{\"gameId\":\"cp2077\",\"slot\":" + slot + "," + fields + "}}"));
 

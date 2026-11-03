@@ -34,6 +34,9 @@ public sealed record GenerateCatalogItem(
     /// <summary>标志性物品。</summary>
     public bool Iconic { get; init; }
 
+    /// <summary>可以直接放进储藏箱（适配器决定；如 2077 的堆叠物品和手雷不行）。</summary>
+    public bool CanStash { get; init; }
+
     /// <summary>更细的中文类型（如 外衣、突击步枪、饮料），推不出来时为 null。</summary>
     public string? TypeLabel { get; init; }
 

@@ -40,6 +40,12 @@ public sealed record LibraryCatalogView(
 
     public IReadOnlyDictionary<string, int>? KindCounts { get; init; }
 
+    /// <summary>
+    /// 存档里已有储藏箱记录（至少放过一件东西），可以把装备直接放进储藏箱；
+    /// 没有时界面不默认、也不允许选「放入储藏室」，否则写入必然失败。
+    /// </summary>
+    public bool StashAvailable { get; init; }
+
     /// <summary>因为游戏缺少资料片而隐藏的物品（D023）：各分类的卡片数和条目数；没有隐藏时为空。</summary>
     public IReadOnlyList<GenerateHiddenKind> Hidden { get; init; } = [];
 
@@ -92,6 +98,7 @@ public static class GenerateService
             IconVersion = (adapter as IItemIconProvider)?.IconVersion,
             Kind = string.IsNullOrEmpty(kind) ? null : kind,
             KindCounts = showCounts ? document.CountGeneratableGroups(query, ownership) : null,
+            StashAvailable = document.StashItemCount > 0,
             Hidden = document.HiddenKinds,
             HiddenNotice = document.HiddenNotice
         };
@@ -139,9 +146,14 @@ public static class GenerateService
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(backups);
         ArgumentNullException.ThrowIfNull(enable);
-        Require(adapter, saveFilePath);
         if (backupFirst)
+        {
+            // 先确认能生成再备份，避免为一次注定失败的生成留下备份。不备份时直接交给 PatchEngine.Generate，
+            // 它自己会检查能否生成，这里不必为了检查再完整读一遍存档。
+            Require(adapter, saveFilePath);
             backups.Add(adapter, Path.GetDirectoryName(saveFilePath)!);
+        }
+
         // 桌面端按 D006 不在存档目录生成 .bak；备份走备份区。
         var report = PatchEngine.Generate(adapter, saveFilePath, request, new PatchOptions(null));
         enable.AcceptOwnWrite(saveFilePath, report.Patch.WrittenLastWriteTimeUtc);

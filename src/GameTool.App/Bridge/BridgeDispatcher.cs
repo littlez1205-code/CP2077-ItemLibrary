@@ -661,7 +661,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         return Ok(id, adapter.GameId, _library.Obtain(adapter, slot, target, quantity, toStash));
     }
 
-    /// <summary>物品库批量「获得」：多件物品一次性写入，支持智能目标位置选择。</summary>
+    /// <summary>物品库批量「获得」：逐件写入、逐件返回结果（见 <see cref="LibraryService.BatchObtain"/>），支持智能选择存放位置。</summary>
     private string LibraryBatchObtain(string? id, JsonElement parameters)
     {
         var adapter = RequireGame(parameters);
@@ -675,9 +675,14 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
             var target = ReadString(elem, "target");
             if (string.IsNullOrWhiteSpace(target))
                 continue;
+            // 与 library.obtain 一致：数量给了就必须是整数，不能悄悄当成 1 写进存档。
             long? qty = null;
-            if (elem.TryGetProperty("quantity", out var q) && q.ValueKind == JsonValueKind.Number && q.TryGetInt64(out var parsedQty))
+            if (elem.TryGetProperty("quantity", out var q) && q.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined))
+            {
+                if (q.ValueKind != JsonValueKind.Number || !q.TryGetInt64(out var parsedQty))
+                    throw new BridgeArgumentException($"{target} 的 quantity 必须是整数。");
                 qty = parsedQty;
+            }
             bool? toStash = null;
             if (elem.TryGetProperty("toStash", out var s) && s.ValueKind is JsonValueKind.True or JsonValueKind.False)
                 toStash = s.GetBoolean();

@@ -67,29 +67,52 @@ public sealed class LibraryService
         }
     }
 
+    /// <summary>单次批量获得的件数上限。</summary>
+    public const int MaxBatchItems = 100;
+
+    /// <summary>
+    /// 批量获得：逐件写入（每件各自走严格校验与原子替换），一件失败不影响其他件，结果逐件返回。
+    /// destinationMode：smart（默认）= 存档里有储藏箱时标志性装备放储藏箱、其余放背包；backpack = 全部放背包；stash = 能放储藏箱的全部放储藏箱。
+    /// 单件的 ToStash 优先于 destinationMode；堆叠物品、手雷等不能放储藏箱的物品一律放背包。
+    /// </summary>
     public BatchObtainReport BatchObtain(
         IGameAdapter adapter,
         string saveFilePath,
         IReadOnlyList<BatchItemRequest> items,
-        string destinationMode = "smart")
+        string? destinationMode = "smart")
     {
         ArgumentNullException.ThrowIfNull(adapter);
         ArgumentException.ThrowIfNullOrWhiteSpace(saveFilePath);
         if (items is null || items.Count == 0)
             throw new PatchRejectedException("批量添加列表为空。");
-        if (items.Count > 100)
-            throw new PatchRejectedException("单次批量添加最多支持 100 件物品。");
+        if (items.Count > MaxBatchItems)
+            throw new PatchRejectedException($"单次批量添加最多支持 {MaxBatchItems} 件物品。");
+        var mode = ParseDestination(destinationMode);
 
         lock (_writeGate)
         {
             var clock = System.Diagnostics.Stopwatch.StartNew();
-            var results = new List<BatchItemResult>();
-            int succeeded = 0;
-            int failed = 0;
-
-            foreach (var req in items)
+            // 分类、是否堆叠、是否标志性、存档里有没有储藏箱，在这一批写入过程中都不会变：只读一次存档来决定每件放哪里，
+            // 不再每件额外读两遍存档（每件真正写入时 ObtainInternal / PatchEngine 仍会各自读取最新存档）。
+            if (adapter.Load(saveFilePath) is not IItemGenerateCapable document)
+                throw new PatchRejectedException("这个存档不能获得物品。");
+            var stashAvailable = document.StashItemCount > 0;
+            var planned = items
+                .Select(request => (Request: request, Item: string.IsNullOrWhiteSpace(request.Target) ? null : document.FindGeneratable(request.Target)))
+                .ToArray();
+            if (mode == BatchDestination.Stash
+                && !stashAvailable
+                && planned.Any(plan => plan.Request.ToStash is null && plan.Item?.CanStash == true))
             {
-                if (string.IsNullOrWhiteSpace(req.Target))
+                throw new PatchRejectedException(NoStashMessage + "也可以改选「智能推荐」或「全部放入背包」。");
+            }
+
+            var results = new List<BatchItemResult>(planned.Length);
+            var succeeded = 0;
+            var failed = 0;
+            foreach (var (request, item) in planned)
+            {
+                if (string.IsNullOrWhiteSpace(request.Target))
                 {
                     results.Add(new BatchItemResult("", "未知物品", false, "缺少目标。", null));
                     failed++;
@@ -98,44 +121,55 @@ public sealed class LibraryService
 
                 try
                 {
-                    bool toStash = req.ToStash ?? false;
-                    if (req.ToStash is null)
-                    {
-                        if (destinationMode.Equals("stash", StringComparison.OrdinalIgnoreCase))
-                        {
-                            toStash = true;
-                        }
-                        else if (destinationMode.Equals("smart", StringComparison.OrdinalIgnoreCase))
-                        {
-                            if (adapter.Load(saveFilePath) is IItemGenerateCapable doc)
-                            {
-                                var item = doc.FindGeneratable(req.Target);
-                                toStash = item != null && !item.Stackable && item.Iconic;
-                            }
-                        }
-                    }
-
-                    // 堆叠物品不支持放储藏室，自动修正为放背包
-                    if (toStash && adapter.Load(saveFilePath) is IItemGenerateCapable checkDoc)
-                    {
-                        var item = checkDoc.FindGeneratable(req.Target);
-                        if (item?.Stackable == true)
-                            toStash = false;
-                    }
-
-                    var report = ObtainInternal(adapter, saveFilePath, req.Target, req.Quantity, toStash);
-                    results.Add(new BatchItemResult(req.Target, report.Label, true, null, report));
+                    var toStash = ChooseDestination(item, request.ToStash, mode, stashAvailable);
+                    var report = ObtainInternal(adapter, saveFilePath, request.Target, request.Quantity, toStash);
+                    results.Add(new BatchItemResult(request.Target, report.Label, true, null, report));
                     succeeded++;
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OutOfMemoryException)
                 {
-                    results.Add(new BatchItemResult(req.Target, req.Target, false, ex.Message, null));
+                    results.Add(new BatchItemResult(request.Target, item?.Label ?? request.Target, false, ex.Message, null));
                     failed++;
                 }
             }
 
             return new BatchObtainReport(items.Count, succeeded, failed, results, clock.ElapsedMilliseconds);
         }
+    }
+
+    private const string NoStashMessage = "存档中暂无储藏箱记录，请在游戏内先使用一次载具后备箱或公寓储藏处。";
+
+    private enum BatchDestination
+    {
+        Smart,
+        Backpack,
+        Stash
+    }
+
+    private static BatchDestination ParseDestination(string? mode) => mode?.Trim().ToLowerInvariant() switch
+    {
+        null or "" or "smart" => BatchDestination.Smart,
+        "backpack" => BatchDestination.Backpack,
+        "stash" => BatchDestination.Stash,
+        _ => throw new PatchRejectedException($"未知的存放位置 {mode}。")
+    };
+
+    /// <summary>
+    /// 批量里一件物品放哪里：不能放储藏箱的（堆叠物品、手雷、不在目录里的）一律放背包；
+    /// 单件明确指定的优先；smart 只把标志性装备放进储藏箱，而且存档里还没有储藏箱时退回背包，不让整批失败。
+    /// </summary>
+    private static bool ChooseDestination(GenerateCatalogItem? item, bool? requested, BatchDestination mode, bool stashAvailable)
+    {
+        if (item is null || !item.CanStash)
+            return false;
+        if (requested is bool explicitChoice)
+            return explicitChoice;
+        return mode switch
+        {
+            BatchDestination.Stash => true,
+            BatchDestination.Smart => item.Iconic && stashAvailable,
+            _ => false
+        };
     }
 
     private ObtainReport ObtainInternal(IGameAdapter adapter, string saveFilePath, string target, long? quantity, bool toStash)
