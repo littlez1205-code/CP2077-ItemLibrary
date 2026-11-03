@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using System.Text.Json;
@@ -22,9 +23,14 @@ public sealed record MainWindowOptions(
     bool FullSelfTest,
     string Show);
 
+[SuppressMessage("Design", "CA1001:Types that own disposable fields should be disposable", Justification = "WPF 窗口没有 Dispose；桥接在 OnClosed 里释放。")]
 public partial class MainWindow : Window
 {
     private const string Origin = "https://gametool.local/";
+
+    /// <summary>关窗后最多等这么久，让桥接停干净；超时就不再等。</summary>
+    private static readonly TimeSpan BridgeShutdownGrace = TimeSpan.FromSeconds(10);
+
     private readonly string _saveRoot;
     private readonly string _backupRoot;
     private readonly string _skinRoot;
@@ -53,6 +59,9 @@ public partial class MainWindow : Window
         _fullSelfTest = options.FullSelfTest;
         var fullSelfTest = options.FullSelfTest;
         InitializeComponent();
+        // 任务栏和 Alt+Tab 里的标题：先按设置里的语言显示，页面加载后跟随页面标题（随界面语言切换）。
+        using (UiText.Use(App.StartupLanguage))
+            Title = App.DialogTitle;
         _timeout = new DispatcherTimer { Interval = TimeSpan.FromSeconds(fullSelfTest ? 120 : 15) };
         _timeout.Tick += (_, _) => FinishSelfTest(1, fullSelfTest ? "120 秒内完整自检没有完成。" : "15 秒内没有收到 app.ping 应答。");
         Loaded += async (_, _) => await StartAsync();
@@ -214,6 +223,11 @@ public partial class MainWindow : Window
                     args.Cancel = true;
             };
             core.NewWindowRequested += (_, args) => args.Handled = true;
+            core.DocumentTitleChanged += (_, _) =>
+            {
+                if (!string.IsNullOrWhiteSpace(core.DocumentTitle))
+                    Title = core.DocumentTitle;
+            };
             core.AddWebResourceRequestedFilter(Origin + "*", CoreWebView2WebResourceContext.All);
             core.WebResourceRequested += (_, args) => Serve(args);
             core.WebMessageReceived += (_, args) => OnMessage(args.WebMessageAsJson);
@@ -232,14 +246,15 @@ public partial class MainWindow : Window
                 urlLauncher: _selfTest ? _selfTestLauncher : new ShellUrlLauncher());
             // T030：游戏存档后自动刷新存档列表（宿主监视存档根目录，去抖后推送 saves.changed），随桥接一起在关闭时释放。
             _bridge.WatchSaveRoots();
-            var query = new List<string>();
+            // 设置里保存的界面语言放进地址：页面首屏直接用它，不必等桥接应答。
+            var query = new List<string> { "lang=" + UiText.Normalize(App.StartupLanguage) };
             if (_fullSelfTest)
                 query.Add("selftest=full");
             else if (_selfTest)
                 query.Add("selftest=1");
             if (!string.IsNullOrWhiteSpace(_show))
                 query.Add("show=" + Uri.EscapeDataString(_show));
-            var start = Origin + "index.html" + (query.Count == 0 ? "" : "?" + string.Join("&", query));
+            var start = Origin + "index.html?" + string.Join("&", query);
             core.Navigate(start);
         }
         catch (WebView2RuntimeNotFoundException)
@@ -542,7 +557,7 @@ public partial class MainWindow : Window
         {
             "index.html" => "text/html; charset=utf-8",
             "app.css" => "text/css; charset=utf-8",
-            "app.js" => "text/javascript; charset=utf-8",
+            "app.js" or "i18n.js" => "text/javascript; charset=utf-8",
             _ => ""
         };
         var stream = media.Length == 0
@@ -670,10 +685,14 @@ public partial class MainWindow : Window
         Application.Current.Shutdown(code);
     }
 
-    protected override async void OnClosed(EventArgs e)
+    protected override void OnClosed(EventArgs e)
     {
-        if (_bridge is not null)
-            await _bridge.DisposeAsync();
+        // 窗口已经关掉：同步等桥接释放完再让进程退出，使能正在改写存档时不会被退出打断。
+        // 释放放到线程池上做，异步步骤的后续不会排回这里占着的界面线程，不会互相等死。
+        var bridge = _bridge;
+        _bridge = null;
+        if (bridge is not null)
+            Task.Run(() => bridge.DisposeAsync().AsTask()).Wait(BridgeShutdownGrace);
         base.OnClosed(e);
     }
 }

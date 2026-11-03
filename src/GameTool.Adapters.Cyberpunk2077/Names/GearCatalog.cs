@@ -636,7 +636,7 @@ public sealed partial class GearCatalog
             TypeLabel = kind == GearKinds.Recipe
                 ? (craftedKind is null ? null : GearKinds.Label(craftedKind, lang) + recipeSuffix)
                 : TypeLabelOf(kind, index.FieldOf(record, "itemType"), tags, index.FieldOf(record, "equipArea"), lang),
-            RootSlot = kind is GearKinds.Quickhack or GearKinds.Mod ? index.ListOf(record, "placementSlots").FirstOrDefault() : null,
+            RootSlot = kind is GearKinds.Quickhack or GearKinds.Mod && index.ListOf(record, "placementSlots") is [var rootSlot, ..] ? rootSlot : null,
             CraftedItem = crafted,
             Description = description,
             EffectDesc = effectDesc,
@@ -656,11 +656,8 @@ public sealed partial class GearCatalog
             "en-us" => " Skull ",
             _ => "骷髅头"
         };
-        var result = System.Text.RegularExpressions.Regex.Replace(
-            text,
-            @"\s*<Image[^>]*q000_tutorial_icon_boss[^>]*>(?:</>)?\s*",
-            skullWord);
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"<[^>]+>", "");
+        var result = BossIconTag().Replace(text, skullWord);
+        result = MarkupTag().Replace(result, "");
         result = result.Replace("\\n", "\n").Trim();
 
         var intValues = string.IsNullOrEmpty(intValuesStr)
@@ -672,25 +669,25 @@ public sealed partial class GearCatalog
             : floatValuesStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         // 1. 替换 {int_0}, {int_0 }, {int_1}, ...
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"\{int_(\d+)\s*\}", m =>
+        result = IntPlaceholder().Replace(result, m =>
         {
             if (int.TryParse(m.Groups[1].Value, out var idx) && idx >= 0 && idx < intValues.Length)
                 return intValues[idx];
             return "";
-        }, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        });
 
         // 2. 替换 {float_0}, {float_0 }, {float_1}, ...
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"\{float_(\d+)\s*\}", m =>
+        result = FloatPlaceholder().Replace(result, m =>
         {
             if (int.TryParse(m.Groups[1].Value, out var idx) && idx >= 0 && idx < floatValues.Length)
                 return floatValues[idx];
             return "";
-        }, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        });
 
         // 3. 替换 {stat_0}, {stat_1}, ...
         if (statValues is { Count: > 0 })
         {
-            result = System.Text.RegularExpressions.Regex.Replace(result, @"\{stat_(\d+)\s*\}(%?)", m =>
+            result = StatPlaceholder().Replace(result, m =>
             {
                 if (int.TryParse(m.Groups[1].Value, out var idx) && idx >= 0 && idx < statValues.Count && statValues[idx] is not null)
                 {
@@ -702,19 +699,19 @@ public sealed partial class GearCatalog
                             num *= 100.0;
                         var absNum = Math.Abs(num);
                         var formatted = absNum % 1 == 0
-                            ? ((long)Math.Round(absNum)).ToString()
+                            ? ((long)Math.Round(absNum)).ToString(System.Globalization.CultureInfo.InvariantCulture)
                             : absNum.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
                         return formatted + (hasPercent ? "%" : "");
                     }
                     return raw + (hasPercent ? "%" : "");
                 }
                 return m.Value;
-            }, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            });
         }
 
         // 4. 通用占位符 {value}, {value_0}, {value_1}, ...
         var primaryVal = floatValues.Length > 0 ? floatValues[0] : (intValues.Length > 0 ? intValues[0] : null);
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"\{value(?:_(\d+))?\s*\}", m =>
+        result = ValuePlaceholder().Replace(result, m =>
         {
             if (m.Groups[1].Success && int.TryParse(m.Groups[1].Value, out var idx))
             {
@@ -722,10 +719,10 @@ public sealed partial class GearCatalog
                 if (idx >= 0 && idx < intValues.Length) return intValues[idx];
             }
             return primaryVal ?? "";
-        }, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        });
 
         // 5. 数字占位符 {0}, {1}, ...
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"\{(\d+)\s*\}", m =>
+        result = IndexPlaceholder().Replace(result, m =>
         {
             if (int.TryParse(m.Groups[1].Value, out var idx))
             {
@@ -736,34 +733,26 @@ public sealed partial class GearCatalog
         });
 
         // 6. 清理义体同调（attunements）的当前运行时总量行（静态物品库中无需展示未装备时的动态总量计算）
-        result = System.Text.RegularExpressions.Regex.Replace(
-            result,
-            @"(?m)^\s*(?:当前总量|目前總計|目前總量|Current total|Current bonus|Total bonus)[：:][^\r\n]*\r?\n?",
-            "",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        result = System.Text.RegularExpressions.Regex.Replace(
-            result,
-            @"(?:当前总量|目前總計|目前總量|Current total|Current bonus|Total bonus)[：:][^\r\n]*",
-            "",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        result = RunningTotalLine().Replace(result, "");
+        result = RunningTotalInline().Replace(result, "");
 
         // 7. 清理残留的未匹配代码占位符（如未提供具体数值的 {int_0}、{float_0}、{stat} 等），避免向玩家展示底层代码 token
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"\{\s*(?:int|float|value|VALUE|stat)\w*\s*\}", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        result = LeftoverPlaceholder().Replace(result, "");
 
         // 8. 清理未匹配数值导致的裸露百分号（如 +%、-%、% 中毒几率）
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"(?<!\d)[+-]?\s*%", "");
+        result = StrayPercent().Replace(result, "");
 
         // 9. 清理空行与多余空格
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"[ \t]{2,}", " ");
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"(?m)^\s+$", "");
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"(\r?\n){3,}", "\n\n");
+        result = RepeatedSpaces().Replace(result, " ");
+        result = BlankLine().Replace(result, "");
+        result = ExtraNewlines().Replace(result, "\n\n");
 
         return string.IsNullOrWhiteSpace(result) ? null : result.Trim();
     }
 
     private static string? CleanText(string? text, string? lang = null) => FormatEffectText(text, null, null, null, lang);
 
-    private static IReadOnlyList<string> BuildStatBadges(TweakSourceIndex index, string record, string kind, string? crafted, string? lang = null)
+    private static List<string> BuildStatBadges(TweakSourceIndex index, string record, string kind, string? crafted, string? lang = null)
     {
         var normLang = GearKinds.NormalizeLang(lang);
         var badges = new List<string>();
@@ -921,7 +910,7 @@ public sealed partial class GearCatalog
             var variants = index.ListOf(targetRecord, "variants");
             foreach (var v in variants)
             {
-                var match = System.Text.RegularExpressions.Regex.Match(v, @"Humanity(\d+)Cost");
+                var match = HumanityCost().Match(v);
                 if (match.Success)
                 {
                     var cost = match.Groups[1].Value;
@@ -1078,8 +1067,8 @@ public sealed partial class GearCatalog
         return GearQuality.TierLabel(quality, plus, lang);
     }
 
-    private static string? StyleLabel(IReadOnlyList<string> tags, string lang = "zh-cn") =>
-        tags.Count == 0 ? null : string.Join(" / ", tags.Select(t => StyleWord(t, lang)));
+    private static string? StyleLabel(string[] tags, string lang = "zh-cn") =>
+        tags.Length == 0 ? null : string.Join(" / ", tags.Select(t => StyleWord(t, lang)));
 
     /// <summary>
     /// 去掉几个名字共同的开头和结尾，只留不同的部分；切口退到词边界（下划线后、大写字母或数字与字母交界处），
@@ -1285,6 +1274,54 @@ public sealed partial class GearCatalog
 
     [System.Text.RegularExpressions.GeneratedRegex("^(?:(?:q|mq|sq)[0-9]+_|Preset_Q[0-9]+_)", System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
     private static partial System.Text.RegularExpressions.Regex QuestCopyPattern();
+
+    // 效果文本（FormatEffectText）和属性徽章用到的模式：编译期生成，不走 Regex 静态方法的解析缓存（默认只存 15 个）。
+    // 游戏数据里的占位符都是 ASCII，忽略大小写一律按固定区域比较，不随系统区域变化。
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"\s*<Image[^>]*q000_tutorial_icon_boss[^>]*>(?:</>)?\s*", System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex BossIconTag();
+
+    [System.Text.RegularExpressions.GeneratedRegex("<[^>]+>", System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex MarkupTag();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"\{int_(\d+)\s*\}", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex IntPlaceholder();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"\{float_(\d+)\s*\}", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex FloatPlaceholder();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"\{stat_(\d+)\s*\}(%?)", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex StatPlaceholder();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"\{value(?:_(\d+))?\s*\}", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex ValuePlaceholder();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"\{(\d+)\s*\}", System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex IndexPlaceholder();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"(?m)^\s*(?:当前总量|目前總計|目前總量|Current total|Current bonus|Total bonus)[：:][^\r\n]*\r?\n?", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex RunningTotalLine();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"(?:当前总量|目前總計|目前總量|Current total|Current bonus|Total bonus)[：:][^\r\n]*", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex RunningTotalInline();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"\{\s*(?:int|float|value|VALUE|stat)\w*\s*\}", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex LeftoverPlaceholder();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"(?<!\d)[+-]?\s*%", System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex StrayPercent();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"[ \t]{2,}", System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex RepeatedSpaces();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"(?m)^\s+$", System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex BlankLine();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"(\r?\n){3,}", System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex ExtraNewlines();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"Humanity(\d+)Cost", System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
+    private static partial System.Text.RegularExpressions.Regex HumanityCost();
 
     /// <summary>
     /// 存档里是不是 29 字节的堆叠物品（ManualSave-10 实测：玩家背包 332 个堆叠全部符合，背包和储物箱 631 件装备全部不符合）：

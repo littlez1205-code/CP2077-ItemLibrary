@@ -14,7 +14,7 @@ namespace GameTool.Tests;
 /// T022 第三批类别：手雷（结构 3、45 字节前缀）、义体操作系统、手臂义体、快速破解、模组的
 /// 配件树解析、目录分类、生成形态、种子规则和严格校验。
 /// </summary>
-public class ThirdBatchTests : IDisposable
+public sealed class ThirdBatchTests : IDisposable
 {
     private const string Tweaks = """
         package RTDB

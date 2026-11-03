@@ -4,7 +4,7 @@ using GameTool.Tests.Fake;
 
 namespace GameTool.Tests;
 
-public class BackupStoreTests : IDisposable
+public sealed class BackupStoreTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "GameTool-backup-" + Guid.NewGuid().ToString("N"));
     private readonly string _saves;

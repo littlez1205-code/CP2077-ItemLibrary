@@ -5,7 +5,7 @@ using GameTool.Tests.Fake;
 
 namespace GameTool.Tests;
 
-public class BridgeDispatcherTests : IDisposable
+public sealed class BridgeDispatcherTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "GameTool-bridge-" + Guid.NewGuid().ToString("N"));
     private readonly string _backups = Path.Combine(Path.GetTempPath(), "GameTool-bridge-bak-" + Guid.NewGuid().ToString("N"));

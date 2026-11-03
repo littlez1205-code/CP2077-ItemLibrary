@@ -94,7 +94,7 @@ public sealed record GenerateCatalogGroup(
     public IReadOnlyList<string> StatBadges { get; init; } = [];
 
     /// <summary>每条目录项单独成卡（不支持合并的适配器用）。</summary>
-    public static GenerateCatalogGroup Single(GenerateCatalogItem item)
+    public static GenerateCatalogGroup ForItem(GenerateCatalogItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
         return new GenerateCatalogGroup(item.Kind + ":" + item.Target, item.Label, item.Kind, item.Stackable, [item], 0)
@@ -165,7 +165,7 @@ public interface IItemGenerateCapable
     GenerateGroupPage ListGeneratableGroups(string? kind, string? query, int skip, int take, string? ownership = null)
     {
         var page = ListGeneratable(kind, query, skip, take);
-        return new GenerateGroupPage(page.Total, page.Total, page.Items.Select(GenerateCatalogGroup.Single).ToArray());
+        return new GenerateGroupPage(page.Total, page.Total, page.Items.Select(GenerateCatalogGroup.ForItem).ToArray());
     }
 
     /// <summary>

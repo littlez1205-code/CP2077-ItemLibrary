@@ -13,7 +13,7 @@ namespace GameTool.Tests;
 /// <summary>
 /// T023 收尾冲刺：网络接入仓、配方（29 字节堆叠）、同名多品阶合并为一张卡（标签、排序、默认项、按卡片分页）、装备品质色。
 /// </summary>
-public class FinalSprintTests : IDisposable
+public sealed class FinalSprintTests : IDisposable
 {
     private const string Tweaks = """
         package RTDB

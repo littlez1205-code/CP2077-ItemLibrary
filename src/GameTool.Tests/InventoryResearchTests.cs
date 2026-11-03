@@ -6,7 +6,7 @@ using GameTool.Adapters.Cyberpunk2077.Nodes;
 
 namespace GameTool.Tests;
 
-public class InventoryResearchTests : IDisposable
+public sealed class InventoryResearchTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "GameTool-inventory-" + Guid.NewGuid().ToString("N"));
     private readonly Cp2077Adapter _adapter = new();

@@ -6,7 +6,7 @@ using GameTool.Tests.Fake;
 namespace GameTool.Tests;
 
 /// <summary>T030：存档根目录监视的去抖与推送（只用临时目录，不碰真实存档）。</summary>
-public class SaveRootWatcherTests : IDisposable
+public sealed class SaveRootWatcherTests : IDisposable
 {
     private const int Debounce = 300;
 
@@ -26,16 +26,26 @@ public class SaveRootWatcherTests : IDisposable
     [Theory]
     [InlineData("ManualSave-1", false, true)]
     [InlineData("ManualSave-1", true, false)]
+    [InlineData("ManualSave-1/sav.dat", false, true)]
+    [InlineData("ManualSave-1/SAV.DAT", true, true)]
+    [InlineData("ManualSave-1/screenshot.png", true, false)]
+    [InlineData("ManualSave-1/metadata.9.json", false, false)]
+    [InlineData("ManualSave-1/sav.dat~RF1a2b.TMP", false, false)]
+    [InlineData("ManualSave-1/deep/sav.dat", true, false)]
+    [InlineData("", false, false)]
+    [InlineData(null, false, false)]
+    public void IsRelevant_SlotDirectoriesAndSaveFilesOnly(string? relative, bool changed, bool expected) =>
+        Assert.Equal(expected, SaveRootWatcher.IsRelevant(relative, changed));
+
+    /// <summary>Windows 的文件系统事件给的是反斜杠路径。</summary>
+    [WindowsTheory]
     [InlineData(@"ManualSave-1\sav.dat", false, true)]
     [InlineData(@"ManualSave-1\SAV.DAT", true, true)]
-    [InlineData("ManualSave-1/sav.dat", true, true)]
     [InlineData(@"ManualSave-1\screenshot.png", true, false)]
     [InlineData(@"ManualSave-1\metadata.9.json", false, false)]
     [InlineData(@"ManualSave-1\sav.dat~RF1a2b.TMP", false, false)]
     [InlineData(@"ManualSave-1\deep\sav.dat", true, false)]
-    [InlineData("", false, false)]
-    [InlineData(null, false, false)]
-    public void IsRelevant_SlotDirectoriesAndSaveFilesOnly(string? relative, bool changed, bool expected) =>
+    public void IsRelevant_AcceptsWindowsSeparators(string relative, bool changed, bool expected) =>
         Assert.Equal(expected, SaveRootWatcher.IsRelevant(relative, changed));
 
     [Fact]

@@ -8,7 +8,7 @@ using GameTool.App;
 
 namespace GameTool.Tests;
 
-public class ItemGeneratorTests : IDisposable
+public sealed class ItemGeneratorTests : IDisposable
 {
     private static readonly TweakPresetPart[] Ajax =
     [

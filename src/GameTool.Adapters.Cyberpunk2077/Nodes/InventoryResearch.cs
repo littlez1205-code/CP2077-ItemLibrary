@@ -135,7 +135,7 @@ public static class InventoryResearch
         return map;
     }
 
-    private static List<BagView> ReadBags(string saveFilePath, IReadOnlyDictionary<ulong, string> names)
+    private static List<BagView> ReadBags(string saveFilePath, Dictionary<ulong, string> names)
     {
         var container = SaveContainer.Read(saveFilePath);
         var payload = container.Payload;

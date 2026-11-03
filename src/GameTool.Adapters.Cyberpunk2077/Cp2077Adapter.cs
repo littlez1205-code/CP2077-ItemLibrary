@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using GameTool.Adapters.Cyberpunk2077.Container;
 using GameTool.Adapters.Cyberpunk2077.Names;
@@ -196,11 +197,11 @@ public sealed class Cp2077Adapter : IGameAdapter, ISaveSupportProbe, IThemeProvi
         var major = gameVersion / 1000;
         var minor = gameVersion % 1000;
         var minorText = minor % 100 == 0
-            ? (minor / 100).ToString()
+            ? minor / 100
             : minor % 10 == 0
-                ? (minor / 10).ToString()
-                : minor.ToString();
-        return major + "." + minorText;
+                ? minor / 10
+                : minor;
+        return string.Create(CultureInfo.InvariantCulture, $"{major}.{minorText}");
     }
 
     public bool IsComplete(string saveFilePath)

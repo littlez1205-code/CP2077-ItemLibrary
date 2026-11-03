@@ -1,8 +1,10 @@
 using GameTool.Core;
 using System.Buffers.Binary;
+using System.Diagnostics.CodeAnalysis;
 
 namespace GameTool.Adapters.Cyberpunk2077.Nodes;
 
+[SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "背包里的“物品堆叠”是游戏术语，不是 Stack<T> 集合。")]
 public sealed record ItemStack(ulong TweakDbId, long Quantity, int QuantityOffset);
 
 public sealed class InventorySnapshot
