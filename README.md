@@ -43,10 +43,9 @@ dotnet test src/GameTool.slnx -c Release --no-build
 powershell -NoProfile -ExecutionPolicy Bypass -File src\release\package-release.ps1
 ```
 
-### 持续集成与发版
+### 持续集成
 
-- **CI**（`.github/workflows/ci.yml`）：每次推送都在 GitHub 的 Windows 机器上构建整个解决方案（含 WPF 桌面端）并跑全部测试。部分测试依赖 Windows 路径与文件系统行为，只能在 Windows 上完整运行。
-- **发版**（`.github/workflows/release.yml`）：在仓库的 Actions 页面选「Release」→「Run workflow」（可填标题和说明），会构建、测试、用上面的打包脚本打包，并创建 `v<版本>` 的 Release **草稿**（附 zip 和 SHA-256）。在 Releases 页面检查草稿、下载试用后点「Publish release」才会公开；重复运行会替换同一版本的旧草稿，已发布的版本不会被覆盖。
+每次推送都会在 GitHub 的 Windows 机器上构建整个解决方案（含 WPF 桌面端）并跑全部测试（`.github/workflows/ci.yml`）。部分测试依赖 Windows 路径与文件系统行为，只能在 Windows 上完整运行。
 
 ## 目录结构
 
