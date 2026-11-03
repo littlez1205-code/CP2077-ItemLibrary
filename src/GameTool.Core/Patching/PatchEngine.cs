@@ -172,10 +172,14 @@ public static class PatchEngine
         if (File.Exists(temporary))
             File.Delete(temporary);
         DateTime? written = null;
+        long writtenLength;
         try
         {
             using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
                 working.Save(stream);
+                writtenLength = stream.Length;
+            }
 
             var reloaded = adapter.Load(temporary);
             VerifyReloaded(adapter, reloaded, before, ambiguous, results);
@@ -196,7 +200,7 @@ public static class PatchEngine
             throw;
         }
 
-        return new PatchReport(PatchOutcome.Patched, results, backup, clock.ElapsedMilliseconds, written);
+        return new PatchReport(PatchOutcome.Patched, results, backup, clock.ElapsedMilliseconds, written) { WrittenLength = writtenLength };
     }
 
     public static RestoreReport Restore(IGameAdapter adapter, string saveFilePath)
