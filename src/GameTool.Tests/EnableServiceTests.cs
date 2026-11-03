@@ -64,7 +64,11 @@ public class EnableServiceTests : IDisposable
         var seen = Count(events, "inserted");
         Assert.True(seen >= 1);
 
+        // 外部覆盖（如游戏重新存档）恰好和自己的写入落在同一个文件时间刻度里：只看修改时间会把它当成自己写的而漏掉。
+        // 这里把修改时间改回自己写入时的值，确定性地复现这种情况；写入长度不同，仍要识别为外部写入并重新插入。
+        var ownStamp = File.GetLastWriteTimeUtc(save);
         await File.WriteAllTextAsync(save, """{"gold":10}""");
+        File.SetLastWriteTimeUtc(save, ownStamp);
         await WaitAsync(events, "inserted", seen + 1);
         Assert.Contains("3", File.ReadAllText(save));
         Assert.Equal("inserted", service.Status.LastOutcome);

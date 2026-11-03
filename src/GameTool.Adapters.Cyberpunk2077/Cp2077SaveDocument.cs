@@ -269,7 +269,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         }
 
         var windows = QuantityWindows(source, changes.Where(change => source.GetQuantity(change.Id) is not null));
-        VerifyInsertedStructure(before, after, diff, added, addedBytes, windows);
+        VerifyInsertedStructure(before, after, NodesOf(source._container), NodesOf(_container), diff, added, addedBytes, windows);
     }
 
     public void InsertTweak(string tweakName, uint quantity)
@@ -357,7 +357,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
                 throw new InvalidDataException("严格校验失败：新增物品的根种子重复。");
         }
 
-        VerifyInsertedStructure(before, after, diff, added, applied.AddedBytes, []);
+        VerifyInsertedStructure(before, after, NodesOf(source._container), NodesOf(_container), diff, added, applied.AddedBytes, []);
     }
 
     private static readonly Dictionary<string, string> QualityWords = new(StringComparer.Ordinal)
@@ -708,7 +708,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
             }
         }
 
-        VerifyInsertedStructure(before, after, diff, added, applied.AddedBytes, []);
+        VerifyInsertedStructure(before, after, NodesOf(source._container), NodesOf(_container), diff, added, applied.AddedBytes, []);
     }
 
     /// <summary>
@@ -740,17 +740,25 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
 
     /// <summary>
     /// 插入的结构规则（新增节点的内容由调用方各自校验）：inventory 只变长 addedBytes，自身字节只有玩家物品数变化；
-    /// 其余节点只平移编号，windows 内允许改数量；头部只允许 nodeCount、解压长度和块数变化。
+    /// 其余节点只平移编号，windows 内允许改数量；头部只允许 nodeCount、解压长度和块数变化；
+    /// 节点树的形状除了在 inventory 下挂上新增节点外不变（见 <see cref="VerifyTreeShape"/>）。
     /// </summary>
     internal static void VerifyInsertedStructure(
         ResearchImage before,
         ResearchImage after,
+        NodeTable beforeNodes,
+        NodeTable afterNodes,
         ResearchDiffResult diff,
         IReadOnlyList<RegionChange> added,
         long addedBytes,
         IReadOnlyList<(int Start, int End)> windows)
     {
         var count = added.Count;
+        VerifyTreeShape(
+            beforeNodes,
+            afterNodes,
+            added.Select(region => region.RightIndex ?? -1).ToArray(),
+            before.Regions.Single(region => region.Name == "inventory").Index);
         var inventory = diff.Regions.SingleOrDefault(region => region.Kind == "resized" && region.Name == "inventory");
         if (inventory is null || inventory.RightLength - inventory.LeftLength != addedBytes)
             throw new InvalidDataException("严格校验失败：inventory 的长度增量不对。");
@@ -790,6 +798,75 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
 
     private const int HeaderSeed = 8;
     private const int BodySeed = 12;
+
+    private static NodeTable NodesOf(SaveContainer container) => NodeTable.Parse(container.CopyNodeTable());
+
+    /// <summary>
+    /// 节点树的形状（区域比对只比节点内容，看不出子节点被共用、节点挂错父节点这类问题）：
+    /// 跳过新增节点后，其余每个节点的 next / child 指针都必须指向原存档里对应的节点（只平移编号）；
+    /// 新增节点必须是 itemData、不带子节点，并且都挂在 inventory 的子节点链上。
+    /// </summary>
+    internal static void VerifyTreeShape(NodeTable before, NodeTable after, IReadOnlyList<int> inserted, int inventoryIndex)
+    {
+        var added = inserted.ToHashSet();
+        if (added.Count != inserted.Count || added.Any(index => index < 0 || index >= after.Count))
+            throw new InvalidDataException("严格校验失败：新增节点的编号不对。");
+        if (after.Count != before.Count + added.Count)
+            throw new InvalidDataException("严格校验失败：节点个数的增量与新增节点数不一致。");
+
+        // 原存档的第 i 个节点在新存档里的编号：按顺序跳过新增节点。
+        var toAfter = new int[before.Count];
+        var cursor = 0;
+        for (var index = 0; index < after.Count; index++)
+        {
+            if (!added.Contains(index))
+                toAfter[cursor++] = index;
+        }
+
+        int Map(int pointer) => pointer < 0 ? pointer : pointer < before.Count ? toAfter[pointer] : pointer + added.Count;
+
+        int SkipAdded(int pointer)
+        {
+            for (var guard = 0; pointer >= 0 && pointer < after.Count && added.Contains(pointer); guard++)
+            {
+                if (guard > added.Count)
+                    throw new InvalidDataException("严格校验失败：新增节点的链表成环。");
+                pointer = after[pointer].Next;
+            }
+
+            return pointer;
+        }
+
+        for (var i = 0; i < before.Count; i++)
+        {
+            var left = before[i];
+            var right = after[toAfter[i]];
+            if (right.Name != left.Name)
+                throw new InvalidDataException($"严格校验失败：节点 {i} 的名字变了。");
+            if (SkipAdded(right.Next) != Map(left.Next) || SkipAdded(right.Child) != Map(left.Child))
+                throw new InvalidDataException($"严格校验失败：节点 {left.Name}（{i}）在节点树里的位置变了。");
+        }
+
+        foreach (var index in added)
+        {
+            var node = after[index];
+            if (node.Name != "itemData" || node.Child >= 0)
+                throw new InvalidDataException("严格校验失败：新增节点不是不带子节点的 itemData。");
+        }
+
+        var onChain = 0;
+        var steps = 0;
+        for (var pointer = after[toAfter[inventoryIndex]].Child; pointer >= 0 && pointer < after.Count; pointer = after[pointer].Next)
+        {
+            if (++steps > after.Count)
+                throw new InvalidDataException("严格校验失败：inventory 的子节点链成环。");
+            if (added.Contains(pointer))
+                onChain++;
+        }
+
+        if (onChain != added.Count)
+            throw new InvalidDataException("严格校验失败：新增节点没有全部挂在 inventory 下。");
+    }
 
     /// <summary>
     /// inventory 变长时 diff 只报 resized，不比对它自己的字节（子背包 ID、计数、每件物品的 16 字节头）。

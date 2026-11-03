@@ -164,7 +164,7 @@ public static class GenerateService
 
         // 桌面端按 D006 不在存档目录生成 .bak；备份走备份区。
         var report = PatchEngine.Generate(adapter, saveFilePath, request, new PatchOptions(null));
-        enable.AcceptOwnWrite(saveFilePath, report.Patch.WrittenLastWriteTimeUtc);
+        enable.AcceptOwnWrite(saveFilePath, report.Patch.WrittenLastWriteTimeUtc, report.Patch.WrittenLength);
         return report;
     }
 

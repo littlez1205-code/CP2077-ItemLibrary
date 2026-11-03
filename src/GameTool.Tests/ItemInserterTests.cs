@@ -393,6 +393,53 @@ public class ItemInserterTests : IDisposable
         Assert.Contains("inventory 自身字节", Assert.Throws<InvalidDataException>(() => header.VerifyOnlyCloned(Open(path), headerResult)).Message);
     }
 
+    [Fact]
+    public void StrictVerification_RejectsNodeTreeChangesTheByteDiffCannotSee()
+    {
+        // 区域比对只比较节点内容：子节点被共用、节点挂到别处这类节点树的改动，要靠节点树形状校验拦下。
+        var path = WriteSave(Sample(), "tree");
+        var original = Open(path);
+
+        Cp2077SaveDocument Insert(Func<SaveNode[], SaveNode[]>? tamper = null)
+        {
+            var container = SaveContainer.Read(path);
+            ItemInserter.InsertStack(container, "Items.RareMaterial1", 5);
+            if (tamper is not null)
+            {
+                var nodes = NodeTable.Parse(container.CopyNodeTable());
+                container.ReplaceNodeTable(NodeTable.Write(tamper(Enumerable.Range(0, nodes.Count).Select(i => nodes[i]).ToArray())));
+            }
+
+            return Cp2077SaveDocument.Open(SaveContainer.Read(WriteContainer(container, "tree-" + Guid.NewGuid().ToString("N"))), _adapter.Resources);
+        }
+
+        // 没改动的插入照常通过。
+        Insert().VerifyNamedInsertion(original, "Items.RareMaterial1", 5);
+
+        // 新物品（节点 2）把原有的节点 3 当成自己的子节点：节点 3 同时属于 inventory 和新物品。
+        var shared = Assert.Throws<InvalidDataException>(() =>
+            Insert(nodes => { nodes[2] = nodes[2] with { Child = 3 }; return nodes; }).VerifyNamedInsertion(original, "Items.RareMaterial1", 5));
+        Assert.Contains("新增节点", shared.Message);
+
+        // 原有的节点 3 把新物品挂到自己下面。
+        var moved = Assert.Throws<InvalidDataException>(() =>
+            Insert(nodes => { nodes[3] = nodes[3] with { Child = 2 }; return nodes; }).VerifyNamedInsertion(original, "Items.RareMaterial1", 5));
+        Assert.Contains("节点树", moved.Message);
+    }
+
+    [Fact]
+    public void InsertStack_NeverUsesAStackWithChildNodesAsTemplate()
+    {
+        // 新物品的子节点指针照抄模板：带子节点的堆叠不能当模板，否则两件物品会共用同一组子节点。
+        var (payload, nodes) = Sample();
+        var table = NodeTable.Parse(nodes);
+        var rewritten = Enumerable.Range(0, table.Count).Select(i => table[i]).ToArray();
+        rewritten[1] = rewritten[1] with { Child = 2 };
+        var container = SaveContainer.Read(WriteSave((payload, NodeTable.Write(rewritten)), "child-template"));
+        var error = Assert.Throws<InvalidDataException>(() => ItemInserter.InsertStack(container, "Items.RareMaterial1", 5));
+        Assert.Contains("模板", error.Message);
+    }
+
     private Cp2077SaveDocument Open(string path) =>
         Cp2077SaveDocument.Open(SaveContainer.Read(path), _adapter.Resources);
 

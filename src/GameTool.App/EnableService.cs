@@ -87,7 +87,7 @@ public sealed class EnableService : IAsyncDisposable
         }
 
         StartWatch();
-        NoteOwnWrite(saveFilePath, report.WrittenLastWriteTimeUtc);
+        NoteOwnWrite(saveFilePath, report.WrittenLastWriteTimeUtc, report.WrittenLength);
         _onEvent(new EnableNotice("enabled", saveFilePath, backupId, report.ElapsedMilliseconds));
         Publish(report, saveFilePath);
         try
@@ -129,27 +129,28 @@ public sealed class EnableService : IAsyncDisposable
         }
 
         RestartWatch();
-        NoteOwnWrite(slot, report.WrittenLastWriteTimeUtc);
+        NoteOwnWrite(slot, report.WrittenLastWriteTimeUtc, report.WrittenLength);
         Publish(report, slot);
         CatchUp(slot);
     }
 
-    public void AcceptOwnWrite(string slot, DateTime? written)
+    /// <summary>别的功能（物品库、复制等）写了正在使能的存档：记为自己写的，并立即补上使能的改动。</summary>
+    public void AcceptOwnWrite(string slot, DateTime? written, long? length = null)
     {
         if (!IsEnabled(slot))
             return;
-        NoteOwnWrite(slot, written);
+        NoteOwnWrite(slot, written, length);
         CatchUp(slot);
     }
 
-    private void NoteOwnWrite(string slot, DateTime? written)
+    private void NoteOwnWrite(string slot, DateTime? written, long? length)
     {
         if (written is not DateTime value)
             return;
         WatchService? watch;
         lock (_gate)
             watch = _watch;
-        watch?.NoteOwnWrite(slot, value);
+        watch?.NoteOwnWrite(slot, value, length);
     }
 
     private void CatchUp(string slot)
@@ -167,7 +168,7 @@ public sealed class EnableService : IAsyncDisposable
         try
         {
             var report = PatchEngine.Patch(adapter, slot, changes, NoBackup);
-            NoteOwnWrite(slot, report.WrittenLastWriteTimeUtc);
+            NoteOwnWrite(slot, report.WrittenLastWriteTimeUtc, report.WrittenLength);
             lock (_gate)
                 Remember(report);
             if (report.Outcome == PatchOutcome.Patched)

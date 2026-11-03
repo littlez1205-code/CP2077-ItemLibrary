@@ -99,8 +99,9 @@ public sealed class SkinStore
             var image = FindImage(DirectoryFor(gameId));
             if (image is null)
                 return null;
-            var format = Detect(File.ReadAllBytes(image), Path.GetFileName(image));
-            return new SkinImage(File.ReadAllBytes(image), format.ContentType);
+            var bytes = File.ReadAllBytes(image);
+            var format = Detect(bytes, Path.GetFileName(image));
+            return new SkinImage(bytes, format.ContentType);
         }
         catch (Exception ex) when (ex is SkinRejectedException or KeyNotFoundException)
         {
