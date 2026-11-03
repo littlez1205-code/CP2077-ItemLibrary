@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Text;
+using GameTool.Adapters.Cyberpunk2077;
 using GameTool.Adapters.Cyberpunk2077.Archives;
 using GameTool.Adapters.Cyberpunk2077.Icons;
 using GameTool.Adapters.Cyberpunk2077.Localization;
@@ -130,7 +131,7 @@ public sealed class IconPipelineTests : IDisposable
         Assert.Equal(new byte[] { 8, 6, 0, 0, 0 }, ihdr[8..13]);
         // IEND 的 CRC 是 PNG 规范里的固定值。
         Assert.Equal(0xAE426082u, chunks[2].Crc);
-        Assert.Equal(PngEncoder.Crc32.Compute(Encoding.ASCII.GetBytes("IEND")), chunks[2].Crc);
+        Assert.Equal(Crc32.Compute(Encoding.ASCII.GetBytes("IEND")), chunks[2].Crc);
         Assert.Equal(pixels, DecodePng(png, width, height));
     }
 
@@ -277,7 +278,7 @@ public sealed class IconPipelineTests : IDisposable
             var type = Encoding.ASCII.GetString(png, at + 4, 4);
             var data = png[(at + 8)..(at + 8 + length)];
             var crc = BinaryPrimitives.ReadUInt32BigEndian(png.AsSpan(at + 8 + length));
-            Assert.Equal(PngEncoder.Crc32.Compute(png.AsSpan(at + 4, 4 + length)), crc);
+            Assert.Equal(Crc32.Compute(png.AsSpan(at + 4, 4 + length)), crc);
             chunks.Add((type, data, crc));
             at += 12 + length;
         }

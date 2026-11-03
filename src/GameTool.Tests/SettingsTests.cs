@@ -7,7 +7,7 @@ using GameTool.Core;
 namespace GameTool.Tests;
 
 /// <summary>D020：手动设置存档目录和游戏目录（设置文件、校验、桥接方法）。全部在临时目录里进行。</summary>
-public class SettingsTests : IDisposable
+public sealed class SettingsTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "GameTool-settings-" + Guid.NewGuid().ToString("N"));
 

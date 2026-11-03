@@ -4,6 +4,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- .NET 推荐规则集（正确性、可靠性、区域格式、互操作等），与上面一起视为错误。 -->
+    <AnalysisLevel>10.0-recommended</AnalysisLevel>
     <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1900</WarningsNotAsErrors>
     <Deterministic>true</Deterministic>
     <Version>1.0.7</Version>

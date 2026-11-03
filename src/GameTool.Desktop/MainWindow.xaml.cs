@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using System.Text.Json;
@@ -22,9 +23,14 @@ public sealed record MainWindowOptions(
     bool FullSelfTest,
     string Show);
 
+[SuppressMessage("Design", "CA1001:Types that own disposable fields should be disposable", Justification = "WPF 窗口没有 Dispose；桥接在 OnClosed 里释放。")]
 public partial class MainWindow : Window
 {
     private const string Origin = "https://gametool.local/";
+
+    /// <summary>关窗后最多等这么久，让桥接停干净；超时就不再等。</summary>
+    private static readonly TimeSpan BridgeShutdownGrace = TimeSpan.FromSeconds(10);
+
     private readonly string _saveRoot;
     private readonly string _backupRoot;
     private readonly string _skinRoot;
@@ -670,10 +676,14 @@ public partial class MainWindow : Window
         Application.Current.Shutdown(code);
     }
 
-    protected override async void OnClosed(EventArgs e)
+    protected override void OnClosed(EventArgs e)
     {
-        if (_bridge is not null)
-            await _bridge.DisposeAsync();
+        // 窗口已经关掉：同步等桥接释放完再让进程退出，使能正在改写存档时不会被退出打断。
+        // 释放放到线程池上做，异步步骤的后续不会排回这里占着的界面线程，不会互相等死。
+        var bridge = _bridge;
+        _bridge = null;
+        if (bridge is not null)
+            Task.Run(() => bridge.DisposeAsync().AsTask()).Wait(BridgeShutdownGrace);
         base.OnClosed(e);
     }
 }

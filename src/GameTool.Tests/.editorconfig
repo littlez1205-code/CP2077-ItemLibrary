@@ -1,0 +1,8 @@
+# 测试项目的分析器例外，只作用于本目录；生产代码仍按 Directory.Build.props 里的推荐规则检查。
+[*.cs]
+# 测试方法名按 xUnit 惯例用下划线分段：方法_场景_预期。
+dotnet_diagnostic.CA1707.severity = none
+# 测试数据直接写成数组字面量更好读；每个用例只跑一次，提成静态字段没有收益。
+dotnet_diagnostic.CA1861.severity = none
+# 测试里的构造辅助类保留实例方法的链式写法（如 cr2w.Struct(...)）。
+dotnet_diagnostic.CA1822.severity = none

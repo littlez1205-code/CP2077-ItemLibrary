@@ -4,7 +4,7 @@ using GameTool.Core;
 
 namespace GameTool.Tests;
 
-public class SkinStoreTests : IDisposable
+public sealed class SkinStoreTests : IDisposable
 {
     private static readonly byte[] Png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
     private static readonly byte[] Jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10];

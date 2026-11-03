@@ -118,7 +118,7 @@ internal static class App
                 Console.WriteLine($"{field.Name}: {field.Value}");
             foreach (var resource in resources)
             {
-                var quantity = resource.Quantity?.ToString() ?? "null";
+                var quantity = Number(resource.Quantity, "null");
                 Console.WriteLine($"{resource.Id}: quantity={quantity} stacks={resource.Stacks.Count} ambiguous={resource.Ambiguous}");
             }
         }
@@ -477,7 +477,7 @@ internal static class App
         foreach (var result in report.Results)
         {
             Console.WriteLine(
-                $"{result.Id.Value}: {result.PreviousQuantity?.ToString() ?? "null"} -> {result.AppliedQuantity?.ToString() ?? "null"} {result.Outcome}");
+                $"{result.Id.Value}: {Number(result.PreviousQuantity, "null")} -> {Number(result.AppliedQuantity, "null")} {result.Outcome}");
         }
     }
 
@@ -1705,9 +1705,12 @@ internal static class App
                 "removed" => "-",
                 _ => "~"
             };
-            Console.WriteLine($"{mark} #{change.LeftOrdinal?.ToString() ?? "—"} -> #{change.RightOrdinal?.ToString() ?? "—"} node {change.LeftNode?.ToString() ?? "—"} -> {change.RightNode?.ToString() ?? "—"} header={change.HeaderHex} tdb={change.TweakDbId} name={change.Name ?? "—"} length {change.LeftLength?.ToString() ?? "—"} -> {change.RightLength?.ToString() ?? "—"}");
+            Console.WriteLine($"{mark} #{Number(change.LeftOrdinal, "—")} -> #{Number(change.RightOrdinal, "—")} node {Number(change.LeftNode, "—")} -> {Number(change.RightNode, "—")} header={change.HeaderHex} tdb={change.TweakDbId} name={change.Name ?? "—"} length {Number(change.LeftLength, "—")} -> {Number(change.RightLength, "—")}");
         }
     }
+
+    private static string Number(long? value, string missing) =>
+        value?.ToString(CultureInfo.InvariantCulture) ?? missing;
 
     private static void WriteDiff(ResearchDiffResult diff)
     {

@@ -91,6 +91,18 @@ public sealed class SaveWatcher : IAsyncDisposable
         _watcher.EnableRaisingEvents = false;
         _watcher.Dispose();
         await _stop.CancelAsync();
+        lock (_gate)
+        {
+            // 还在防抖等待的变化不再处理：取消等待并释放各自的取消源。
+            foreach (var pending in _pending.Values)
+            {
+                pending.Cancel.Cancel();
+                pending.Cancel.Dispose();
+            }
+
+            _pending.Clear();
+        }
+
         _channel.Writer.TryComplete();
         if (_worker is not null)
         {

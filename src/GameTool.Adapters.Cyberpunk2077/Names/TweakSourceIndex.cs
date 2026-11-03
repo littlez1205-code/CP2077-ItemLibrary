@@ -717,7 +717,7 @@ public sealed partial class TweakSourceIndex
         return null;
     }
 
-    private static IEnumerable<RawRecord> ReadFile(string text, bool fromExpansion, bool gateExpansionFields)
+    private static List<RawRecord> ReadFile(string text, bool fromExpansion, bool gateExpansionFields)
     {
         string? package = null;
         var usings = Array.Empty<string>();
