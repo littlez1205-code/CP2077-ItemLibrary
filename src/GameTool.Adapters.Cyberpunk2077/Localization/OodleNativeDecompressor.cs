@@ -23,9 +23,12 @@ public sealed class OodleNativeDecompressor : IOodleDecompressor
 
         var module = LoadLibrary(dllPath);
         if (module == 0)
-            throw new InvalidDataException(UiText.T($"无法加载 Oodle 组件（Win32 {Marshal.GetLastWin32Error()}）：{dllPath}", $"無法載入 Oodle 元件（Win32 {Marshal.GetLastWin32Error()}）：{dllPath}", $"Cannot load the Oodle library (Win32 {Marshal.GetLastWin32Error()}): {dllPath}"));
-        var address = GetProcAddress(module, "OodleLZ_Decompress");
-        if (address == 0)
+        {
+            var error = Marshal.GetLastPInvokeError();
+            throw new InvalidDataException(UiText.T($"无法加载 Oodle 组件（Win32 {error}）：{dllPath}", $"無法載入 Oodle 元件（Win32 {error}）：{dllPath}", $"Cannot load the Oodle library (Win32 {error}): {dllPath}"));
+        }
+
+        if (!NativeLibrary.TryGetExport(module, "OodleLZ_Decompress", out var address))
             throw new InvalidDataException(UiText.T($"Oodle 组件里没有 OodleLZ_Decompress：{dllPath}", $"Oodle 元件裡沒有 OodleLZ_Decompress：{dllPath}", $"The Oodle library has no OodleLZ_Decompress: {dllPath}"));
         return new OodleNativeDecompressor(Marshal.GetDelegateForFunctionPointer<DecompressFn>(address));
     }
@@ -44,11 +47,10 @@ public sealed class OodleNativeDecompressor : IOodleDecompressor
         return destination[..uncompressedSize];
     }
 
+    // kernel32 只从 System32 加载；Oodle 组件本身按完整路径从游戏目录加载。
     [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Unicode)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     private static extern nint LoadLibrary(string path);
-
-    [DllImport("kernel32", CharSet = CharSet.Ansi)]
-    private static extern nint GetProcAddress(nint module, string name);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate int DecompressFn(

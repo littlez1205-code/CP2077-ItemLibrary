@@ -15,6 +15,13 @@ public static class Cp2077Paths
     public const string ExpansionArchiveRelative = @"archive\pc\ep1";
     public const string ExpansionTweakDbRelative = @"r6\cache\tweakdb_ep1.bin";
 
+    /// <summary>
+    /// 游戏目录下的文件或文件夹。上面的相对路径按 Windows 写法给出（提示里原样显示），
+    /// 拼实际路径时换成本机分隔符；在 Windows 上与直接拼接完全相同。
+    /// </summary>
+    public static string Under(string root, string relative) =>
+        Path.Combine(root, relative.Replace('\\', Path.DirectorySeparatorChar));
+
     /// <summary>PathCheck.Expansions 里往日之影的键。</summary>
     public const string PhantomLibertyKey = "phantomLiberty";
 
@@ -141,7 +148,7 @@ public static class Cp2077Paths
                     $"沒有找到 {ExeRelative}。請選擇遊戲的安裝目錄（{GameDirectoryHint}）。",
                     $"{ExeRelative} was not found. Choose the game's install folder ({GameDirectoryHint})."));
             }
-            if (!Directory.Exists(Path.Combine(root, ContentRelative)))
+            if (!Directory.Exists(Under(root, ContentRelative)))
                 return new PathCheck(false, null, UiText.T(
                     $"游戏文件不完整：缺少 {ContentRelative}。请确认选的是完整的游戏安装目录。",
                     $"遊戲檔案不完整：缺少 {ContentRelative}。請確認選的是完整的遊戲安裝目錄。",
@@ -150,7 +157,7 @@ public static class Cp2077Paths
             var message = string.Equals(root, full, StringComparison.OrdinalIgnoreCase)
                 ? UiText.T("游戏目录可用。", "遊戲目錄可用。", "The game folder is usable.")
                 : UiText.T("已改用游戏根目录：", "已改用遊戲根目錄：", "Using the game's root folder instead: ") + root;
-            var tweaksDir = Path.Combine(root, TweaksRelative);
+            var tweaksDir = Under(root, TweaksRelative);
             string? warning = null;
             if (!Directory.Exists(tweaksDir))
             {
@@ -182,9 +189,9 @@ public static class Cp2077Paths
         ArgumentException.ThrowIfNullOrWhiteSpace(gameRoot);
         try
         {
-            if (!File.Exists(Path.Combine(gameRoot, ExpansionTweakDbRelative)))
+            if (!File.Exists(Under(gameRoot, ExpansionTweakDbRelative)))
                 return false;
-            var archives = Path.Combine(gameRoot, ExpansionArchiveRelative);
+            var archives = Under(gameRoot, ExpansionArchiveRelative);
             if (!Directory.Exists(archives))
                 return false;
             return Directory.EnumerateFiles(archives, "*.archive").Any(path =>
@@ -207,7 +214,7 @@ public static class Cp2077Paths
         var current = full;
         for (var level = 0; level <= MaxWalkUp && current is not null; level++)
         {
-            if (File.Exists(Path.Combine(current, ExeRelative)))
+            if (File.Exists(Under(current, ExeRelative)))
                 return current;
             current = Path.GetDirectoryName(current);
         }
@@ -229,7 +236,7 @@ public static class Cp2077Paths
         foreach (var rel in relativeCandidates)
         {
             var candidate = Path.Combine(full, rel);
-            if (File.Exists(Path.Combine(candidate, ExeRelative)))
+            if (File.Exists(Under(candidate, ExeRelative)))
                 return candidate;
         }
 

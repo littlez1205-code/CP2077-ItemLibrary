@@ -9,7 +9,7 @@ using GameTool.Core;
 namespace GameTool.Tests;
 
 /// <summary>面向用户的提示按界面语言给出（简体 / 繁體 / English）。</summary>
-public class UiTextTests : IDisposable
+public sealed class UiTextTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "GameTool-uitext-" + Guid.NewGuid().ToString("N"));
 

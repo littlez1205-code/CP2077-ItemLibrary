@@ -5,8 +5,8 @@ using GameTool.Tests.Fake;
 
 namespace GameTool.Tests;
 
-/// <summary>D021：界面上不显示含 Windows 用户名的路径。</summary>
-public class PathDisplayTests : IDisposable
+/// <summary>D021：界面上不显示含 Windows 用户名的路径。用例都按 Windows 路径写，只在 Windows 上运行。</summary>
+public sealed class PathDisplayTests : IDisposable
 {
     private const string Profile = @"C:\Users\littl";
     private const string Local = @"C:\Users\littl\AppData\Local";
@@ -24,7 +24,7 @@ public class PathDisplayTests : IDisposable
 
     // ---------- 缩写规则 ----------
 
-    [Theory]
+    [WindowsTheory]
     [InlineData(@"C:\Users\littl\Saved Games\CD Projekt Red\Cyberpunk 2077", @"%USERPROFILE%\Saved Games\CD Projekt Red\Cyberpunk 2077")]
     [InlineData(@"C:\Users\littl", "%USERPROFILE%")]
     [InlineData(@"C:\Users\littl\", @"%USERPROFILE%\")]
@@ -36,7 +36,7 @@ public class PathDisplayTests : IDisposable
         Assert.Equal(expected, Display.Mask(path));
     }
 
-    [Theory]
+    [WindowsTheory]
     [InlineData(@"c:\users\LITTL\saved games", @"%USERPROFILE%\saved games")]
     [InlineData(@"C:\USERS\Littl\APPDATA\local\GameTool", @"%LOCALAPPDATA%\GameTool")]
     [InlineData("C:/Users/littl/Saved Games", "%USERPROFILE%/Saved Games")]
@@ -45,7 +45,7 @@ public class PathDisplayTests : IDisposable
         Assert.Equal(expected, Display.Mask(path));
     }
 
-    [Theory]
+    [WindowsTheory]
     [InlineData(@"D:\Games\Cyberpunk 2077")]
     [InlineData(@"E:\Users\littl\Saved Games")]
     [InlineData(@"C:\Users\littlefoot\Saved Games")]
@@ -66,7 +66,7 @@ public class PathDisplayTests : IDisposable
             Assert.Same(text, shown);
     }
 
-    [Fact]
+    [WindowsFact]
     public void Mask_ReplacesEveryOccurrenceInsideMessages()
     {
         Assert.Equal("目录不存在：%USERPROFILE%\\nope", Display.Mask("目录不存在：C:\\Users\\littl\\nope"));
@@ -79,7 +79,7 @@ public class PathDisplayTests : IDisposable
         Assert.Equal(@"xC:\Users\littl\x", Display.Mask(@"xC:\Users\littl\x"));
     }
 
-    [Fact]
+    [WindowsFact]
     public void Mask_SkipsMissingOrDriveRootDirectories()
     {
         var none = new PathDisplay(null, "  ");
@@ -90,7 +90,7 @@ public class PathDisplayTests : IDisposable
         Assert.Equal(@"%USERPROFILE%\x", trailing.Mask(@"C:\Users\littl\x"));
     }
 
-    [Theory]
+    [WindowsTheory]
     [InlineData(@"%USERPROFILE%\Saved Games", @"C:\Users\littl\Saved Games")]
     [InlineData(@"%userprofile%\Saved Games", @"C:\Users\littl\Saved Games")]
     [InlineData("%USERPROFILE%", @"C:\Users\littl")]
@@ -105,7 +105,7 @@ public class PathDisplayTests : IDisposable
         Assert.Equal(expected, Display.Expand(shown));
     }
 
-    [Fact]
+    [WindowsFact]
     public void Expand_RoundTripsMaskedPaths()
     {
         foreach (var path in new[] { @"C:\Users\littl\Saved Games\CD Projekt Red\Cyberpunk 2077", @"C:\Users\littl\AppData\Local\Temp\x\sav.dat", @"F:\SteamLibrary" })
@@ -114,7 +114,7 @@ public class PathDisplayTests : IDisposable
 
     // ---------- 桥接：页面拿到的应答里不出现用户目录 ----------
 
-    [Fact]
+    [WindowsFact]
     public async Task Bridge_NeverSendsTheProfilePath_ToThePage()
     {
         // 假的用户目录：存档、设置文件、备份都放在里面，用名字 SecretUser 检查是否泄露。

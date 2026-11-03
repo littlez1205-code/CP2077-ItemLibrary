@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 
 namespace GameTool.Core;
 
@@ -295,8 +296,11 @@ public static class PatchEngine
             if (actual != expected)
             {
                 throw new PatchRejectedException(
-                    UiText.T($"回读校验失败：{resource.Id.Value} 期望 {expected?.ToString() ?? "未持有"}，实际 {actual?.ToString() ?? "未持有"}。", $"回讀校驗失敗：{resource.Id.Value} 期望 {expected?.ToString() ?? "未持有"}，實際 {actual?.ToString() ?? "未持有"}。", $"Read-back check failed: {resource.Id.Value} expected {expected?.ToString() ?? "not held"}, got {actual?.ToString() ?? "not held"}."));
+                    UiText.T($"回读校验失败：{resource.Id.Value} 期望 {QuantityText(expected, "未持有")}，实际 {QuantityText(actual, "未持有")}。", $"回讀校驗失敗：{resource.Id.Value} 期望 {QuantityText(expected, "未持有")}，實際 {QuantityText(actual, "未持有")}。", $"Read-back check failed: {resource.Id.Value} expected {QuantityText(expected, "not held")}, got {QuantityText(actual, "not held")}."));
             }
         }
     }
+
+    private static string QuantityText(long? quantity, string missing) =>
+        quantity?.ToString(CultureInfo.InvariantCulture) ?? missing;
 }

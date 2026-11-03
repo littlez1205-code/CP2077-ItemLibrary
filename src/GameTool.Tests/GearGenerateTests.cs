@@ -14,7 +14,7 @@ using GameTool.Tests.Fake;
 namespace GameTool.Tests;
 
 /// <summary>C2b 正式功能：可生成目录、模板选择、生成与严格校验、PatchEngine / App / Bridge 接入。</summary>
-public class GearGenerateTests : IDisposable
+public sealed class GearGenerateTests : IDisposable
 {
     private const string Tweaks = """
         package RTDB

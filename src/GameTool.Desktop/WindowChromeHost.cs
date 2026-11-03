@@ -3,6 +3,9 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 
+// 本程序集的系统 DLL（user32、dwmapi）只从 System32 加载，不会被放在程序目录里的同名 DLL 顶替。
+[assembly: DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+
 namespace GameTool.Desktop;
 
 /// <summary>

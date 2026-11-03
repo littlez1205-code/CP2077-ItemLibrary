@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
 using GameTool.Core;
@@ -45,7 +46,7 @@ public sealed class BackupStore
         }
 
         var slotName = slot.SlotName;
-        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
         var destination = Path.Combine(Root, adapter.GameId, slotName, stamp);
         var suffix = 2;
         while (Directory.Exists(destination))
@@ -227,7 +228,7 @@ public sealed class BackupStore
         }
     }
 
-    private SaveSlotInfo FindSlot(IGameAdapter adapter, string slotDirectory)
+    private static SaveSlotInfo FindSlot(IGameAdapter adapter, string slotDirectory)
     {
         var full = Path.GetFullPath(slotDirectory);
         var matches = new List<SaveSlotInfo>();

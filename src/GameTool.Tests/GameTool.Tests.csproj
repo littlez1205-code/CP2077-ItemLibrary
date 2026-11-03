@@ -7,6 +7,10 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <!-- 界面文字表：FrontendTextTests 检查三种语言的键和说明内容是否一致。 -->
+    <None Include="..\GameTool.Desktop\wwwroot\i18n.js" Link="wwwroot\i18n.js" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\GameTool.Core\GameTool.Core.csproj" />
     <ProjectReference Include="..\GameTool.App\GameTool.App.csproj" />
     <ProjectReference Include="..\GameTool.Adapters.Cyberpunk2077\GameTool.Adapters.Cyberpunk2077.csproj" />

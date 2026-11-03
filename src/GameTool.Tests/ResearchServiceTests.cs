@@ -4,7 +4,7 @@ using GameTool.Tests.Fake;
 
 namespace GameTool.Tests;
 
-public class ResearchServiceTests : IDisposable
+public sealed class ResearchServiceTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "GameTool-research-" + Guid.NewGuid().ToString("N"));
 

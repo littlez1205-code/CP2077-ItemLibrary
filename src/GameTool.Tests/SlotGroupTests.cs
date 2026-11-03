@@ -3,7 +3,7 @@ using GameTool.App;
 
 namespace GameTool.Tests;
 
-public class SlotGroupTests : IDisposable
+public sealed class SlotGroupTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "GameTool-groups-" + Guid.NewGuid().ToString("N"));
 

@@ -9,6 +9,9 @@ public sealed record ItemPart(byte[] ItemId, string Appearance, ulong Slot, IRea
     public ulong Tweak => BinaryPrimitives.ReadUInt64LittleEndian(ItemId);
 
     public uint Seed => BinaryPrimitives.ReadUInt32LittleEndian(ItemId.AsSpan(8));
+
+    /// <summary>第一个子配件；没有子配件时为 null。</summary>
+    public ItemPart? FirstChild => Children.Count > 0 ? Children[0] : null;
 }
 
 public sealed record ItemDataBody(byte[] Prefix, ItemPart Root)

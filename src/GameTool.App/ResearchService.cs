@@ -49,7 +49,6 @@ public sealed record ResearchNeedle(ResearchNeedleKind Kind, string Text);
 public static class ResearchService
 {
     public const int MaxHits = 200;
-    private const int MaxShownBytes = 32;
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 

@@ -9,7 +9,7 @@ using GameTool.Core;
 namespace GameTool.Tests;
 
 /// <summary>物品库（T019）：堆叠物品目录、品质与标签继承、LibraryService 的获得（不做备份）、Bridge library.obtain。</summary>
-public class LibraryTests : IDisposable
+public sealed class LibraryTests : IDisposable
 {
     private const string Tweaks = """
         package RTDB
