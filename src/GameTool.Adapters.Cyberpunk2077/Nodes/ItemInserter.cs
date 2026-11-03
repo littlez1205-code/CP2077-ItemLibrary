@@ -27,6 +27,9 @@ public static class ItemInserter
     private const int BodySeedOffset = 12;
     public const ulong StashBagId = 1_000_000;
 
+    /// <summary>存档里还没有储藏箱记录时，放进储藏箱的说明。</summary>
+    public const string NoStashMessage = "存档中暂无储藏箱记录，请在游戏内先往载具后备箱或公寓储藏处放一件物品并存档。";
+
     public static ItemInsertion InsertStack(SaveContainer container, string tweakName, uint quantity)
     {
         ArgumentNullException.ThrowIfNull(container);
@@ -190,8 +193,8 @@ public static class ItemInserter
         var targetList = toStash ? layout.StashItems : layout.PlayerItems;
         if (toStash)
         {
-            if (layout.StashCountOffset is null || layout.StashItems.Count == 0)
-                throw new InvalidDataException("存档中暂无储藏箱记录，请在游戏内先使用一次载具后备箱或公寓储藏处。");
+            if (!layout.StashUsable)
+                throw new InvalidDataException(NoStashMessage);
         }
         else
         {
@@ -390,6 +393,9 @@ public static class ItemInserter
         public int? StashCountOffset { get; init; }
         public List<PlacedItem> PlayerItems { get; init; } = [];
         public List<PlacedItem> StashItems { get; init; } = [];
+
+        /// <summary>存档里已有储藏箱记录且至少有一件物品，新物品才能接在它后面插入储藏箱。</summary>
+        public bool StashUsable => StashCountOffset is not null && StashItems.Count > 0;
 
         public static Layout Read(SaveContainer container)
         {

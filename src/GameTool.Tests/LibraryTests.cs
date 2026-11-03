@@ -606,7 +606,7 @@ public class LibraryTests : IDisposable
         BatchItemRequest[] items = [new("Items.Jacket_Twin"), new(Food, 2)];
 
         var noStash = Assert.Throws<PatchRejectedException>(() => library.BatchObtain(_adapter, path, items, "stash"));
-        Assert.Contains("储藏箱", noStash.Message);
+        Assert.Contains("储藏室记录", noStash.Message);
         Assert.Throws<PatchRejectedException>(() => library.BatchObtain(_adapter, path, items, "trunk"));
         Assert.Equal(original, File.ReadAllBytes(path));
 

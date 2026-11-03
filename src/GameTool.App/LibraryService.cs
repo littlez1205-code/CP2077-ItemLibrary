@@ -96,7 +96,7 @@ public sealed class LibraryService
             // 不再每件额外读两遍存档（每件真正写入时 ObtainInternal / PatchEngine 仍会各自读取最新存档）。
             if (adapter.Load(saveFilePath) is not IItemGenerateCapable document)
                 throw new PatchRejectedException("这个存档不能获得物品。");
-            var stashAvailable = document.StashItemCount > 0;
+            var stashAvailable = document.StashAvailable;
             var planned = items
                 .Select(request => (Request: request, Item: string.IsNullOrWhiteSpace(request.Target) ? null : document.FindGeneratable(request.Target)))
                 .ToArray();
@@ -104,7 +104,7 @@ public sealed class LibraryService
                 && !stashAvailable
                 && planned.Any(plan => plan.Request.ToStash is null && plan.Item?.CanStash == true))
             {
-                throw new PatchRejectedException(NoStashMessage + "也可以改选「智能推荐」或「全部放入背包」。");
+                throw new PatchRejectedException(NoStashMessage);
             }
 
             var results = new List<BatchItemResult>(planned.Length);
@@ -137,7 +137,7 @@ public sealed class LibraryService
         }
     }
 
-    private const string NoStashMessage = "存档中暂无储藏箱记录，请在游戏内先使用一次载具后备箱或公寓储藏处。";
+    private const string NoStashMessage = "存档中暂无储藏室记录，不能全部放入储藏室；请在游戏内先往载具后备箱或公寓储藏处放一件物品并存档，或改为放入背包。";
 
     private enum BatchDestination
     {

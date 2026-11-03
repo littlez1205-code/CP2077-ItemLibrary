@@ -144,6 +144,12 @@ public interface IItemGenerateCapable
 
     int StashItemCount => 0;
 
+    /// <summary>
+    /// 现在能不能把装备直接放进储藏箱（存档里已有储藏箱记录）。适配器应当用与生成时相同的规则实现；
+    /// 默认按储藏箱里有没有物品判断。
+    /// </summary>
+    bool StashAvailable => StashItemCount > 0;
+
     bool GenerateAvailable { get; }
 
     string? GenerateMessage { get; }

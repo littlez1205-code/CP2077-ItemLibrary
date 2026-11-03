@@ -21,6 +21,12 @@ public static class GearKinds
 
     public static bool IsStackable(string kind) => kind is Consumable or Ammo or Material or Recipe or Currency;
 
+    /// <summary>
+    /// 能不能直接放进储藏箱：储藏箱只接受装备。堆叠物品走改数量路径；手雷的 ItemID 按种类固定、
+    /// 背包里同种只有一份（见 ItemGenerator），也只能放背包。生成逻辑和目录的 CanStash 都按这一条判断。
+    /// </summary>
+    public static bool CanStash(string kind) => !IsStackable(kind) && kind != Grenade;
+
     /// <summary>分类的显示名（界面分类标签、搜索词、配方的类型说明共用，支持 zh-cn / zh-tw / en-us）。</summary>
     public static string Label(string kind, string? lang = null) => NormalizeLang(lang) switch
     {
