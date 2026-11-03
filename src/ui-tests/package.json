@@ -1,0 +1,11 @@
+{
+  "name": "gametool-ui-tests",
+  "private": true,
+  "description": "桌面端界面（GameTool.Desktop/wwwroot）的浏览器测试：用模拟宿主驱动真实的 index.html / i18n.js / app.js。",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}
