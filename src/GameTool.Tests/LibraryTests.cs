@@ -8,7 +8,7 @@ using GameTool.Core;
 
 namespace GameTool.Tests;
 
-/// <summary>物品库（T019）：堆叠物品目录、品质与标签继承、LibraryService 的获得（不做备份）、Bridge library.obtain。</summary>
+/// <summary>物品库：堆叠物品目录、品质与标签继承、LibraryService 的获得（不做备份）、Bridge library.obtain。</summary>
 public sealed class LibraryTests : IDisposable
 {
     private const string Tweaks = """
@@ -286,7 +286,7 @@ public sealed class LibraryTests : IDisposable
         await using var enable = new EnableService(backups, _ => { });
         var library = new LibraryService(backups, enable);
         var count = ((Cp2077SaveDocument)_adapter.Load(path)).PlayerItemCount;
-        // 手动备份一份（加入备份区），之后的获得不再产生任何备份（D019）。
+        // 手动备份一份（加入备份区），之后的获得不再产生任何备份。
         var manual = backups.Add(_adapter, Path.GetDirectoryName(path)!);
 
         // 已持有：原数量 + 输入值。
@@ -396,7 +396,7 @@ public sealed class LibraryTests : IDisposable
     [Fact]
     public async Task Obtain_RangedWithOnlyClothing_BorrowsTheJacketPrefix()
     {
-        // T030：存档里一把枪都没有，物品库「获得」莱克星顿仍能生成（夹克作前缀来源），通过严格校验，不产生备份。
+        // 存档里一把枪都没有，物品库「获得」莱克星顿仍能生成（夹克作前缀来源），通过严格校验，不产生备份。
         var path = Save("saves", "ManualSave-0");
         var count = ((Cp2077SaveDocument)_adapter.Load(path)).PlayerItemCount;
         var backups = new BackupStore(Path.Combine(_root, "backups"));

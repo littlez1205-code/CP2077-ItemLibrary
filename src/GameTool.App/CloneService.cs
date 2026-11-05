@@ -23,7 +23,7 @@ public static class CloneService
         Require(adapter, saveFilePath);
         if (backupFirst)
             backups.Add(adapter, Path.GetDirectoryName(saveFilePath)!);
-        // 桌面端按 D006 不在存档目录生成 .bak；备份走备份区。
+        // 桌面端不在存档目录生成 .bak；备份走备份区。
         var report = PatchEngine.Clone(adapter, saveFilePath, request, new PatchOptions(null));
         enable.AcceptOwnWrite(saveFilePath, report.Patch.WrittenLastWriteTimeUtc, report.Patch.WrittenLength);
         return report;

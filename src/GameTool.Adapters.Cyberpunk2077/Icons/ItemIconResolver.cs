@@ -17,7 +17,7 @@ public enum IconNameSource
 public sealed record ResolvedIcon(UiIcon Icon, IconNameSource Source);
 
 /// <summary>
-/// 物品记录 → UIIcon（T020 预研第 3 节）。游戏脚本 ResolveItemIconName：iconPath 有效就用 UIIcon.&lt;iconPath&gt;，
+/// 物品记录 → UIIcon。游戏脚本 ResolveItemIconName：iconPath 有效就用 UIIcon.&lt;iconPath&gt;，
 /// 否则用原生 TranslateItemToIconName 生成的名字。原生规则是从 items_icons.tweak 的 4,775 个生成名反推的：
 /// <c>{kind}_{entity}_{appearanceName 或 None}_{每个后缀值加 _}[_{visualTags 用 _ 连接}]</c>。
 /// kind = weapon / clothing / outfit / undefined；entity 武器取 appearanceResourceName，服装取 entityName；
@@ -73,7 +73,7 @@ public sealed class ItemIconResolver
         if (!string.IsNullOrWhiteSpace(iconPath) && _icons.TryGetValue(StripPackage(iconPath), out var direct))
             return new ResolvedIcon(direct, IconNameSource.IconPath);
 
-        // 配方（T023）：自己的 iconPath 没有对应图标时用产物的图标，产物也没有就留给占位图；不按配方自己的实体名生成。
+        // 配方：自己的 iconPath 没有对应图标时用产物的图标，产物也没有就留给占位图；不按配方自己的实体名生成。
         var crafted = _index.FieldOf(recordName, TweakSourceIndex.CraftingResultItem);
         if (!string.IsNullOrEmpty(crafted))
             return crafted != recordName && _index.FieldOf(crafted, TweakSourceIndex.CraftingResultItem) is null or "" ? Resolve(crafted, gender) : null;

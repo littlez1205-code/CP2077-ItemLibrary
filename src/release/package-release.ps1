@@ -1,4 +1,4 @@
-# Build the v1.0 release package (D024): self-contained single-file desktop app,
+# Build the v1.0 release package: self-contained single-file desktop app,
 # user guide (UTF-8 with BOM), zip archive and SHA-256 checksum.
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File src\release\package-release.ps1
@@ -31,7 +31,7 @@ try {
     # "Shi Yong Shuo Ming .txt" (user guide) spelled with code points to keep this file ASCII.
     $guideName = (-join @([char]0x4F7F, [char]0x7528, [char]0x8BF4, [char]0x660E)) + '.txt'
     $guideSource = Join-Path $PSScriptRoot $guideName
-    # Released exe name "Sai Bo Peng Ke 2077 Wu Pin Ku .exe" (D025), also spelled with code points.
+    # Released exe name "Sai Bo Peng Ke 2077 Wu Pin Ku .exe", also spelled with code points.
     $exeName = (-join @([char]0x8D5B, [char]0x535A, [char]0x670B, [char]0x514B)) + '2077' + (-join @([char]0x7269, [char]0x54C1, [char]0x5E93)) + '.exe'
     if (-not (Test-Path -LiteralPath $props)) { Fail ('missing ' + $props) }
     if (-not (Test-Path -LiteralPath $project)) { Fail ('missing ' + $project) }

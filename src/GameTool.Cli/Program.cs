@@ -67,7 +67,7 @@ internal static class App
 
     /// <summary>
     /// CLI 的适配器：名字表、图标用 Steam 探测到的游戏目录（第一次需要时才探测）。
-    /// 桌面端不再自动探测（D020），改由用户设置；SteamGameLocator 只留给 CLI 和桌面自检。
+    /// 桌面端不再自动探测，改由用户设置；SteamGameLocator 只留给 CLI 和桌面自检。
     /// </summary>
     private static Cp2077Adapter CliAdapter()
     {
@@ -76,7 +76,7 @@ internal static class App
     }
 
     /// <summary>
-    /// generate 可以用 --game 指定游戏目录（D023：例如只有本体的游戏目录），按 Cp2077Paths 校验后用于名字表和目录；不给时同其他命令用 Steam 探测。
+    /// generate 可以用 --game 指定游戏目录（例如只有本体的游戏目录），按 Cp2077Paths 校验后用于名字表和目录；不给时同其他命令用 Steam 探测。
     /// </summary>
     private static int GenerateWithGame(string[] args, bool json)
     {
@@ -776,7 +776,7 @@ internal static class App
         return 0;
     }
 
-    /// <summary>D023：没装往日之影时，各分类隐藏的卡片数和条目数。</summary>
+    /// <summary>没装往日之影时，各分类隐藏的卡片数和条目数。</summary>
     private static void WriteHidden(IReadOnlyList<GenerateHiddenKind> hidden, string? notice)
     {
         foreach (var kind in hidden)
@@ -786,7 +786,7 @@ internal static class App
     }
 
     /// <summary>
-    /// generate --target 的堆叠路径（T023，配方等）：走 PatchEngine.Patch 的改数量 / 插入新堆叠和原有严格校验，生成 .bak。
+    /// generate --target 的堆叠路径（配方等）：走 PatchEngine.Patch 的改数量 / 插入新堆叠和原有严格校验，生成 .bak。
     /// 目标不在内置资源表里时追加一条临时资源描述（同桌面端物品库）。
     /// </summary>
     private static int ObtainStack(Cp2077Adapter adapter, string saveFile, Cp2077SaveDocument document, GenerateCatalogItem item, long quantity, bool json)
@@ -1790,7 +1790,7 @@ internal static class App
     private const string GenerateSkipped = "skipped:";
 
     /// <summary>
-    /// 在临时副本上各生成 1 件未拥有的服装、远程武器、近战武器、义体、手雷、手臂义体、快速破解、模组和网络接入仓（T023）：
+    /// 在临时副本上各生成 1 件未拥有的服装、远程武器、近战武器、义体、手雷、手臂义体、快速破解、模组和网络接入仓：
     /// 严格校验由 PatchEngine 完成，这里再核对玩家物品数 +9、资源数量不变；
     /// 再经物品库获得 3 个堆叠物品和 1 份配方（见 StackObtainFlow），并核对按卡片分页的目录（同名合并）与逐条目录的条目数一致。
     /// 没有 tweak 源（未装 REDmod）时按「跳过」计为通过并注明原因。
@@ -1844,7 +1844,7 @@ internal static class App
 
     /// <summary>
     /// 物品库的堆叠路径：经 LibraryService 获得 3 个不在内置资源表里的消耗品（未持有就插入新堆叠，已持有就加数量），
-    /// 再获得 1 份未持有的配方（T023，插入 29 字节堆叠），核对数量、获得没有生成备份（D019）、内置资源数量不变。
+    /// 再获得 1 份未持有的配方（插入 29 字节堆叠），核对数量、获得没有生成备份、内置资源数量不变。
     /// </summary>
     private static string StackObtainFlow(Cp2077Adapter adapter, string tempRoot, string path, (ResourceId Id, long? Quantity)[] quantities)
     {

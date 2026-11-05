@@ -6,7 +6,7 @@ using GameTool.Core;
 
 namespace GameTool.Tests;
 
-/// <summary>D020：手动设置存档目录和游戏目录（设置文件、校验、桥接方法）。全部在临时目录里进行。</summary>
+/// <summary>手动设置存档目录和游戏目录（设置文件、校验、桥接方法）。全部在临时目录里进行。</summary>
 public sealed class SettingsTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "GameTool-settings-" + Guid.NewGuid().ToString("N"));
@@ -63,7 +63,7 @@ public sealed class SettingsTests : IDisposable
         Assert.Equal(new GamePaths(@"C:\Saves", null), new SettingsStore(file).Get("cp2077"));
     }
 
-    // ---------- 「说明」已自动弹出的标记（D022） ----------
+    // ---------- 「说明」已自动弹出的标记 ----------
 
     [Fact]
     public void Store_HelpShown_RoundTrip_KeepsGamePaths()
@@ -394,7 +394,7 @@ public sealed class SettingsTests : IDisposable
         var initial = Data(bridge, "settings.get", "");
         Assert.False(initial.GetProperty("ready").GetBoolean());
         Assert.False(initial.TryGetProperty("saveRoot", out _));
-        // D021：界面上的路径都把用户目录缩写成 %USERPROFILE% / %LOCALAPPDATA%。
+        // 界面上的路径都把用户目录缩写成 %USERPROFILE% / %LOCALAPPDATA%。
         Assert.Equal(Shown(Cp2077Paths.DefaultSaveRoot), initial.GetProperty("saveRootHint").GetString());
         Assert.StartsWith(PathDisplay.UserProfileToken, initial.GetProperty("saveRootHint").GetString());
         Assert.Contains("steamapps", initial.GetProperty("gameDirHint").GetString());

@@ -13,7 +13,7 @@ using GameTool.Core;
 namespace GameTool.Tests;
 
 /// <summary>
-/// T020 图标管线：BC7 块、PNG 编码、CR2W / inkatlas / xbm 解析、流式归档的多段文件，以及端到端的裁切和翻转。
+/// 图标管线：BC7 块、PNG 编码、CR2W / inkatlas / xbm 解析、流式归档的多段文件，以及端到端的裁切和翻转。
 /// 全部是手工合成的数据，不含任何游戏资源。
 /// </summary>
 public sealed class IconPipelineTests : IDisposable

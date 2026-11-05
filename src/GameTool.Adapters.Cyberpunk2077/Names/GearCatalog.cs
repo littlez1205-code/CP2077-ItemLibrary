@@ -94,7 +94,7 @@ public static class GearKinds
     };
 
     /// <summary>
-    /// 不要求同类模板、只借任意可解析装备的前缀生成的类别（T021 起：近战武器、义体；T022：手雷、手臂义体、快速破解、模组）。
+    /// 不要求同类模板、只借任意可解析装备的前缀生成的类别（近战武器、义体、手雷、手臂义体、快速破解、模组）。
     /// 服装和远程武器仍按 C2b 第一批的规则选同类模板。
     /// </summary>
     public static bool UsesPrefixSource(string kind) => kind is Melee or Cyberware or Grenade or ArmCyberware or Quickhack or Mod;
@@ -174,7 +174,7 @@ public static partial class GearQuality
     public static string TierLabel(string quality, int plus, string? lang = null) => Word(quality, lang) + new string('+', Math.Clamp(plus, 0, 2));
 
     /// <summary>
-    /// 记录名末尾的品阶（T023）：<c>…Legendary</c>、<c>…EpicPlus</c>、<c>…_LegendaryPlusPlus</c>，
+    /// 记录名末尾的品阶：<c>…Legendary</c>、<c>…EpicPlus</c>、<c>…_LegendaryPlusPlus</c>，
     /// 也认小写加下划线的写法（<c>w_att_scope_short_07_legendary</c>）。返回 (品质, Plus 档)，没有返回 null。
     /// </summary>
     public static (string Quality, int Plus)? FromNameSuffix(string recordName)
@@ -240,7 +240,7 @@ public sealed record GearEntry(string RecordName, ulong TweakDbId, string Label,
     public string? TypeLabel { get; init; }
 
     /// <summary>
-    /// 快速破解和模组（T022）：物品自己就是根配件，挂点取 placementSlots 第一项（存档实测：背包里的 6 件散装模组全是这样；
+    /// 快速破解和模组：物品自己就是根配件，挂点取 placementSlots 第一项（存档实测：背包里的 6 件散装模组全是这样；
     /// 快速破解装在接入仓里时记的是所在槽位，散装的按第一项）。其他类别为 null。
     /// </summary>
     public string? RootSlot { get; init; }
@@ -284,7 +284,7 @@ public sealed record GearEntry(string RecordName, ulong TweakDbId, string Label,
 }
 
 /// <summary>
-/// 同一分类里中文名相同的记录合并成一张卡（T023）。Variants 按品阶从低到高（款式按标签）排列，DefaultIndex 是默认选中的一条：
+/// 同一分类里中文名相同的记录合并成一张卡。Variants 按品阶从低到高（款式按标签）排列，DefaultIndex 是默认选中的一条：
 /// 品阶分组取最高品阶，款式分组取 Default 款，没有就取第一条。Noun 是「品阶」或「款式」，只有一条时为 null。
 /// </summary>
 public sealed record GearGroup(string Key, string Kind, string Label, IReadOnlyList<GearEntry> Variants, int DefaultIndex, string? Noun)
@@ -320,19 +320,19 @@ public interface IGearCatalog
 
     IReadOnlyList<TweakPresetPart>? PresetParts(string recordName);
 
-    /// <summary>没装往日之影而从目录里隐藏的卡片（D023）。</summary>
+    /// <summary>没装往日之影而从目录里隐藏的卡片。</summary>
     IReadOnlyList<GearGroup> HiddenGroups => [];
 
-    /// <summary>记录是因为没装往日之影而被隐藏的目录物品（D023）：生成时要拒绝并说明原因。</summary>
+    /// <summary>记录是因为没装往日之影而被隐藏的目录物品：生成时要拒绝并说明原因。</summary>
     bool IsHidden(string recordName) => false;
 }
 
 /// <summary>
 /// 从 tweak 源推出可生成目录（C2b 第一批，基类在 RTDB 包）：
 /// 服装 = 继承链到达 Clothing；远程武器 = 继承链到达 WeaponItem 且配件预设里有 AttachmentSlots.Receiver。
-/// 第二批（T021）：近战武器 = 继承链到达 WeaponItem、配件预设里有 AttachmentSlots.Grip、没有 Receiver；
+/// 第二批：近战武器 = 继承链到达 WeaponItem、配件预设里有 AttachmentSlots.Grip、没有 Receiver；
 /// 义体 = 继承链到达 Items.Cyberware，配件预设正好是 GenericItemRoot 根（可再加 1 个属性碎片），见 <see cref="IsCyberwareShape"/>。
-/// 第三批（T022）：义体操作系统并入义体（没有预设、安装部位是 SystemReplacementCW）；手雷 = WeaponItem 链 + itemType Gad_Grenade + GrenadeCore 预设；
+/// 第三批：义体操作系统并入义体（没有预设、安装部位是 SystemReplacementCW）；手雷 = WeaponItem 链 + itemType Gad_Grenade + GrenadeCore 预设；
 /// 手臂义体 = WeaponItem 链 + CyberwareRoot 预设 + 安装部位 ArmsCW，只收升级链上的档位；
 /// 快速破解 = itemType Prt_Program，模组 = 武器模组 / 瞄具 / 枪口装置的 itemType，两者都要有 placementSlots。
 /// 堆叠物品见 <see cref="IsStackableRecord"/>，再按 itemType 分成消耗品、弹药、制作材料，带 Currency 标签的是货币。
@@ -352,7 +352,7 @@ public sealed partial class GearCatalog
     public const string GenericItemRoot = "Items.GenericItemRoot";
     public const string StatsShardSlot = "AttachmentSlots.StatsShardSlot";
 
-    /// <summary>没装往日之影时生成往日之影物品的拒绝说明（D023）。</summary>
+    /// <summary>没装往日之影时生成往日之影物品的拒绝说明。</summary>
     public static string ExpansionHiddenMessage => UiText.T("这件物品属于往日之影资料片，当前游戏目录未检测到往日之影。", "這件物品屬於往日之影資料片，當前遊戲目錄未檢測到往日之影。", "This item belongs to the Phantom Liberty expansion, which was not detected in the current game folder.");
 
     // CPO 是多人模式原型残留（如 CPO_Base_Lexington），一并排除。
@@ -381,7 +381,7 @@ public sealed partial class GearCatalog
     public string Language { get; }
 
     /// <summary>
-    /// 没装往日之影时从目录里隐藏的往日之影物品（D023），按同样的规则合并成卡片；装了往日之影时为空。
+    /// 没装往日之影时从目录里隐藏的往日之影物品，按同样的规则合并成卡片；装了往日之影时为空。
     /// </summary>
     public IReadOnlyList<GearGroup> HiddenGroups { get; }
 
@@ -437,11 +437,11 @@ public sealed partial class GearCatalog
         foreach (var (record, kind, _) in classified)
             kindByRecord[record] = kind;
 
-        // D023：没装往日之影时，往日之影记录不进目录，单独记下（用于报告和拒绝生成），也不能把本体记录带成升级档。
+        // 没装往日之影时，往日之影记录不进目录，单独记下（用于报告和拒绝生成），也不能把本体记录带成升级档。
         Func<string, bool> expansion = index.ExpansionInstalled ? _ => false : index.IsExpansion;
 
         // 义体的升级档（…Plus / …PlusPlus）带 notQueryable，只能由低一档的 nextUpgradeItem 升上来；存档里实际就有（如 AdvancedRamUpgradeLegendaryPlusPlus）。
-        // 手臂义体（T022）连最低档（如 AdvancedMantisBladesUncommon）也带 notQueryable，它们是升级链的起点：自己写了 nextUpgradeItem。
+        // 手臂义体连最低档（如 AdvancedMantisBladesUncommon）也带 notQueryable，它们是升级链的起点：自己写了 nextUpgradeItem。
         // 往日之影的升级档（如 IconicBioConductorsRare → RarePlus）也照常认出来，只是归到隐藏的目录里。
         var allUpgradeTargets = UpgradeTargets(index, classified, _ => true);
         var baseUpgradeTargets = index.ExpansionInstalled ? allUpgradeTargets : UpgradeTargets(index, classified, record => !expansion(record));
@@ -467,7 +467,7 @@ public sealed partial class GearCatalog
                 exception = hasIcon is not null && kind switch
                 {
                     GearKinds.Ranged or GearKinds.Melee => IsObtainableIconic(record, attributes, tags),
-                    // 网络接入仓的升级链起点也可以带 notQueryable（如配方做出的 HauntedCyberdeck_Rare，T023）；只放宽带 Cyberdeck 标签的。
+                    // 网络接入仓的升级链起点也可以带 notQueryable（如配方做出的 HauntedCyberdeck_Rare）；只放宽带 Cyberdeck 标签的。
                     GearKinds.Cyberware => IsUpgradeTier(record, attributes, upgradeTargets)
                         || (chainStart && IsOnlyNotQueryable(record, attributes) && tags.Contains(CyberdeckTag, StringComparer.Ordinal)),
                     // 其他义体的链起点不放宽：那里带 notQueryable 的起点多是 …2 这类第二副本（如 AdvancedTitaniumInfusedBonesCommon2），会让目录重复。
@@ -538,7 +538,7 @@ public sealed partial class GearCatalog
     }
 
     /// <summary>
-    /// 一条目录记录的显示信息。品质（卡片颜色）按 记录名末尾品阶 → 前缀品阶 → quality 字段 取第一个有的（T023）；
+    /// 一条目录记录的显示信息。品质（卡片颜色）按 记录名末尾品阶 → 前缀品阶 → quality 字段 取第一个有的；
     /// quality 是 Random 等不固定品质且名字里也没有品阶的保持 null（中性色）。
     /// 配方：名字和前缀都没有品阶时看产物的记录名和 quality（如 ShotgunMod3_Epic_Recipe → ShotgunMod3_Epic）。
     /// </summary>
@@ -945,7 +945,7 @@ public sealed partial class GearCatalog
     private static string? NonEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
     /// <summary>
-    /// 同一分类里中文名相同的记录合并成一张卡（T023）。选项标签按这个优先级取「整组都有、且互不相同」的第一种来源：
+    /// 同一分类里中文名相同的记录合并成一张卡。选项标签按这个优先级取「整组都有、且互不相同」的第一种来源：
     /// 记录名末尾的品阶（普通 / 罕见 / 稀有 / 史诗 / 传说，带 + / ++）→ 可制作标志性武器的前缀品阶（Preset_ 显示为「原版」）→
     /// 款式（visualTags 里组内不共有的部分，Default 显示为「默认」）→ quality 字段的品阶（快速破解的 ++ 取自名字）。
     /// 都不行时每条取自己第一个有的品阶（没有的记为「标准」），重复的补上款式或记录名里不同的部分；
@@ -1131,7 +1131,7 @@ public sealed partial class GearCatalog
     }
 
     /// <summary>
-    /// 带 notQueryable 的远程武器里，哪些是玩家能拿到的标志性武器（T020，总监要求目录覆盖全部可获得物品）：
+    /// 带 notQueryable 的远程武器里，哪些是玩家能拿到的标志性武器（目录要覆盖全部可获得物品）：
     /// 属性只有 notQueryable（可带 EP1），没有 Debug / DisabledContent / abstract / CPO；在 Items 包里；
     /// 标签有 IconicWeapon、没有 DeprecatedIconic（2.0 以前的品质分档，游戏里已拿不到）；
     /// 不是敌人配装（Weak_/Avg_/Normal_/Hard_/VHard_ 加难度数字开头）、任务流程里的副本（q/mq/sq 编号开头、Preset_Q 编号）、
@@ -1159,7 +1159,7 @@ public sealed partial class GearCatalog
     }
 
     /// <summary>
-    /// 带 notQueryable 的义体里，哪些是升级档（T021）：属性只有 notQueryable（可带 EP1），在 Items 包里，
+    /// 带 notQueryable 的义体里，哪些是升级档：属性只有 notQueryable（可带 EP1），在 Items 包里，
     /// 并且是某件义体的 nextUpgradeItem（游戏里在义体医生处升级得到）。中文名和背包图标在 <see cref="Build"/> 里另外检查。
     /// </summary>
     public static bool IsUpgradeTier(string record, IReadOnlyList<string> attributes, IReadOnlySet<string> upgradeTargets)
@@ -1185,14 +1185,14 @@ public sealed partial class GearCatalog
     }
 
     /// <summary>
-    /// 带 notQueryable 的手雷里，哪些是玩家能拿到的档位（T022）：品质是 …Plus（2.x 制作出的档位，如 GrenadeSmokeLegendaryPlus、
+    /// 带 notQueryable 的手雷里，哪些是玩家能拿到的档位：品质是 …Plus（2.x 制作出的档位，如 GrenadeSmokeLegendaryPlus、
     /// CuttingGrenadeLegendaryPlus，存档里实际持有）。不带 Plus 的 Regular / Epic / Legendary、NPC 版、Hack 版、帮派配装都不是。
     /// </summary>
     public static bool IsPlayerGrenadeTier(string record, IReadOnlyList<string> attributes, string? quality) =>
         IsOnlyNotQueryable(record, attributes) && quality is not null && quality.EndsWith("Plus", StringComparison.Ordinal);
 
     /// <summary>
-    /// 义体操作系统（斯安威斯坦、狂暴、网络接入仓等，T022）：没有 slotPartListPreset，蓝图根是 GenericItemRoot；
+    /// 义体操作系统（斯安威斯坦、狂暴、网络接入仓等）：没有 slotPartListPreset，蓝图根是 GenericItemRoot；
     /// 存档实测（AdvancedSandevistanApogee、AdvancedBerserkC4MK5、AdvancedNetwatchNetdriverMKLegendaryPlus）都是只有 GenericItemRoot 根的 91 字节。
     /// 归入「义体」分类，类型显示「操作系统」。
     /// </summary>
@@ -1243,7 +1243,7 @@ public sealed partial class GearCatalog
     };
 
     /// <summary>
-    /// 手臂义体（螳螂刀、单分子线、大猩猩手臂、射弹发射系统，T022）：配件预设第一条是 CyberwareRoot 挂点上的根（如 Items.MantisBladesRoot）。
+    /// 手臂义体（螳螂刀、单分子线、大猩猩手臂、射弹发射系统）：配件预设第一条是 CyberwareRoot 挂点上的根（如 Items.MantisBladesRoot）。
     /// 存档实测 200 / 208 字节：根 + 刃 / 线缆 / 指节 + 属性碎片，子配件按预设顺序。
     /// </summary>
     public static bool IsArmCyberwareShape(IReadOnlyList<TweakPresetPart>? parts) =>
@@ -1389,7 +1389,7 @@ public sealed partial class GearCatalog
         var chain = index.Ancestors(record);
         if (chain.Count < 2 || !IsStackableRecord(index, record))
             return null;
-        // 配方（T023）：存档里是 29 字节堆叠（ManualSave-8 实测 RecipeGrenadeIncendiaryLegendary、ShotgunMod3_Epic_Recipe 等）。
+        // 配方：存档里是 29 字节堆叠（ManualSave-8 实测 RecipeGrenadeIncendiaryLegendary、ShotgunMod3_Epic_Recipe 等）。
         if (chain.Any(name => RecipeRoots.Contains(name, StringComparer.Ordinal)))
             return RecipeRoots.Contains(record, StringComparer.Ordinal) ? null : GearKinds.Recipe;
         var type = index.FieldOf(record, "itemType");

@@ -46,11 +46,11 @@ public sealed class ItemNameCatalog
 
     public int Overridden => _index?.Overridden ?? 0;
 
-    /// <summary>按装了往日之影加载（D023）；为 false 时目录隐藏往日之影物品。名字表不可用时为 true。</summary>
+    /// <summary>按装了往日之影加载；为 false 时目录隐藏往日之影物品。名字表不可用时为 true。</summary>
     public bool ExpansionInstalled => _index?.ExpansionInstalled ?? true;
 
     /// <summary>
-    /// 从游戏目录加载。expansionInstalled 为 null 时按 <see cref="Cp2077Paths.HasPhantomLiberty"/> 检测往日之影（D023）。
+    /// 从游戏目录加载。expansionInstalled 为 null 时按 <see cref="Cp2077Paths.HasPhantomLiberty"/> 检测往日之影。
     /// </summary>
     public static ItemNameCatalog Load(string gameDirectory, string lang = "zh-cn", IOodleDecompressor? oodle = null, bool? expansionInstalled = null)
     {

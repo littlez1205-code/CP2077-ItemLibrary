@@ -420,7 +420,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     }
 
     /// <summary>
-    /// 同名合并后按卡片分页（T023）。卡片里任一条目命中全部搜索词就列出整张卡（列出全部条目，确认框里可切换），
+    /// 同名合并后按卡片分页。卡片里任一条目命中全部搜索词就列出整张卡（列出全部条目，确认框里可切换），
     /// 默认条目是命中条目里品阶最高的一条；没有搜索词时就是整组的默认条目。
     /// ownership 支持 "all"、"unowned"、"owned"。
     /// </summary>
@@ -450,7 +450,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
         return new GenerateGroupPage(matches.Count, matches.Sum(match => match.Group.Variants.Count), groups);
     }
 
-    /// <summary>每个分类里命中 query 和 ownership 的卡片数（T024）：一次遍历合并后的目录，规则与 <see cref="ListGeneratableGroups"/> 相同。</summary>
+    /// <summary>每个分类里命中 query 和 ownership 的卡片数：一次遍历合并后的目录，规则与 <see cref="ListGeneratableGroups"/> 相同。</summary>
     public IReadOnlyDictionary<string, int> CountGeneratableGroups(string? query, string? ownership = null)
     {
         var counts = GenerateKinds.ToDictionary(kind => kind.Id, _ => 0, StringComparer.Ordinal);
@@ -712,7 +712,7 @@ public sealed class Cp2077SaveDocument : ISaveDocument, IStrictVerifier, ISaveDi
     }
 
     /// <summary>
-    /// 结构 3 的数量型物品（手雷，T022）：物品头种子固定为 2（不算新种子，也不能出现在 Seeds 里），
+    /// 结构 3 的数量型物品（手雷）：物品头种子固定为 2（不算新种子，也不能出现在 Seeds 里），
     /// itemData 是 45 字节前缀、数量为 1，并且原存档的玩家背包里没有同一个 16 字节 ItemID（同一种手雷只能有一份）。
     /// </summary>
     private static void VerifyQuantityItem(SaveContainer original, GeneratedRecord expected)

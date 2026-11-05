@@ -3,7 +3,7 @@ using System.Reflection;
 namespace GameTool.App;
 
 /// <summary>
-/// 程序版本（D022）：取入口程序集的 InformationalVersion（src/Directory.Build.props 统一设置），
+/// 程序版本：取入口程序集的 InformationalVersion（src/Directory.Build.props 统一设置），
 /// 去掉 SDK 附加的「+提交号」后缀，如 <c>1.0.0+abc123</c> → <c>1.0.0</c>。
 /// </summary>
 public static class AppVersion

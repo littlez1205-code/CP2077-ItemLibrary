@@ -3,7 +3,7 @@ using GameTool.Core;
 
 namespace GameTool.Tests;
 
-/// <summary>T020：桌面端 icon/ 地址的解析和记录名白名单。</summary>
+/// <summary>桌面端 icon/ 地址的解析和记录名白名单。</summary>
 public class IconRouteTests
 {
     [Theory]

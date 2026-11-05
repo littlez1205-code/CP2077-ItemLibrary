@@ -9,7 +9,7 @@ using System.Windows.Media;
 namespace GameTool.Desktop;
 
 /// <summary>
-/// 一体式标题栏（D021）的窗口端：系统标题栏已由 WindowChrome 去掉，这里补上页面做不到的几件事。
+/// 一体式标题栏的窗口端：系统标题栏已由 WindowChrome 去掉，这里补上页面做不到的几件事。
 /// <list type="bullet">
 /// <item>边缘缩放：WebView2 盖住了整个客户区，系统收不到边缘的命中测试；页面边缘按下鼠标时把方向发过来，
 /// 这里交给系统的缩放循环（WM_NCLBUTTONDOWN + HTLEFT 等），与原生边框的行为一致。</item>

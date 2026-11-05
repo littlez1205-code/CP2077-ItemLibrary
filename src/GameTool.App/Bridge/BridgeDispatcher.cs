@@ -45,16 +45,16 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
     private volatile string _languageInMemory = "zh-cn";
 
     /// <param name="saveRootOverride">命令行 --save-root（自检用），优先于设置文件。</param>
-    /// <param name="settings">用户设置（D020）；桌面端必传，自检传临时文件，不碰真实设置。</param>
+    /// <param name="settings">用户设置；桌面端必传，自检传临时文件，不碰真实设置。</param>
     /// <param name="gameDirOverride">命令行 --game-dir（自检用），优先于设置文件。</param>
     /// <param name="pickFolder">原生选择文件夹（标题, 初始目录）→ 选中的目录，取消为 null。页面只能拿到选中的路径。</param>
     /// <param name="display">
-    /// 路径缩写（D021）：所有应答、推送和错误信息里的字符串都按它把用户目录缩写成 %USERPROFILE% / %LOCALAPPDATA%，
+    /// 路径缩写：所有应答、推送和错误信息里的字符串都按它把用户目录缩写成 %USERPROFILE% / %LOCALAPPDATA%，
     /// 页面送回的缩写路径（槽位、设置路径）再按它还原。默认用当前用户的目录；测试可以换成假的用户目录。
     /// </param>
-    /// <param name="appVersion">「关于」页显示的版本号（D022），默认取入口程序集的版本（<see cref="AppVersion.Current"/>）。</param>
+    /// <param name="appVersion">「关于」页显示的版本号，默认取入口程序集的版本（<see cref="AppVersion.Current"/>）。</param>
     /// <param name="urlLauncher">
-    /// app.openAuthorPage 用的浏览器启动器（D024），只会以 <see cref="AuthorPage.Url"/> 调用。
+    /// app.openAuthorPage 用的浏览器启动器，只会以 <see cref="AuthorPage.Url"/> 调用。
     /// 不传时该方法报错、不打开任何东西；桌面端正常运行传 <see cref="ShellUrlLauncher"/>，测试和自检传假的。
     /// </param>
     public BridgeDispatcher(
@@ -188,7 +188,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
     }
 
     /// <summary>
-    /// 存档列表自动刷新（T030，桌面端启用）：监视各游戏当前生效的存档根目录，游戏存档、槽位目录增删改名后，
+    /// 存档列表自动刷新（桌面端启用）：监视各游戏当前生效的存档根目录，游戏存档、槽位目录增删改名后，
     /// 去抖合并推送 <c>{"event":"saves.changed","data":{"gameId":…}}</c>，页面收到后静默刷新。
     /// 存档根目录在设置里改了，监视跟着切换；目录不存在时不监视、不报错；随本对象释放。
     /// </summary>
@@ -268,7 +268,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
     private string CurrentLanguage() => _settings?.GetLanguage() ?? _languageInMemory;
 
     /// <summary>
-    /// 程序信息（D022）：版本号，以及「说明」是否已经自动弹出过。标记存在设置文件里（程序级，不分游戏）；
+    /// 程序信息：版本号，以及「说明」是否已经自动弹出过。标记存在设置文件里（程序级，不分游戏）；
     /// 没有设置文件时（命令行等）只记在内存里。
     /// </summary>
     private string AppInfo(string? id) => Ok(id, null, new
@@ -306,7 +306,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
     }
 
     /// <summary>
-    /// 用系统浏览器打开作者 B 站主页（D024）。不读任何参数：地址固定为 <see cref="AuthorPage.Url"/>，页面送来的 url 一律忽略。
+    /// 用系统浏览器打开作者 B 站主页。不读任何参数：地址固定为 <see cref="AuthorPage.Url"/>，页面送来的 url 一律忽略。
     /// </summary>
     private string OpenAuthorPage(string? id)
     {
@@ -599,8 +599,8 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
     }
 
     /// <summary>
-    /// 物品库卡片（T023）：同名合并后按卡片分页，参数同 generate.catalog。
-    /// T024：kindFallback 为 true 时，kind 为空或未知就改用第一个分类（返回的 kind 是实际分类）；有 query 或 ownership 时附带 kindCounts。
+    /// 物品库卡片：同名合并后按卡片分页，参数同 generate.catalog。
+    /// kindFallback 为 true 时，kind 为空或未知就改用第一个分类（返回的 kind 是实际分类）；有 query 或 ownership 时附带 kindCounts。
     /// </summary>
     private string LibraryCatalog(string? id, JsonElement parameters)
     {
@@ -643,7 +643,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         });
     }
 
-    /// <summary>物品库「获得」：装备 1 件，堆叠物品按 quantity（默认 1）加到现有数量或插入新堆叠；不做备份（D019）。</summary>
+    /// <summary>物品库「获得」：装备 1 件，堆叠物品按 quantity（默认 1）加到现有数量或插入新堆叠；不做备份。</summary>
     private string LibraryObtain(string? id, JsonElement parameters)
     {
         var adapter = RequireGame(parameters);
@@ -699,7 +699,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         return Ok(id, adapter.GameId, report);
     }
 
-    // ---------- 路径设置（D020） ----------
+    // ---------- 路径设置 ----------
 
     private const string SaveRootKind = "saveRoot";
     private const string GameDirKind = "gameDir";
@@ -830,7 +830,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         _paths[adapter.GameId] = next;
         if (!string.Equals(previous.SaveRoot, next.SaveRoot, StringComparison.OrdinalIgnoreCase))
             _enable.Stop();
-        // 存档列表自动刷新（T030）跟着新的存档根目录走；没变且正在监视时什么也不做。
+        // 存档列表自动刷新跟着新的存档根目录走；没变且正在监视时什么也不做。
         Rewatch(adapter);
         if (adapter is IGamePathSetup setup)
             ApplyGameDirectory(setup, next.GameDir);
@@ -848,7 +848,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
     }
 
     /// <summary>
-    /// 槽位标识就是 saves.list 返回的 slot：存档文件路径，用户目录部分已缩写（D021）。这里先还原缩写，
+    /// 槽位标识就是 saves.list 返回的 slot：存档文件路径，用户目录部分已缩写。这里先还原缩写，
     /// 再要求它在当前存档根目录内、并且是刚枚举出来的已知槽位文件之一，所以页面送来任何别的路径都会被拒绝。
     /// </summary>
     private string RequireSlot(JsonElement parameters, IGameAdapter adapter)
@@ -904,7 +904,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         return changes;
     }
 
-    /// <summary>存档根目录：来自 --save-root 或用户设置（D020），不再用适配器的默认位置。</summary>
+    /// <summary>存档根目录：来自 --save-root 或用户设置，不再用适配器的默认位置。</summary>
     private string Root(IGameAdapter adapter) =>
         PathsOf(adapter).SaveRoot ?? throw new BridgeArgumentException(UiText.T("还没有设置存档目录，请先点右上角的齿轮选择存档目录。", "還沒有設定存檔目錄，請先點右上角的齒輪選擇存檔目錄。", "No save folder is set yet. Click the gear icon in the top right to choose one."));
 
@@ -921,7 +921,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         };
     }
 
-    /// <summary>页面送回的路径：还原 %USERPROFILE% / %LOCALAPPDATA% 缩写（D021）。</summary>
+    /// <summary>页面送回的路径：还原 %USERPROFILE% / %LOCALAPPDATA% 缩写。</summary>
     private string? ReadPath(JsonElement element, string name) => _display.Expand(ReadString(element, name));
 
     private static string? ReadString(JsonElement element, string name)
@@ -944,7 +944,7 @@ public sealed class BridgeDispatcher : IAsyncDisposable, IDisposable
         }.ToJson();
 
     /// <summary>
-    /// 应答数据先转成 JSON 树，把其中每个字符串值里的用户目录缩写掉（D021）：路径、校验提示、备份和槽位信息一律覆盖，
+    /// 应答数据先转成 JSON 树，把其中每个字符串值里的用户目录缩写掉：路径、校验提示、备份和槽位信息一律覆盖，
     /// 以后新增的字段也不会漏。键名和数字不变。
     /// </summary>
     private JsonNode? MaskData(object data) =>

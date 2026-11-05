@@ -11,7 +11,7 @@ using GameTool.Core;
 namespace GameTool.Tests;
 
 /// <summary>
-/// T023 收尾冲刺：网络接入仓、配方（29 字节堆叠）、同名多品阶合并为一张卡（标签、排序、默认项、按卡片分页）、装备品质色。
+/// 网络接入仓、配方（29 字节堆叠）、同名多品阶合并为一张卡（标签、排序、默认项、按卡片分页）、装备品质色。
 /// </summary>
 public sealed class FinalSprintTests : IDisposable
 {
@@ -668,7 +668,7 @@ public sealed class FinalSprintTests : IDisposable
         Assert.Equal("ranged", data.GetProperty("kind").GetString());
         Assert.False(data.TryGetProperty("kindCounts", out _));
 
-        // T024：kindFallback —— 没有 kind 或 kind 未知时改用第一个分类；有搜索词时附带各分类的命中卡片数。
+        // kindFallback —— 没有 kind 或 kind 未知时改用第一个分类；有搜索词时附带各分类的命中卡片数。
         var document = (Cp2077SaveDocument)_adapter.Load(save);
         var first = document.GenerateKinds[0].Id;
         using var fallback = JsonDocument.Parse(bridge.Dispatch("{\"id\":\"l3\",\"method\":\"library.catalog\",\"params\":{\"gameId\":\"cp2077\",\"slot\":" + slotJson + ",\"kindFallback\":true,\"take\":1}}"));
