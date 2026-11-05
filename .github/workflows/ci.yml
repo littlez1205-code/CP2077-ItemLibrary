@@ -21,6 +21,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Privacy scan self-test
+        shell: pwsh
+        run: ./.github/scripts/privacy-scan.test.ps1
+
       - name: Privacy scan
         shell: pwsh
         run: ./.github/scripts/privacy-scan.ps1
