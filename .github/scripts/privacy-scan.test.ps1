@@ -1,11 +1,11 @@
 <#
   privacy-scan.test.ps1 - runs privacy-scan.ps1 against throwaway git repositories.
 
-  Covers what the scan must get right on a Windows runner, where the console code page is not
-  UTF-8: a leak inside a file with a non-ASCII (Chinese) name, like the bundled user guide, must
-  still be reported; placeholder folders (player*, Public, Default, All Users, <name>,
-  %USERPROFILE%, an ellipsis) must pass; a tracked file deleted from the working tree is not an
-  error; binary files are skipped.
+  Covers: a leak inside a file with a non-ASCII (Chinese) name, like the bundled user guide, is
+  reported - also when the console decodes native output with a legacy code page (936 is the
+  default on Simplified Chinese Windows, where git's UTF-8 file names come out garbled);
+  placeholder folders (player*, Public, Default, All Users, <name>, %USERPROFILE%, an ellipsis)
+  pass; a tracked file deleted from the working tree is not an error; binary files are skipped.
 
   Usage (repo root): pwsh -File .github/scripts/privacy-scan.test.ps1   (exit 0 all passed, 1 a case failed)
   MAINTAINERS: keep this file pure ASCII; non-ASCII text is built from code points.
@@ -21,9 +21,10 @@ $failed = 0
 
 # Creates a git repository holding $Files (name -> text or byte[]), stages everything, deletes the
 # names in $Delete from the working tree, runs the scan there in a separate pwsh (as CI does) and
-# checks its exit code and, when given, that its output mentions $Expect.
+# checks its exit code and, when given, that its output mentions $Expect. With $CodePage the
+# scan runs with [Console]::OutputEncoding set to that code page, like a maintainer's console.
 function Invoke-Case {
-    param([string]$Name, [hashtable]$Files, [int]$Expected, [string]$Expect = '', [string[]]$Delete = @())
+    param([string]$Name, [hashtable]$Files, [int]$Expected, [string]$Expect = '', [string[]]$Delete = @(), [int]$CodePage = 0)
     $dir = Join-Path ([IO.Path]::GetTempPath()) ('privacy-scan-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $dir | Out-Null
     try {
@@ -39,7 +40,14 @@ function Invoke-Case {
             git -c core.autocrlf=false add -A
             if ($LASTEXITCODE -ne 0) { throw 'git add failed' }
             foreach ($file in $Delete) { Remove-Item -LiteralPath (Join-Path $dir $file) }
-            $output = (& $pwsh -NoProfile -NonInteractive -File $scan 2>&1 | Out-String).TrimEnd()
+            if ($CodePage -gt 0) {
+                $command = "`$previous = [Console]::OutputEncoding; try { [Console]::OutputEncoding = [Text.Encoding]::GetEncoding($CodePage); & '" +
+                    $scan.Replace("'", "''") + "' } finally { [Console]::OutputEncoding = `$previous }; exit `$LASTEXITCODE"
+                $output = (& $pwsh -NoProfile -NonInteractive -Command $command 2>&1 | Out-String).TrimEnd()
+            }
+            else {
+                $output = (& $pwsh -NoProfile -NonInteractive -File $scan 2>&1 | Out-String).TrimEnd()
+            }
             $exit = $LASTEXITCODE
         }
         finally {
@@ -77,6 +85,8 @@ Invoke-Case -Name 'placeholder folders pass, also in a non-ASCII-named file' -Ex
 Invoke-Case -Name 'a leak in an ASCII-named file is reported' -Expected 1 -Expect 'alice' `
     -Files @{ 'notes.md' = 'Saves are in C:\Users\alice\Saved Games' }
 Invoke-Case -Name 'a leak in a non-ASCII-named file is reported' -Expected 1 -Expect 'alice' `
+    -Files @{ 'notes.md' = 'nothing to see'; $guideName = 'Saves are in C:\Users\alice\Saved Games' }
+Invoke-Case -Name 'a leak in a non-ASCII-named file is reported on a code page 936 console' -Expected 1 -Expect 'alice' -CodePage 936 `
     -Files @{ 'notes.md' = 'nothing to see'; $guideName = 'Saves are in C:\Users\alice\Saved Games' }
 Invoke-Case -Name 'a tracked file deleted from the working tree is not an error' -Expected 0 `
     -Files @{ 'notes.md' = 'nothing to see'; 'gone.txt' = 'nothing to see' } -Delete @('gone.txt')
