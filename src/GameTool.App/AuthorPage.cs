@@ -3,7 +3,7 @@ using System.Diagnostics;
 namespace GameTool.App;
 
 /// <summary>
-/// 作者署名与 B 站主页（D024）。地址只写在这里，页面只能请求「打开作者主页」，不能让宿主打开任意地址。
+/// 作者署名与 B 站主页。地址只写在这里，页面只能请求「打开作者主页」，不能让宿主打开任意地址。
 /// </summary>
 public static class AuthorPage
 {

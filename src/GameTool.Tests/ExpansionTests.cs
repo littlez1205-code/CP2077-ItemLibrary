@@ -4,7 +4,7 @@ using GameTool.Adapters.Cyberpunk2077.Names;
 
 namespace GameTool.Tests;
 
-/// <summary>D023：没买往日之影的玩家。tweak 源里的往日之影记录、字段级 [ EP1 ]、目录隐藏和游戏目录检测。</summary>
+/// <summary>没买往日之影的玩家。tweak 源里的往日之影记录、字段级 [ EP1 ]、目录隐藏和游戏目录检测。</summary>
 public sealed class ExpansionTests : IDisposable
 {
     private const string BaseTweaks = """

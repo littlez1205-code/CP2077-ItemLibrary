@@ -74,7 +74,7 @@ public static partial class LocalizationCatalog
             throw new InvalidDataException(UiText.T($"找不到本地化归档：{contentPath}", $"找不到本地化歸檔：{contentPath}", $"Localization archive not found: {contentPath}"));
         oodle ??= OodleNativeDecompressor.Load(OodlePath(gameDirectory));
         var baseEntries = ReadOnscreens(RdarArchive.Open(contentPath), lang, oodle);
-        // 往日之影的文本包可选（D023）：没买资料片的玩家没有 archive\pc\ep1，只用本体文本，Ep1Count 为 0。
+        // 往日之影的文本包可选：没买资料片的玩家没有 archive\pc\ep1，只用本体文本，Ep1Count 为 0。
         IReadOnlyList<LocEntry> expansion = File.Exists(expansionPath)
             ? ReadOnscreens(RdarArchive.Open(expansionPath), lang, oodle)
             : [];

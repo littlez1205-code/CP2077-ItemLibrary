@@ -40,7 +40,7 @@ public sealed record ItemDataBody(byte[] Prefix, ItemPart Root)
 
 /// <summary>
 /// 非堆叠 itemData = 固定前缀 + 递归配件树（C2b 报告第 1 节）。
-/// 前缀一般是 41 字节；ItemID 的结构字节（物品头 +12，即 itemData +16）为 3 的物品（手雷，T022 实测）在 +25 多一个 u32 数量，前缀 45 字节：
+/// 前缀一般是 41 字节；ItemID 的结构字节（物品头 +12，即 itemData +16）为 3 的物品（手雷，实测）在 +25 多一个 u32 数量，前缀 45 字节：
 /// 0 节点号 | 4..20 ItemID | 20 标志 | 21 u32 时间 | 25 u32 数量 | 29 8 字节 ID | 37 u32 | 41 f32 FLT_MAX。
 /// 配件 = ItemID(16) + CName（紧凑长度，负数为 ASCII）+ 挂点 TweakDBID(8) + 紧凑子节点数 + 子配件 + 20 字节尾部。
 /// 只接受最短编码，保证写回逐字节一致。

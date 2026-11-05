@@ -4,7 +4,7 @@ using GameTool.Adapters.Cyberpunk2077.Localization;
 namespace GameTool.Adapters.Cyberpunk2077.Archives;
 
 /// <summary>
-/// 游戏目录里的一组归档，按深度路径查文件。archive\pc\ep1 先于 archive\pc\content，各自按文件名排序（ep1 可以没有：没买往日之影的玩家只有 content，D023）；
+/// 游戏目录里的一组归档，按深度路径查文件。archive\pc\ep1 先于 archive\pc\content，各自按文件名排序（ep1 可以没有：没买往日之影的玩家只有 content）；
 /// 跳过 audio_* 和 lang_*（图标用不到）。只读，不复制、不改动游戏文件。
 /// </summary>
 public sealed class GameArchiveSet : IDisposable

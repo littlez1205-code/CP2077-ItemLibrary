@@ -24,7 +24,7 @@ public class SaveSupportProbeTests
             Assert.Contains("2.31", support.Reason);
             Assert.Contains("重新存档", support.Reason);
 
-            // 游戏更新后的新存档：不能靠重新存档解决，要等工具适配（D024）。
+            // 游戏更新后的新存档：不能靠重新存档解决，要等工具适配。
             BinaryPrimitives.WriteUInt32LittleEndian(head.AsSpan(4), 280);
             BinaryPrimitives.WriteUInt32LittleEndian(head.AsSpan(8), 2600);
             File.WriteAllBytes(path, head);

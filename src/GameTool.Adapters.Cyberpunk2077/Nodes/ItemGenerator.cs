@@ -141,9 +141,9 @@ public static class ItemGenerator
     /// <summary>
     /// C2b 正式功能：在可生成目录里按目标记录生成 copies 件，自动从背包或储物箱选模板，追加到玩家背包末尾。
     /// 服装：keep 模式，只换根 ItemID（E3a）；远程武器：auto 模式按预设重建配件树，并清零 +25..+37（E3d）；
-    /// 背包和储物箱里没有可当模板的普通远程武器时（如只有标志性枪），回退到前缀来源（T030，见 <see cref="Choose"/>）。
-    /// 近战武器、义体（T021）：不要求同类模板，前缀借任意可解析装备并清零 +25..+37，配件树按预设生成（见 BuildMelee / BuildCyberware）。
-    /// 第三批（T022，同样借前缀）：手雷（物品头种子 2、结构 3，45 字节前缀、数量 1，弹芯为根 + 投掷方式子配件）；
+    /// 背包和储物箱里没有可当模板的普通远程武器时（如只有标志性枪），回退到前缀来源（见 <see cref="Choose"/>）。
+    /// 近战武器、义体：不要求同类模板，前缀借任意可解析装备并清零 +25..+37，配件树按预设生成（见 BuildMelee / BuildCyberware）。
+    /// 第三批（同样借前缀）：手雷（物品头种子 2、结构 3，45 字节前缀、数量 1，弹芯为根 + 投掷方式子配件）；
     /// 手臂义体（CyberwareRoot 根 + 预设里其余配件）；快速破解与模组（物品自己就是根配件，挂点取 placementSlots 第一项）。
     /// 每件的根种子和新配件的种子都是新的：不是 0/1/2，不在存档里出现，彼此不重复
     /// （义体的 GenericItemRoot 种子固定为 2、手雷的根种子固定为 2，都不算新种子）。
@@ -236,7 +236,7 @@ public static class ItemGenerator
         return new GenerateApplyResult(targetRecord, copies, added, firstNode, previous, choice.Key, null, records, toStash);
     }
 
-    /// <summary>远程武器（T030）在没有同类模板时也回退到前缀来源，所以和近战武器、义体等用同一句说明。</summary>
+    /// <summary>远程武器在没有同类模板时也回退到前缀来源，所以和近战武器、义体等用同一句说明。</summary>
     public static string NoTemplateMessage(string kind) => kind switch
     {
         _ when kind == GearKinds.Ranged || GearKinds.UsesPrefixSource(kind) => UiText.T("背包或储物箱里至少要有一件能解析的装备（提供物品前缀）。", "背包或儲物箱裡至少要有一件能解析的裝備（提供物品字首）。", "The backpack or stash must contain at least one readable piece of gear (it provides the item prefix)."),
@@ -252,7 +252,7 @@ public static class ItemGenerator
     }
 
     /// <summary>
-    /// 生成与预览共用的选模板规则。远程武器（T030）：首选目录里非标志性、带子配件的远程武器（E3c / E3d 的模板，选中时行为不变）；
+    /// 生成与预览共用的选模板规则。远程武器：首选目录里非标志性、带子配件的远程武器（E3c / E3d 的模板，选中时行为不变）；
     /// 找不到时回退到 <see cref="ChoosePrefixSource"/>：远程武器（含标志性、目录外的记录）在前，其次目录认得的其他装备，最后其他非堆叠物品。
     /// 远程武器的配件树本来就按预设重建（<see cref="BuildParts"/>），+25..+37 也清零，模板实际只提供前缀、配件 ItemID 的后 4 字节、CName 和尾部。
     /// </summary>
@@ -292,13 +292,13 @@ public static class ItemGenerator
     /// <summary>
     /// 服装模板：继承链是服装即可（E3a 的模板就是任务服装）。
     /// 远程武器模板：记录必须在可生成目录的远程武器里且不是标志性武器，避开 Preset_Masamune_Rogue_Stash 这类非标准结构的特殊武器。
-    /// 这是首选；都不符合时由 <see cref="Choose"/> 回退到前缀来源（T030）。
+    /// 这是首选；都不符合时由 <see cref="Choose"/> 回退到前缀来源。
     /// </summary>
     private static Func<ulong, bool> TemplateFilter(string kind, IGearCatalog gear)
     {
         if (kind != GearKinds.Ranged)
             return tweak => gear.KindOf(tweak) == kind;
-        // T020 起标志性武器也进了目录，但仍不拿它们当模板（同 T019 以前的行为）。
+        // 标志性武器也在目录里，但仍不拿它们当模板（与以前的行为相同）。
         var ranged = gear.Gear.Where(entry => entry.Kind == GearKinds.Ranged && !entry.Iconic).Select(entry => entry.TweakDbId).ToHashSet();
         return ranged.Contains;
     }
@@ -322,8 +322,8 @@ public static class ItemGenerator
     }
 
     /// <summary>
-    /// 近战武器、义体（T021，E4 形态）及第三批各类不要求同类模板，只借一件装备的 41 字节前缀（+25..+37 随后清零）、配件的 CName 和尾部；
-    /// 没有同类模板的远程武器（T030）也走这里。
+    /// 近战武器、义体（E4 形态）及第三批各类不要求同类模板，只借一件装备的 41 字节前缀（+25..+37 随后清零）、配件的 CName 和尾部；
+    /// 没有同类模板的远程武器也走这里。
     /// 候选同 <see cref="ChooseTemplate"/>，另要求根配件和第一个子配件（近战、义体、远程武器照抄它的 CName）的 CName 都是 None
     /// （手臂义体的子配件带外观名，如 PhysicalKnuckles&amp;Male，不能借给别的物品）；同类在前，其次是目录里认得的装备，最后是其他非堆叠物品。
     /// </summary>
@@ -470,7 +470,7 @@ public static class ItemGenerator
     /// <summary>
     /// 远程武器：机匣为根，预设里其余条目为子配件，全部新种子；挂点和配件记录都来自预设。
     /// 从来源只取：根配件 ItemID 的后 4 字节、CName、尾部（给新根）；第一个子配件的同样三项（给每个新子配件）。
-    /// 来源没有子配件时（T030 前缀来源回退，如服装的 GenericItemRoot 根或空根）同近战武器，用根配件代替。
+    /// 来源没有子配件时（前缀来源回退，如服装的 GenericItemRoot 根或空根）同近战武器，用根配件代替。
     /// 首选模板一定带子配件，行为与 E3c / E3d 相同。
     /// </summary>
     private static ItemPart BuildParts(ItemPart templateRoot, IReadOnlyList<TweakPresetPart>? preset, Func<uint> fresh)
@@ -516,7 +516,7 @@ public static class ItemGenerator
     /// </summary>
     private static ItemPart BuildCyberware(ItemPart sourceRoot, IReadOnlyList<TweakPresetPart>? preset, Func<uint> fresh)
     {
-        // 义体操作系统（T022）没有配件预设，存档里是只有 GenericItemRoot 根的 91 字节。
+        // 义体操作系统没有配件预设，存档里是只有 GenericItemRoot 根的 91 字节。
         if (preset is { Count: 0 })
             preset = [new TweakPresetPart(GearCatalog.GenericItemRootSlot, GearCatalog.GenericItemRoot)];
         if (!GearCatalog.IsCyberwareShape(preset))
@@ -552,7 +552,7 @@ public static class ItemGenerator
     }
 
     /// <summary>
-    /// 手雷、手臂义体（T022）：预设第一条（GrenadeCore 的弹芯 / CyberwareRoot 的根）为根，其余有配件的条目按预设顺序为子配件，全部新种子。
+    /// 手雷、手臂义体：预设第一条（GrenadeCore 的弹芯 / CyberwareRoot 的根）为根，其余有配件的条目按预设顺序为子配件，全部新种子。
     /// 存档实测：CuttingGrenadeLegendaryPlus = w_cutting_core + w_homing_delivery（151 字节），其他手雷只有弹芯（95 字节）；
     /// AdvancedNanoWiresChemicalLegendaryPlusPlus = NanoWiresRoot + ChemicalDamageCable + 属性碎片（200 字节）。
     /// ItemID 后 4 字节照抄来源的配件；CName 一律写 None、尾部写 16 个 0 + FLT_MAX：存档里这些配件的外观名（如 default、ChemicalCable）
@@ -573,7 +573,7 @@ public static class ItemGenerator
     }
 
     /// <summary>
-    /// 快速破解、模组（T022）：物品自己就是唯一的配件，ItemID 与物品头完全相同（存档实测 BlindLvl4PlusPlusProgram、ShotgunMod1_Legendary、
+    /// 快速破解、模组：物品自己就是唯一的配件，ItemID 与物品头完全相同（存档实测 BlindLvl4PlusPlusProgram、ShotgunMod1_Legendary、
     /// w_att_scope_short_07_legendary 都是 91 字节），挂点取 placementSlots 第一项，没有子配件；CName 为 None，尾部 16 个 0 + FLT_MAX。
     /// </summary>
     private static ItemPart BuildSelfRoot(byte[] header, string? slot)

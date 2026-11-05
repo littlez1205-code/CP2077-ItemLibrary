@@ -35,10 +35,10 @@ public sealed record BatchObtainReport(
     long ElapsedMilliseconds);
 
 /// <summary>
-/// 物品库（D013）：确认框里点「获得」的唯一入口。
+/// 物品库：确认框里点「获得」的唯一入口。
 /// 装备走 <see cref="GenerateService.Run"/>（每次 1 件），堆叠物品走 PatchEngine.Patch 的改数量 / 插入新堆叠路径，
-/// 两条路都用原有的严格校验，桌面端按 D006 不生成 .bak。
-/// 获得不做任何备份（D019 取消了自动备份）：备份只在用户手动「加入备份区」时进行。
+/// 两条路都用原有的严格校验，桌面端不生成 .bak。
+/// 获得不做任何备份（已取消自动备份）：备份只在用户手动「加入备份区」时进行。
 /// </summary>
 public sealed class LibraryService
 {
@@ -252,7 +252,7 @@ public sealed class LibraryService
         var after = (before ?? 0) + quantity;
         if (after > resource.Max)
             throw new PatchRejectedException(UiText.T($"{item.Label} 获得后为 {after}，超过上限 {resource.Max}（当前 {before ?? 0}）。", $"{item.Label} 獲得後為 {after}，超過上限 {resource.Max}（當前 {before ?? 0}）。", $"{item.Label} would become {after}, above the limit of {resource.Max} (currently {before ?? 0})."));
-        // 桌面端按 D006 不在存档目录生成 .bak；获得也不自动备份（D019）。
+        // 桌面端不在存档目录生成 .bak；获得也不自动备份。
         var report = PatchEngine.Patch(working, saveFilePath, [new ResourceChange(resource.Id, after)], new PatchOptions(null));
         if (report.Outcome != PatchOutcome.Patched)
             throw new PatchRejectedException(UiText.T($"{item.Label} 没有写入（{report.Outcome}）。", $"{item.Label} 沒有寫入（{report.Outcome}）。", $"{item.Label} was not written ({report.Outcome})."));

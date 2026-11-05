@@ -137,7 +137,7 @@ public sealed class ItemGeneratorTests : IDisposable
         Assert.Equal(91, jacketGenerated.BodyLength);
         Assert.Equal(3, jacketGenerated.NodeIndex);
 
-        // T030：没有子配件的模板（服装）按 auto 生成远程武器时，同近战武器用根配件代替第一个子配件（以前拒绝「没有子配件」）。
+        // 没有子配件的模板（服装）按 auto 生成远程武器时，同近战武器用根配件代替第一个子配件（以前拒绝「没有子配件」）。
         var clothingPrefix = SaveContainer.Read(path);
         var gun = ItemGenerator.GenerateFromTemplate(clothingPrefix, jacket, "Items.Preset_Ajax_Default", PartsMode.Auto, Ajax, zeroPrefixIds: true);
         Assert.Equal(41 + (50 * Ajax.Length), gun.BodyLength);

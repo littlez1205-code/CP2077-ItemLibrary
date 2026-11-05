@@ -240,7 +240,7 @@ public sealed class GearGenerateTests : IDisposable
     [Fact]
     public void TemplateSelection_RangedPrefersAChildPart_ThenFallsBackToPrefixSource()
     {
-        // 没有带子配件的远程武器时（T030），回退到前缀来源：不带子配件的 MA70 本身就是远程武器，排在服装前面。
+        // 没有带子配件的远程武器时，回退到前缀来源：不带子配件的 MA70 本身就是远程武器，排在服装前面。
         var bare = WriteSave("bare", (1, Weapon("Items.Preset_MA70_Default", children: false)), (1, Samurai()));
         Assert.StartsWith("1:2:", ItemGenerator.ChooseTemplateKey(SaveContainer.Read(bare), GearKinds.Ranged, _names));
         var document = (Cp2077SaveDocument)_adapter.Load(bare);
@@ -303,7 +303,7 @@ public sealed class GearGenerateTests : IDisposable
         Assert.True(rogue.Iconic);
         Assert.Equal(GearKinds.Ranged, rogue.Kind);
 
-        // 标志性武器不当首选模板；只有它时（T030）作前缀来源。
+        // 标志性武器不当首选模板；只有它时作前缀来源。
         var iconicOnly = WriteSave("iconic-only", (1, Weapon("Items.Preset_Masamune_Rogue", children: true)));
         Assert.StartsWith("1:2:", ItemGenerator.ChooseTemplateKey(SaveContainer.Read(iconicOnly), GearKinds.Ranged, names));
 
@@ -321,7 +321,7 @@ public sealed class GearGenerateTests : IDisposable
     [Fact]
     public void TemplateSelection_RangedFallback_GunsFirst_ThenKnownGear_ThenAnything()
     {
-        // T030 回退顺序：远程武器（含标志性） → 目录认得的其他装备 → 其他非堆叠物品；根 CName 不是 None 的枪（如偏见的 afterlife）跳过。
+        // 回退顺序：远程武器（含标志性） → 目录认得的其他装备 → 其他非堆叠物品；根 CName 不是 None 的枪（如偏见的 afterlife）跳过。
         var names = IconicNames();
         var unknown = Clothing("Items.Katana", generic: true);
         Assert.Null(names.KindOf(TweakDbId.FromName("Items.Katana")));
@@ -341,7 +341,7 @@ public sealed class GearGenerateTests : IDisposable
     [Fact]
     public void Generate_Ranged_IconicGunOnly_BorrowsItsPrefixAndFirstPart()
     {
-        // 总监存档的情形：只有标志性枪（T030）。前缀、根和第一个子配件的 ItemID 后 4 字节、CName、尾部来自这把枪，配件树按预设重建。
+        // 实际存档里遇到过的情形：只有标志性枪。前缀、根和第一个子配件的 ItemID 后 4 字节、CName、尾部来自这把枪，配件树按预设重建。
         var names = IconicNames();
         var adapter = new Cp2077Adapter(() => names);
         var iconic = ItemPartTreeTests.Body("Items.Preset_Masamune_Rogue", 0x6669,
@@ -386,7 +386,7 @@ public sealed class GearGenerateTests : IDisposable
     [Fact]
     public void Generate_Ranged_ClothingOnly_UsesTheClothingRootAsPartModel()
     {
-        // 完全没有枪（T030）：服装作前缀来源。服装根没有子配件，同近战武器用根代替；面罩的空根 ItemID 后 4 字节为 0、CName None、尾部 16 个 0 + FLT_MAX。
+        // 完全没有枪：服装作前缀来源。服装根没有子配件，同近战武器用根代替；面罩的空根 ItemID 后 4 字节为 0、CName None、尾部 16 个 0 + FLT_MAX。
         var path = WriteSave("clothing-prefix", (1, Mask()), (ItemInserter.StashBagId, Samurai()));
         var mask = ItemPartTree.Parse(Mask());
         var document = (Cp2077SaveDocument)_adapter.Load(path);
@@ -414,7 +414,7 @@ public sealed class GearGenerateTests : IDisposable
     [Fact]
     public void Generate_Ranged_PlainTemplatePresent_BytesUnchanged()
     {
-        // 有普通远程武器时仍选它（T030 前的首选），哪怕标志性枪和服装排在前面；生成字节逐字节按 E3d 规则（与修改前一致）。
+        // 有普通远程武器时仍选它（原来的首选），哪怕标志性枪和服装排在前面；生成字节逐字节按 E3d 规则（与修改前一致）。
         var names = IconicNames();
         var adapter = new Cp2077Adapter(() => names);
         var template = Weapon("Items.Preset_MA70_Default", children: true);
@@ -617,7 +617,7 @@ public sealed class GearGenerateTests : IDisposable
     [Fact]
     public async Task BaseOnly_HidesExpansionItems_ReportsThem_AndRejectsGeneratingThem()
     {
-        // D023：没装往日之影。ep1 源里的 Ep1Coat 不进目录，生成和物品库获得都按固定说明拒绝；本体物品照常生成。
+        // 没装往日之影。ep1 源里的 Ep1Coat 不进目录，生成和物品库获得都按固定说明拒绝；本体物品照常生成。
         const string ep1 = """
             package Items
             using RTDB

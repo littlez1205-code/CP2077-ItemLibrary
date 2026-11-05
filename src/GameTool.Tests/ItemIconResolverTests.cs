@@ -6,7 +6,7 @@ using GameTool.Core;
 
 namespace GameTool.Tests;
 
-/// <summary>T020：图标名规则（预研第 3 节的样例）和标志性武器进目录的规则，全部用合成的 tweak 文本。</summary>
+/// <summary>图标名规则（预研整理的样例）和标志性武器进目录的规则，全部用合成的 tweak 文本。</summary>
 public class ItemIconResolverTests
 {
     private const string Tweaks = """
