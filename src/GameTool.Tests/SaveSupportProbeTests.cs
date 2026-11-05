@@ -43,6 +43,15 @@ public class SaveSupportProbeTests
             BinaryPrimitives.WriteUInt32LittleEndian(head.AsSpan(8), 2500);
             File.WriteAllBytes(path, head);
             Assert.True(adapter.Probe(path).Supported);
+
+            // 只认实测过的版本对：两个版本之间、或存档格式与游戏版本错配的组合一律不支持。
+            foreach (var (save, game) in new (uint, uint)[] { (273, 2400), (277, 2310), (269, 2500), (270, 2310), (276, 2500) })
+            {
+                BinaryPrimitives.WriteUInt32LittleEndian(head.AsSpan(4), save);
+                BinaryPrimitives.WriteUInt32LittleEndian(head.AsSpan(8), game);
+                File.WriteAllBytes(path, head);
+                Assert.False(adapter.Probe(path).Supported, $"{save}/{game} 不应被支持");
+            }
         }
         finally
         {
