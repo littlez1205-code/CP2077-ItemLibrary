@@ -16,6 +16,8 @@ $pwsh = (Get-Process -Id $PID).Path
 # "Shuo Ming .txt": a non-ASCII file name like the user guide's, built from code points.
 $guideName = (-join @([char]0x8BF4, [char]0x660E)) + '.txt'
 $ellipsis = [string][char]0x2026
+# A leaked-looking user folder, assembled at run time so that this file itself passes the scan.
+$leak = 'C:\Users\' + 'alice' + '\Saved Games'
 $utf8 = [Text.UTF8Encoding]::new($false)
 $failed = 0
 
@@ -83,15 +85,15 @@ $placeholders = @(
 Invoke-Case -Name 'placeholder folders pass, also in a non-ASCII-named file' -Expected 0 `
     -Files @{ 'notes.md' = $placeholders; $guideName = $placeholders }
 Invoke-Case -Name 'a leak in an ASCII-named file is reported' -Expected 1 -Expect 'alice' `
-    -Files @{ 'notes.md' = 'Saves are in C:\Users\alice\Saved Games' }
+    -Files @{ 'notes.md' = 'Saves are in ' + $leak }
 Invoke-Case -Name 'a leak in a non-ASCII-named file is reported' -Expected 1 -Expect 'alice' `
-    -Files @{ 'notes.md' = 'nothing to see'; $guideName = 'Saves are in C:\Users\alice\Saved Games' }
+    -Files @{ 'notes.md' = 'nothing to see'; $guideName = 'Saves are in ' + $leak }
 Invoke-Case -Name 'a leak in a non-ASCII-named file is reported on a code page 936 console' -Expected 1 -Expect 'alice' -CodePage 936 `
-    -Files @{ 'notes.md' = 'nothing to see'; $guideName = 'Saves are in C:\Users\alice\Saved Games' }
+    -Files @{ 'notes.md' = 'nothing to see'; $guideName = 'Saves are in ' + $leak }
 Invoke-Case -Name 'a tracked file deleted from the working tree is not an error' -Expected 0 `
     -Files @{ 'notes.md' = 'nothing to see'; 'gone.txt' = 'nothing to see' } -Delete @('gone.txt')
 Invoke-Case -Name 'binary files are skipped' -Expected 0 `
-    -Files @{ 'notes.md' = 'nothing to see'; 'blob.bin' = $utf8.GetBytes("`0C:\Users\alice\x") }
+    -Files @{ 'notes.md' = 'nothing to see'; 'blob.bin' = $utf8.GetBytes("`0" + $leak) }
 
 if ($failed -gt 0) {
     Write-Output ($failed.ToString() + ' case(s) failed.')
