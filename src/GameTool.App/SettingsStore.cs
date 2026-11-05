@@ -5,16 +5,16 @@ using System.Text.Json.Serialization;
 
 namespace GameTool.App;
 
-/// <summary>一个游戏的两项路径设置（D020）。未设置为 null。</summary>
+/// <summary>一个游戏的两项路径设置。未设置为 null。</summary>
 public sealed record GamePaths(string? SaveRoot, string? GameDir)
 {
     public static GamePaths Empty { get; } = new(null, null);
 }
 
 /// <summary>
-/// 用户设置（D020）：默认在 %LOCALAPPDATA%\GameTool\settings.json，按游戏 id 分别保存存档目录和游戏目录：
+/// 用户设置：默认在 %LOCALAPPDATA%\GameTool\settings.json，按游戏 id 分别保存存档目录和游戏目录：
 /// <c>{ "games": { "cp2077": { "saveRoot": "…", "gameDir": "…" } }, "helpShown": true }</c>。
-/// <c>helpShown</c> 是程序级的标记（D022）：「说明」已经自动弹出过一次，以后不再自动弹出；旧文件没有这一项，当作未弹出。
+/// <c>helpShown</c> 是程序级的标记：「说明」已经自动弹出过一次，以后不再自动弹出；旧文件没有这一项，当作未弹出。
 /// 读取时容错：文件不存在、损坏或字段类型不对，一律当作未设置（games 和 helpShown 各自独立判断）；
 /// 写入先写临时文件再整体替换，不会留下半个文件，并保留另一部分设置。
 /// </summary>
@@ -66,7 +66,7 @@ public sealed class SettingsStore
         }
     }
 
-    /// <summary>「说明」是否已经自动弹出过（D022）。没有这一项或类型不对都当作 false。</summary>
+    /// <summary>「说明」是否已经自动弹出过。没有这一项或类型不对都当作 false。</summary>
     public bool GetHelpShown()
     {
         lock (_gate)

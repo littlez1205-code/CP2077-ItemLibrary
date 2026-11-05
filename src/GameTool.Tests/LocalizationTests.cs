@@ -56,7 +56,7 @@ public class LocalizationTests
     [Fact]
     public void Load_Ep1TextArchiveIsOptional()
     {
-        // D023：没买往日之影的游戏目录没有 archive\pc\ep1\lang_*_text.archive，名字只用本体文本，Ep1Count 为 0。
+        // 没买往日之影的游戏目录没有 archive\pc\ep1\lang_*_text.archive，名字只用本体文本，Ep1Count 为 0。
         var game = Path.Combine(Path.GetTempPath(), "gt-loc-ep1-" + Guid.NewGuid().ToString("N"));
         try
         {

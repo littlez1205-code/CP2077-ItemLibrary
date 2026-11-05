@@ -5,7 +5,7 @@ namespace GameTool.Adapters.Cyberpunk2077.Names;
 
 /// <summary>
 /// 名字表（懒加载）。没有 REDmod 时不抛错。同一份数据也提供生成功能的目录和图标。
-/// 游戏目录由调用方给出（D020：桌面端来自用户设置，CLI 来自 --game 或 Steam 探测）；进程内只缓存最近一个目录的实例。
+/// 游戏目录由调用方给出（桌面端来自用户设置，CLI 来自 --game 或 Steam 探测）；进程内只缓存最近一个目录的实例。
 /// </summary>
 public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
 {
@@ -112,7 +112,7 @@ public sealed class Cp2077ItemNames : IItemNameProvider, IGearCatalog
 
     public string? KindOf(ulong tweakDbId) => Available ? _catalog!.Gear?.KindOf(tweakDbId) : null;
 
-    /// <summary>按装了往日之影加载（D023）；名字表不可用时为 true。</summary>
+    /// <summary>按装了往日之影加载；名字表不可用时为 true。</summary>
     public bool ExpansionInstalled => _catalog?.ExpansionInstalled ?? true;
 
     public IReadOnlyList<GearGroup> HiddenGroups => Available ? _catalog!.Gear?.HiddenGroups ?? [] : [];

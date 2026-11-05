@@ -5,7 +5,7 @@ using GameTool.Tests.Fake;
 
 namespace GameTool.Tests;
 
-/// <summary>T030：存档根目录监视的去抖与推送（只用临时目录，不碰真实存档）。</summary>
+/// <summary>存档根目录监视的去抖与推送（只用临时目录，不碰真实存档）。</summary>
 public sealed class SaveRootWatcherTests : IDisposable
 {
     private const int Debounce = 300;

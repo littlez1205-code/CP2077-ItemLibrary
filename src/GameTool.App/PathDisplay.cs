@@ -3,7 +3,7 @@ using System.Text;
 namespace GameTool.App;
 
 /// <summary>
-/// 界面显示用的路径缩写（D021）：用户目录下的路径显示成 <c>%USERPROFILE%\…</c>，本地应用数据目录下的显示成
+/// 界面显示用的路径缩写：用户目录下的路径显示成 <c>%USERPROFILE%\…</c>，本地应用数据目录下的显示成
 /// <c>%LOCALAPPDATA%\…</c>，界面上就不会出现 Windows 用户名。只影响显示：设置文件和内部使用的仍是完整路径。
 /// <para>
 /// <see cref="Mask"/> 处理任意文本（路径本身、校验提示、异常信息），在文本中任何位置找到这些目录就替换；

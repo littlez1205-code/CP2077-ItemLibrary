@@ -10,7 +10,7 @@ using GameTool.Core;
 
 namespace GameTool.Tests;
 
-/// <summary>T021 第二批类别：近战武器与义体的预设解析、目录分类、配件树形态、种子规则和严格校验。</summary>
+/// <summary>第二批类别：近战武器与义体的预设解析、目录分类、配件树形态、种子规则和严格校验。</summary>
 public sealed class MeleeCyberwareTests : IDisposable
 {
     private const string Tweaks = """

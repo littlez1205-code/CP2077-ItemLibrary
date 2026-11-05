@@ -70,7 +70,7 @@ const glyphs = {
   other: ["M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z", "M4 7.5l8 4.5 8-4.5M12 12v9"]
 };
 
-// T024：物品库分页，每页卡片数可选，记在本机（localStorage，读写失败就用默认值）。
+// 物品库分页，每页卡片数可选，记在本机（localStorage，读写失败就用默认值）。
 const PAGE_SIZES = [15, 30, 60];
 const PAGE_SIZE_KEY = "gametool.library.pageSize";
 const pending = new Map();
@@ -132,7 +132,7 @@ window.chrome.webview.addEventListener("message", (event) => {
     waiter.reject(message.error || { message: t().unknownError });
 });
 
-// D024：存档版本不在白名单内（「不支持」）时，补一句游戏更新后的处理和更新渠道。
+// 存档版本不在白名单内（「不支持」）时，补一句游戏更新后的处理和更新渠道。
 function withUnsupportedHint(text) {
   const base = String(text || t().unsupportedBadge).replace(/[。；;.\s]+$/, "");
   return base + (uiLang === "en-us" ? ". " : "。") + t().unsupportedHint;
@@ -295,7 +295,7 @@ async function refreshQuietly() {
   renderBackups();
 }
 
-// ---------- 存档列表自动刷新（T030） ----------
+// ---------- 存档列表自动刷新 ----------
 // 宿主监视存档根目录，游戏存档后推送 saves.changed（宿主已去抖 1.5 秒）；窗口重新获得焦点时也刷新一次作保底。
 
 let booted = false;
@@ -539,7 +539,7 @@ async function deleteBackup(backup) {
 }
 
 // ---------- 物品库 ----------
-// T023：目录按「同一分类、同一中文名」合并成卡片（library.catalog），一张卡里的多个品阶 / 款式在确认框里切换。
+// 目录按「同一分类、同一中文名」合并成卡片（library.catalog），一张卡里的多个品阶 / 款式在确认框里切换。
 
 function kindLabel(id) {
   const kind = library.kinds.find((item) => item.id === id);
@@ -626,10 +626,10 @@ function betterKind() {
 }
 
 /**
- * 加载当前分类、搜索词下的第 library.page 页（T024 分页）。reset 为 true 时回到第 1 页。
+ * 加载当前分类、搜索词下的第 library.page 页。reset 为 true 时回到第 1 页。
  * 没有「全部」标签：还不知道分类（首次加载）或选中的分类不在这个存档里时，宿主按 kindFallback 改用第一个分类并返回实际分类。
  * autoKind 为 true（搜索词变化、换存档）时，当前分类没有命中而别的分类有，就自动切到第一个有命中的分类。
- * keepScroll 为 true（存档在磁盘上变了的静默重载，T030）时结果区保持原来的滚动位置，否则回到顶部。
+ * keepScroll 为 true（存档在磁盘上变了的静默重载）时结果区保持原来的滚动位置，否则回到顶部。
  */
 async function loadLibrary(reset, autoKind, keepScroll) {
   if (!selected || selected.supported === false)
@@ -719,7 +719,7 @@ function paintMeta() {
   metaEl.textContent = t().libMeta(library.total, library.itemTotal, library.page, pageCount());
 }
 
-/** 分类标签：没有「全部」（D019）。有搜索词时每个标签后面显示这个分类的命中卡片数，没有命中的标签变淡。 */
+/** 分类标签：没有「全部」。有搜索词时每个标签后面显示这个分类的命中卡片数，没有命中的标签变淡。 */
 function renderChips() {
   chipsEl.replaceChildren();
   if (!library.available)
@@ -1157,7 +1157,7 @@ function closeDialog() {
     document.removeEventListener("keydown", dialogKeys);
     dialogKeys = null;
   }
-  // T030：确认框开着时存档在磁盘上变了，物品库推迟到现在重载（放到下一轮，让「获得」的结果先画上去）。
+  // 确认框开着时存档在磁盘上变了，物品库推迟到现在重载（放到下一轮，让「获得」的结果先画上去）。
   if (libraryStale) {
     setTimeout(() => {
       if (libraryStale && confirmEl.hidden && !selectedBackup)
@@ -1607,7 +1607,7 @@ skinDrop.addEventListener("drop", (event) => {
   importSkinFile(event.dataTransfer && event.dataTransfer.files[0]);
 });
 
-// ---------- 说明（D022：快速上手 / 常见问题 / 关于） ----------
+// ---------- 说明（快速上手 / 常见问题 / 关于） ----------
 // 内容在 i18n.js 的 HELP_PANES_HTML 里，按界面语言整块填入；这里切换页签、填版本号，以及第一次进入主界面时自动弹出一次「快速上手」。
 
 const helpEl = document.querySelector("#help");
@@ -1735,7 +1735,7 @@ document.addEventListener("keydown", (event) => {
   closeHelp();
 }, true);
 
-// ---------- 路径设置（D020：手动设置存档目录和游戏目录） ----------
+// ---------- 路径设置（手动设置存档目录和游戏目录） ----------
 
 const setupEl = document.querySelector("#setup");
 const setupIntro = document.querySelector("#setup-intro");
@@ -1775,7 +1775,7 @@ function setupEntry(path, check) {
 }
 
 /**
- * 一行的结果文字：没通过时是原因；通过时是说明，加上游戏目录的检测结果（D023，如「已检测到：仅本体（往日之影物品将不显示）」）和提醒。
+ * 一行的结果文字：没通过时是原因；通过时是说明，加上游戏目录的检测结果（如「已检测到：仅本体（往日之影物品将不显示）」）和提醒。
  */
 function setupStatusText(entry) {
   if (!entry.ok)
@@ -1886,7 +1886,7 @@ async function finishSetup() {
     closeSetup();
     await reloadWithNewPaths();
     showToast(first ? t().toastSetupFirst : t().toastSetupSaved);
-    // D022：第一次设置完路径，自动弹出一次「快速上手」（已弹出过就不再弹）。
+    // 第一次设置完路径，自动弹出一次「快速上手」（已弹出过就不再弹）。
     if (first)
       await autoShowHelp().catch(showError);
   } catch (error) {
@@ -1917,7 +1917,7 @@ document.addEventListener("keydown", (event) => {
     closeSetup();
 });
 
-// ---------- 窗口（D021：一体式标题栏） ----------
+// ---------- 窗口（一体式标题栏） ----------
 // 顶栏的拖动、双击最大化、右键系统菜单由 WebView2 的 app-region 交给系统；这里只管右上角三个按钮和四周的缩放边。
 
 const winMaxEl = document.querySelector("#win-max");
@@ -2090,7 +2090,7 @@ async function boot() {
     return;
   }
   await refresh();
-  // D022：主界面就绪且设置文件里没有「已弹出」标记（含已设置好路径、但还没见过说明的老用户），自动弹出一次。
+  // 主界面就绪且设置文件里没有「已弹出」标记（含已设置好路径、但还没见过说明的老用户），自动弹出一次。
   // 自检用的是临时设置文件，同样会弹出，由 help-autoshow 步骤检查。
   await autoShowHelp().catch(showError);
   // --show help-start / help-faq / help-about：直接打开说明的某一页（截图用，与 --show backups 同类）。
@@ -2350,7 +2350,7 @@ async function typeSearch(text) {
 }
 
 /**
- * 分页（T024）：选一个超过 30 张卡片的分类，每页改成 30（回到第 1 页），点翻页条上的「2」，
+ * 分页：选一个超过 30 张卡片的分类，每页改成 30（回到第 1 页），点翻页条上的「2」，
  * 界面上的卡片应正好是直接请求 skip=30、take=30 的那一页，结果区回到顶部。结束后还原每页数量（它记在本机）。
  */
 async function runPagingSelfTest() {
@@ -2393,7 +2393,7 @@ async function runPagingSelfTest() {
 }
 
 /**
- * 跨分类搜索（T024）：先停在一个没有命中的分类，输入能命中多个分类的词：每个标签上的数字与宿主的 kindCounts 一致，
+ * 跨分类搜索：先停在一个没有命中的分类，输入能命中多个分类的词：每个标签上的数字与宿主的 kindCounts 一致，
  * 并自动切到第一个有命中的分类；清空搜索后数字消失。
  */
 async function runSearchCountSelfTest() {
@@ -2446,7 +2446,7 @@ async function runLibrarySelfTest() {
   const cards = gridEl.querySelectorAll(".item").length;
   const chipKinds = [...chipsEl.children].map((chip) => chip.dataset.kind).join(",");
   const active = chipsEl.querySelector(".chip.active");
-  // D019：没有「全部」标签，默认选中第一个分类；卡片按同名合并（T023）：卡片里的条目合计等于这个分类逐条目录的总数。
+  // 没有「全部」标签，默认选中第一个分类；卡片按同名合并：卡片里的条目合计等于这个分类逐条目录的总数。
   await step("library-catalog",
     catalog.total > 0 && !!firstKind && chipKinds === catalog.kinds.map((kind) => kind.id).join(",")
       && !!active && active.dataset.kind === firstKind && library.kind === firstKind && library.page === 1
@@ -2489,7 +2489,7 @@ async function runLibrarySelfTest() {
 
   const second = await call("library.obtain", { gameId, slot: selected.slot, target: stack.target, quantity: 2 });
   const backupsFinal = (await call("backup.list", { gameId })).length;
-  // D019：获得不做任何备份，界面获得（堆叠、装备、多品阶）和直接获得之后备份区数量都不变。
+  // 获得不做任何备份，界面获得（堆叠、装备、多品阶）和直接获得之后备份区数量都不变。
   await step("library-no-backup", second.after === before + 5 && second.backupId === undefined && backupsFinal === backupsBefore,
     "backups " + backupsBefore + "→" + backupsFinal);
   searchEl.value = "";
@@ -2509,7 +2509,7 @@ async function until(condition, timeoutMs) {
 }
 
 /**
- * T030：宿主在自检沙箱的存档目录里新建一个槽位，页面不做任何操作，存档列表应自动出现它；
+ * 宿主在自检沙箱的存档目录里新建一个槽位，页面不做任何操作，存档列表应自动出现它；
  * 再把选中的存档覆盖成原始副本（相当于游戏重新存档），选中存档的时间和物品库应自动重载，分类、页码、搜索词不变。
  */
 async function runAutoRefreshSelfTest() {
@@ -2540,7 +2540,7 @@ function samePath(left, right) {
 }
 
 /**
- * D020：路径校验走桥接（坏路径、好的临时存档目录、单个存档文件夹 → 上一级、不是游戏目录），
+ * 路径校验走桥接（坏路径、好的临时存档目录、单个存档文件夹 → 上一级、不是游戏目录），
  * 再点齿轮打开设置面板，检查两行显示的是当前路径，取消后关闭。自检从不显示首次引导页，也不碰真实设置文件。
  */
 async function runSettingsSelfTest() {
@@ -2564,7 +2564,7 @@ async function runSettingsSelfTest() {
   const shown = !setupEl.hidden && !mainEl.hidden && !setupCancel.hidden && setupDone.textContent === "保存"
     && samePath(setupRows.saveRoot.path.textContent, root)
     && setupDone.disabled === !(info.saveRootCheck.ok && info.gameDirCheck.ok);
-  // D021：设置面板开着时（路径、常见位置、设置文件位置都显示出来）把界面上的全部文字交给宿主，检查里面没有真实的用户目录。
+  // 设置面板开着时（路径、常见位置、设置文件位置都显示出来）把界面上的全部文字交给宿主，检查里面没有真实的用户目录。
   const leak = await call("selftest.leak", { text: displayedText() });
   const hint = setupRows.saveRoot.hint.textContent;
   setupCancel.click();
@@ -2575,7 +2575,7 @@ async function runSettingsSelfTest() {
 }
 
 /**
- * D023：宿主在临时目录里搭两个假游戏目录（只有占位文件），经桥接校验：只有本体的显示「仅本体」，
+ * 宿主在临时目录里搭两个假游戏目录（只有占位文件），经桥接校验：只有本体的显示「仅本体」，
  * 有往日之影内容归档和 tweakdb_ep1.bin 的显示「本体 + 往日之影」；设置行的文字里带上检测结果。当前游戏目录也要给出检测结果。
  */
 async function runExpansionSelfTest() {
@@ -2597,7 +2597,7 @@ async function runExpansionSelfTest() {
 }
 
 /**
- * D022：自检的设置文件是临时的、没有「已弹出」标记，所以启动后（主界面就绪）应已自动打开「快速上手」，
+ * 自检的设置文件是临时的、没有「已弹出」标记，所以启动后（主界面就绪）应已自动打开「快速上手」，
  * 并已记下标记；关掉后重新读取状态，不会再弹出。
  */
 async function runHelpAutoShowSelfTest() {
@@ -2611,7 +2611,7 @@ async function runHelpAutoShowSelfTest() {
     "opened=" + opened + " marked=" + info.helpShown + " closed=" + closed + " again=" + again);
 }
 
-/** D022：点「说明」打开，依次切换三个页签（每次只显示一页且有内容），「关于」里有版本号；Esc 和关闭按钮都能关。 */
+/** 点「说明」打开，依次切换三个页签（每次只显示一页且有内容），「关于」里有版本号；Esc 和关闭按钮都能关。 */
 async function runHelpPanelSelfTest() {
   const info = await call("app.info", {});
   helpOpenEl.click();
@@ -2648,7 +2648,7 @@ async function waitLaunched(count) {
 }
 
 /**
- * D024：「关于」页有作者名、免费说明和「B 站主页」按钮（是按钮不是链接），运行环境里不再有 .NET；
+ * 「关于」页有作者名、免费说明和「B 站主页」按钮（是按钮不是链接），运行环境里不再有 .NET；
  * 快速上手末尾也有同样的按钮。两个按钮各点一次，宿主的假启动器（自检从不打开浏览器）应收到两次、且都是固定的作者主页。
  * 常见问题有云存档一条；「不支持」的错误文字补上了游戏更新后的说明。
  */
@@ -2697,7 +2697,7 @@ async function runFullSelfTest() {
   try {
     const before = slots.length;
     await step("list", before > 0, String(before));
-    // D021：一体式标题栏的窗口方法能应答，自绘按钮和八个缩放边都在页面上（自检不真的最小化或关闭窗口）。
+    // 一体式标题栏的窗口方法能应答，自绘按钮和八个缩放边都在页面上（自检不真的最小化或关闭窗口）。
     const windowState = await call("window.state", {});
     await step("window-state",
       typeof windowState.maximized === "boolean" && typeof windowState.active === "boolean"
@@ -2717,7 +2717,7 @@ async function runFullSelfTest() {
     const residueInfo = await call("saves.info", { gameId, slot: residue.slot });
     await step("residue", residueInfo.resources.length === 10, String(residueInfo.resources.length));
 
-    // 使能模式已从界面撤下（D013），桥接方法仍保留：直接调用覆盖原有流程。
+    // 使能模式已从界面撤下，桥接方法仍保留：直接调用覆盖原有流程。
     const originals = new Map(info.resources.map((resource) => [resource.id, resource.quantity]));
     const money = info.resources.find((resource) => resource.id === "money");
     const material = info.resources.find((resource) => resource.id === "craft.t1");

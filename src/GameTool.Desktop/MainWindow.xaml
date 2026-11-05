@@ -4,7 +4,7 @@
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="游戏工具" Height="800" Width="1280" MinWidth="900" MinHeight="560"
         Background="#070B14">
-    <!-- D021 一体式标题栏：去掉系统标题栏，页面顶栏就是标题栏（拖动区由 WebView2 的 app-region 提供，缩放边由页面边缘转交系统）。 -->
+    <!-- 一体式标题栏：去掉系统标题栏，页面顶栏就是标题栏（拖动区由 WebView2 的 app-region 提供，缩放边由页面边缘转交系统）。 -->
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0"
                       ResizeBorderThickness="6"

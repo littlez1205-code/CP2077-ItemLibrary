@@ -28,7 +28,7 @@
 
 * { box-sizing: border-box; }
 
-/* ---------- 滚动条（D020）：细、圆角、半透明，悬停变亮；轨道透明。描一圈暗边，亮背景图上也看得见 ---------- */
+/* ---------- 滚动条：细、圆角、半透明，悬停变亮；轨道透明。描一圈暗边，亮背景图上也看得见 ---------- */
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 
@@ -74,7 +74,7 @@ header, main { position: relative; z-index: 2; padding: 14px 20px; }
 
 header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 6px; }
 
-/* ---------- 一体式标题栏（D021）：顶栏就是标题栏，可拖动、双击最大化；上面的按钮和输入框照常点击 ---------- */
+/* ---------- 一体式标题栏：顶栏就是标题栏，可拖动、双击最大化；上面的按钮和输入框照常点击 ---------- */
 
 header {
   padding-right: calc(20px + var(--caption-width));
@@ -1116,7 +1116,7 @@ input[type="number"]::-webkit-outer-spin-button:hover {
 
 .toast.bad { border-left-color: var(--danger); }
 
-/* ---------- 路径设置（D020）：首次启动的引导页和齿轮打开的设置面板共用 ---------- */
+/* ---------- 路径设置：首次启动的引导页和齿轮打开的设置面板共用 ---------- */
 
 .setup {
   position: fixed;
@@ -1179,7 +1179,7 @@ input[type="number"]::-webkit-outer-spin-button:hover {
 
 .setup-file { margin: 10px 0 0; font-size: 11.5px; color: var(--faint); overflow-wrap: anywhere; }
 
-/* ---------- 说明（D022）：与设置面板同风格的弹窗，三个页签，内容过长时在弹窗内滚动 ---------- */
+/* ---------- 说明：与设置面板同风格的弹窗，三个页签，内容过长时在弹窗内滚动 ---------- */
 
 .help {
   position: fixed;

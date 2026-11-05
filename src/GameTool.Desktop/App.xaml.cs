@@ -35,7 +35,7 @@ public partial class App : Application
 
         if (selfTest)
         {
-            // 自检从不读写真实设置文件（D020）：设置放进临时目录，路径全部来自命令行或临时副本；
+            // 自检从不读写真实设置文件：设置放进临时目录，路径全部来自命令行或临时副本；
             // 没给 --game-dir 时，只有自检才用 Steam 探测游戏目录。
             var baseDir = Path.Combine(Path.GetTempPath(), "GameTool-selftest-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(baseDir);
@@ -75,7 +75,7 @@ public partial class App : Application
         "The Microsoft Edge WebView2 runtime is missing, so the window cannot be shown. Download and install it from Microsoft (" + RuntimeDownloadUrl + "), then open this tool again.");
 
     /// <summary>
-    /// 缺少 WebView2 运行时（D022）：弹出中文提示，可选用默认浏览器打开下载页，然后退出（退出码 2）。
+    /// 缺少 WebView2 运行时：弹出中文提示，可选用默认浏览器打开下载页，然后退出（退出码 2）。
     /// 自检不弹对话框（否则会卡住等人点），只写自检日志。
     /// </summary>
     internal static void ReportMissingWebView2(bool selfTest)

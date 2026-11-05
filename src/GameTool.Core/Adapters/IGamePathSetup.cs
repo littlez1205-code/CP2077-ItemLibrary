@@ -14,7 +14,7 @@ public sealed record PathCheck(bool Ok, string? Path, string Message, string? Wa
 }
 
 /// <summary>
-/// 适配器可选：存档目录和游戏目录由用户手动设置（D020）。适配器只负责校验和接收游戏目录，
+/// 适配器可选：存档目录和游戏目录由用户手动设置。适配器只负责校验和接收游戏目录，
 /// 设置的保存由应用层负责；桌面端不再自动探测路径。
 /// </summary>
 public interface IGamePathSetup

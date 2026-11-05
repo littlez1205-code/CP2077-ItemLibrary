@@ -20,7 +20,7 @@ public sealed record TweakPresetEntry(string? Slot, string? Item, string? Templa
 /// 和几个简单字段（quality、itemType 等，见 <see cref="ScalarFields"/>），
 /// 以及顶层记录头上方独占一行的属性（如 <c>[ notQueryable ]</c>，可以连续叠几行）。记录体内的属性行修饰的是字段，不算记录的属性。
 /// <para>
-/// 往日之影（D023）：tweaks\ep1 下的记录、带 <c>[ EP1 ]</c> 属性的记录，以及继承链、配件预设、配方产物依赖它们的记录算往日之影记录（<see cref="IsExpansion"/>）。
+/// 往日之影：tweaks\ep1 下的记录、带 <c>[ EP1 ]</c> 属性的记录，以及继承链、配件预设、配方产物依赖它们的记录算往日之影记录（<see cref="IsExpansion"/>）。
 /// 没有安装往日之影时（<see cref="ExpansionInstalled"/> 为 false），记录体第 1 层带 <c>[ EP1 ]</c> 的字段不生效，按本体的定义解析
 /// （本机实测 ep1 源不重定义任何本体记录；资料片对本体记录的改动都写成这种字段级属性，如 nextUpgradeItem、craftingResult、entityName）。
 /// </para>
@@ -119,7 +119,7 @@ public sealed partial class TweakSourceIndex
     }
 
     /// <summary>
-    /// 往日之影记录（D023）：来自 tweaks\ep1、带 <c>[ EP1 ]</c> 属性，或者继承链上的父记录、配件预设里的配件 / 挂点、
+    /// 往日之影记录：来自 tweaks\ep1、带 <c>[ EP1 ]</c> 属性，或者继承链上的父记录、配件预设里的配件 / 挂点、
     /// 配方产物（craftingResult.item）是往日之影记录。记录不存在返回 false。结果缓存，线程安全。
     /// </summary>
     public bool IsExpansion(string recordName)
@@ -259,7 +259,7 @@ public sealed partial class TweakSourceIndex
 
     /// <summary>
     /// 配方（RTDB.ItemRecipe）的产物：记录体第 1 层 <c>craftingResult = { item = "Items.X"; … };</c> 里的 item，
-    /// 按简单字段记在这个名字下，可用 <see cref="FieldOf"/> 沿继承链取（T023；tweak 源里 928 处全是内联块写法）。
+    /// 按简单字段记在这个名字下，可用 <see cref="FieldOf"/> 沿继承链取（tweak 源里 928 处全是内联块写法）。
     /// </summary>
     public const string CraftingResultItem = "craftingResult.item";
 
@@ -660,7 +660,7 @@ public sealed partial class TweakSourceIndex
         {
             var source = entry.Reference ?? entry.Template;
             var resolved = source is null ? null : ResolveName(source, owner, _records);
-            // 自己写的字段原样保留（含空串，与 T021 以前一致）；从模板或引用记录补的字段必须非空，
+            // 自己写的字段原样保留（含空串，与以前一致）；从模板或引用记录补的字段必须非空，
             // 模组槽模板（如 BladeModList_Slot1）把 itemPartPreset 置成空串，不能因此多出空配件。
             var slot = entry.Slot ?? NonEmpty(resolved is null ? null : FieldOf(resolved, "slot"));
             var item = entry.Item ?? NonEmpty(resolved is null ? null : FieldOf(resolved, "itemPartPreset"));

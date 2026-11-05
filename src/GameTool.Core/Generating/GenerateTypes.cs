@@ -10,7 +10,7 @@ public sealed record GenerateRequest(string Target, int Copies, bool ToStash = f
 public sealed record GenerateKind(string Id, string Label, bool Stackable = false);
 
 /// <summary>
-/// 一个分类里因为游戏缺少资料片而隐藏的物品（D023，如没装往日之影）：Groups 是卡片数，Items 是条目数。
+/// 一个分类里因为游戏缺少资料片而隐藏的物品（如没装往日之影）：Groups 是卡片数，Items 是条目数。
 /// </summary>
 public sealed record GenerateHiddenKind(string Kind, string Label, int Groups, int Items);
 
@@ -65,7 +65,7 @@ public sealed record GenerateCatalogItem(
 public sealed record GenerateCatalogPage(int Total, IReadOnlyList<GenerateCatalogItem> Items);
 
 /// <summary>
-/// 同名合并后的一张卡（T023）：同一分类里中文名相同的条目。Variants 按品阶从低到高（或按款式）排列，
+/// 同名合并后的一张卡：同一分类里中文名相同的条目。Variants 按品阶从低到高（或按款式）排列，
 /// DefaultIndex 是默认选中的一条（最高品阶）。Quality / Iconic 取默认条目的，用于卡片边框颜色。
 /// VariantNoun 是「品阶」或「款式」，只有一条时为 null。
 /// </summary>
@@ -159,7 +159,7 @@ public interface IItemGenerateCapable
     GenerateCatalogPage ListGeneratable(string? kind, string? query, int skip, int take);
 
     /// <summary>
-    /// 同名合并后按卡片分页（T023）：卡片里任一条目命中搜索就列出整张卡，计数和分页都按卡片。
+    /// 同名合并后按卡片分页：卡片里任一条目命中搜索就列出整张卡，计数和分页都按卡片。
     /// ownership 支持 "all"、"unowned"、"owned"。默认实现把每条目录项当成一张卡。
     /// </summary>
     GenerateGroupPage ListGeneratableGroups(string? kind, string? query, int skip, int take, string? ownership = null)
@@ -169,7 +169,7 @@ public interface IItemGenerateCapable
     }
 
     /// <summary>
-    /// 每个分类里命中 query 的卡片数（T024，搜索时分类标签上的数字），键是 <see cref="GenerateKinds"/> 里的分类，没有命中的为 0。
+    /// 每个分类里命中 query 的卡片数（搜索时分类标签上的数字），键是 <see cref="GenerateKinds"/> 里的分类，没有命中的为 0。
     /// 默认实现逐个分类取一页；适配器可以一次遍历目录算出全部计数。
     /// </summary>
     IReadOnlyDictionary<string, int> CountGeneratableGroups(string? query, string? ownership = null) =>
@@ -179,11 +179,11 @@ public interface IItemGenerateCapable
     GenerateCatalogItem? FindGeneratable(string target);
 
     /// <summary>
-    /// 目标因为游戏缺少资料片而被隐藏时，拒绝生成的说明（D023）；没有被隐藏返回 null。
+    /// 目标因为游戏缺少资料片而被隐藏时，拒绝生成的说明；没有被隐藏返回 null。
     /// </summary>
     string? HiddenReason(string target) => null;
 
-    /// <summary>各分类里因为游戏缺少资料片而隐藏的物品（D023），没有隐藏的分类不列出。</summary>
+    /// <summary>各分类里因为游戏缺少资料片而隐藏的物品，没有隐藏的分类不列出。</summary>
     IReadOnlyList<GenerateHiddenKind> HiddenKinds => [];
 
     /// <summary>隐藏物品的总说明（如「未检测到往日之影，已隐藏 …」），没有隐藏时为 null。</summary>

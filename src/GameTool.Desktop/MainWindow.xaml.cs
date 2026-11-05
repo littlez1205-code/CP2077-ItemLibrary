@@ -11,7 +11,7 @@ using Microsoft.Web.WebView2.Core;
 
 namespace GameTool.Desktop;
 
-/// <summary>启动参数：路径来自命令行（自检）或用户设置（D020）。空字符串表示没有给。</summary>
+/// <summary>启动参数：路径来自命令行（自检）或用户设置。空字符串表示没有给。</summary>
 public sealed record MainWindowOptions(
     string SaveRoot,
     string BackupRoot,
@@ -119,7 +119,7 @@ public partial class MainWindow : Window
     };
 
     /// <summary>
-    /// 一体式标题栏的按钮和缩放边（D021）：window.minimize / toggleMaximize / close / state / startResize。
+    /// 一体式标题栏的按钮和缩放边：window.minimize / toggleMaximize / close / state / startResize。
     /// 在界面线程直接处理，不经过桥接；返回 false 表示不是窗口方法。
     /// </summary>
     private bool TryHandleWindow(string requestJson)
@@ -204,14 +204,14 @@ public partial class MainWindow : Window
             await View.EnsureCoreWebView2Async(environment);
             var core = View.CoreWebView2;
             core.Settings.IsStatusBarEnabled = false;
-            // D021：页面顶栏用 CSS app-region: drag 充当标题栏（拖动、双击最大化 / 还原、右键系统菜单、Aero 贴边都由系统处理）。
+            // 页面顶栏用 CSS app-region: drag 充当标题栏（拖动、双击最大化 / 还原、右键系统菜单、Aero 贴边都由系统处理）。
             core.Settings.IsNonClientRegionSupportEnabled = true;
 #if !DEBUG
             core.Settings.AreDevToolsEnabled = false;
             core.Settings.AreDefaultContextMenusEnabled = false;
 #endif
             // 只显示内置页面：非本地内容的导航一律取消，新窗口（target=_blank、window.open）一律不开。
-            // 作者主页（D024）由宿主用系统浏览器打开，不在 WebView2 里导航。
+            // 作者主页由宿主用系统浏览器打开，不在 WebView2 里导航。
             core.NavigationStarting += (_, args) =>
             {
                 if (!IsLocalPage(args.Uri))
@@ -244,7 +244,7 @@ public partial class MainWindow : Window
                 string.IsNullOrWhiteSpace(_gameDir) ? null : _gameDir,
                 PickFolder,
                 urlLauncher: _selfTest ? _selfTestLauncher : new ShellUrlLauncher());
-            // T030：游戏存档后自动刷新存档列表（宿主监视存档根目录，去抖后推送 saves.changed），随桥接一起在关闭时释放。
+            // 游戏存档后自动刷新存档列表（宿主监视存档根目录，去抖后推送 saves.changed），随桥接一起在关闭时释放。
             _bridge.WatchSaveRoots();
             // 设置里保存的界面语言放进地址：页面首屏直接用它，不必等桥接应答。
             var query = new List<string> { "lang=" + UiText.Normalize(App.StartupLanguage) };
@@ -284,7 +284,7 @@ public partial class MainWindow : Window
         && uri.Scheme == Uri.UriSchemeHttps
         && uri.Host.Equals("gametool.local", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>自检用的假浏览器启动器（D024）：只记下要打开的地址，绝不真的打开浏览器。</summary>
+    /// <summary>自检用的假浏览器启动器：只记下要打开的地址，绝不真的打开浏览器。</summary>
     private sealed class RecordingUrlLauncher : IUrlLauncher
     {
         private readonly List<string> _opened = [];
@@ -354,7 +354,7 @@ public partial class MainWindow : Window
             {
                 if (!_selfTest)
                     return false;
-                // D023：在临时目录里搭两个最小的假游戏目录（只有空占位文件，不碰真实游戏目录），供页面走桥接校验往日之影检测。
+                // 在临时目录里搭两个最小的假游戏目录（只有空占位文件，不碰真实游戏目录），供页面走桥接校验往日之影检测。
                 var (baseOnly, withExpansion) = CreateFakeGames();
                 Reply(id, true, null, new { BaseOnly = baseOnly, WithExpansion = withExpansion });
                 return true;
@@ -363,7 +363,7 @@ public partial class MainWindow : Window
             {
                 if (!_fullSelfTest)
                     return false;
-                // T030：在自检沙箱的存档目录里新建一个槽位（复制原始副本），页面不做任何操作，存档列表应自动出现它。
+                // 在自检沙箱的存档目录里新建一个槽位（复制原始副本），页面不做任何操作，存档列表应自动出现它。
                 const string name = "ManualSave-8";
                 var directory = Path.Combine(_saveRoot, name);
                 Directory.CreateDirectory(directory);
@@ -376,14 +376,14 @@ public partial class MainWindow : Window
             {
                 if (!_selfTest)
                     return false;
-                // D024：假启动器收到了几次请求、是否全是固定的作者主页（页面自己不知道这个地址）。
+                // 假启动器收到了几次请求、是否全是固定的作者主页（页面自己不知道这个地址）。
                 var opened = _selfTestLauncher.Opened();
                 Reply(id, true, null, new { Count = opened.Length, FixedOnly = opened.All(url => url == AuthorPage.Url) });
                 return true;
             }
             else if (method == "selftest.leak")
             {
-                // D021：页面把界面上显示的全部文字送来，这里检查里面有没有真实的用户目录（页面自己不知道用户目录是什么）。
+                // 页面把界面上显示的全部文字送来，这里检查里面有没有真实的用户目录（页面自己不知道用户目录是什么）。
                 var text = parameters.ValueKind == JsonValueKind.Object && parameters.TryGetProperty("text", out var textValue)
                     ? textValue.GetString() ?? ""
                     : "";
@@ -500,7 +500,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// settings.pickFolder 的原生对话框（D020）。桥接在后台线程调用，这里切回界面线程弹出；页面只拿到选中的路径。
+    /// settings.pickFolder 的原生对话框。桥接在后台线程调用，这里切回界面线程弹出；页面只拿到选中的路径。
     /// 自检不弹对话框，当作取消。
     /// </summary>
     private string? PickFolder(string title, string? initialDirectory)

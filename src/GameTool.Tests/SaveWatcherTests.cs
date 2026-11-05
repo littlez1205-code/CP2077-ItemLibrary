@@ -117,7 +117,7 @@ public sealed class SaveWatcherTests : IDisposable
     }
 
     /// <summary>
-    /// T023：监听期间同目录的 File.Replace 不能失败。File.Replace 先把原文件改名为 xxx~RFxxxx.TMP 再删除；
+    /// 监听期间同目录的 File.Replace 不能失败。File.Replace 先把原文件改名为 xxx~RFxxxx.TMP 再删除；
     /// 以前监听对每个事件路径做 Path.GetRelativePath，带 ~ 的名字会触发 GetLongPathName 去查这个中间文件，
     /// 和改名撞车时 File.Replace 抛「无法删除要被替换的文件」（约 1/10 的概率）。不匹配的文件不应碰文件系统。
     /// </summary>

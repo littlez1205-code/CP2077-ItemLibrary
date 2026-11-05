@@ -67,7 +67,7 @@ public sealed class SaveWatcher : IAsyncDisposable
         };
         // 用事件里相对监听根的 Name，不用 FullPath 再做 GetRelativePath / GetFullPath：
         // File.Replace 会把原文件改名成 sav.dat~RFxxxx.TMP 再删除，名字带 ~ 时 Path.GetFullPath 会调 GetLongPathName
-        // 去查这个文件，正好撞上 ReplaceFile 改名，导致写回方的 File.Replace 抛「无法删除要被替换的文件」（T023 实测）。
+        // 去查这个文件，正好撞上 ReplaceFile 改名，导致写回方的 File.Replace 抛「无法删除要被替换的文件」（实测）。
         _watcher.Created += (_, args) => OnPathSafe(args.Name);
         _watcher.Changed += (_, args) => OnPathSafe(args.Name);
         _watcher.Renamed += (_, args) => OnPathSafe(args.Name);

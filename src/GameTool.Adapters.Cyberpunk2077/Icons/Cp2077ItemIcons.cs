@@ -8,7 +8,7 @@ using GameTool.Core;
 namespace GameTool.Adapters.Cyberpunk2077.Icons;
 
 /// <summary>
-/// 从本机游戏取物品图标（T020）：记录 → UIIcon（tweak 源）→ inkatlas + xbm（归档）→ PNG。
+/// 从本机游戏取物品图标：记录 → UIIcon（tweak 源）→ inkatlas + xbm（归档）→ PNG。
 /// 第一次请求才打开归档索引并加载 Oodle（就地从 bin\x64 加载，不复制）；游戏目录只读。
 /// 内存里留最近解码的贴图（<see cref="IconExtractor"/>）和最近编码的 PNG；同一个键并发请求只解一次。
 /// 任何缺失或读取错误都返回 null，界面显示占位图。

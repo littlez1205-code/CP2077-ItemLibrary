@@ -18,7 +18,7 @@ public sealed class Cp2077Adapter : IGameAdapter, ISaveSupportProbe, IThemeProvi
     private readonly GameDirectoryHolder _game;
 
     /// <summary>
-    /// 名字表、图标按 <see cref="UseGameDirectory"/> 设置的游戏目录加载（D020）；还没设置时名字表不可用。
+    /// 名字表、图标按 <see cref="UseGameDirectory"/> 设置的游戏目录加载；还没设置时名字表不可用。
     /// 桌面端从用户设置传入，CLI 从 --game 或 Steam 探测传入。
     /// </summary>
     public Cp2077Adapter()
@@ -55,7 +55,7 @@ public sealed class Cp2077Adapter : IGameAdapter, ISaveSupportProbe, IThemeProvi
     public string GameId => Game;
     public string DisplayName => "Cyberpunk 2077";
 
-    /// <summary>常见的存档位置。CLI 默认用它；桌面端只把它当作设置页的提示（D020）。</summary>
+    /// <summary>常见的存档位置。CLI 默认用它；桌面端只把它当作设置页的提示。</summary>
     public string DefaultSaveRoot => Cp2077Paths.DefaultSaveRoot;
 
     public string SaveRootHint => Cp2077Paths.DefaultSaveRoot;
@@ -177,7 +177,7 @@ public sealed class Cp2077Adapter : IGameAdapter, ISaveSupportProbe, IThemeProvi
             var gameVersion = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(head.AsSpan(8));
             if (Cp2077Format.IsSupported(saveVersion, gameVersion))
                 return new SaveSupport(true, null);
-            // 比 2.5 新的存档（游戏更新后）不能靠重新存档解决，只能等工具适配（D024）。
+            // 比 2.5 新的存档（游戏更新后）不能靠重新存档解决，只能等工具适配。
             if (saveVersion > Cp2077Format.LatestSaveVersion || gameVersion > Cp2077Format.LatestGameVersion)
                 return new SaveSupport(
                     false,

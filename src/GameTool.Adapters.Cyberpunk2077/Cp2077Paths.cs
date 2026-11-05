@@ -4,7 +4,7 @@ using GameTool.Core;
 namespace GameTool.Adapters.Cyberpunk2077;
 
 /// <summary>
-/// 存档目录、游戏目录的校验（D020）。全部只读：只检查目录和文件是否存在，不打开、不创建任何东西。
+/// 存档目录、游戏目录的校验。全部只读：只检查目录和文件是否存在，不打开、不创建任何东西。
 /// </summary>
 public static class Cp2077Paths
 {
@@ -25,7 +25,7 @@ public static class Cp2077Paths
     /// <summary>PathCheck.Expansions 里往日之影的键。</summary>
     public const string PhantomLibertyKey = "phantomLiberty";
 
-    /// <summary>设置面板上游戏目录的检测结果（D023）。</summary>
+    /// <summary>设置面板上游戏目录的检测结果。</summary>
     public static string DetectedWithExpansion => UiText.T(
         "已检测到：本体 + 往日之影", "已偵測到：本體 + 往日之影", "Detected: base game + Phantom Liberty");
 
@@ -180,7 +180,7 @@ public static class Cp2077Paths
     }
 
     /// <summary>
-    /// 游戏根目录里装了往日之影（D023），只读检查：archive\pc\ep1 里至少有一个非空的内容归档（不算 lang_* 文本 / 语音包和 audio_*），
+    /// 游戏根目录里装了往日之影，只读检查：archive\pc\ep1 里至少有一个非空的内容归档（不算 lang_* 文本 / 语音包和 audio_*），
     /// 并且有 r6\cache\tweakdb_ep1.bin。只有空文件夹、只有语言包或缺 tweakdb_ep1.bin 都算没装。
     /// 读不了目录时按没装处理（宁可少列物品，也不生成游戏不认识的物品）。
     /// </summary>

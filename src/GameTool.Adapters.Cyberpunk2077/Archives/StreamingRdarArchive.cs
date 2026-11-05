@@ -6,7 +6,7 @@ using Microsoft.Win32.SafeHandles;
 namespace GameTool.Adapters.Cyberpunk2077.Archives;
 
 /// <summary>
-/// 只读、按需读取的 RDAR v12 归档（T020 预研第 2 节）。只把索引留在内存里，段数据用定位读取（RandomAccess），
+/// 只读、按需读取的 RDAR v12 归档。只把索引留在内存里，段数据用定位读取（RandomAccess），
 /// 所以能打开 3.3 GB 的 basegame_4_gamedata，也可以多线程同时读。
 /// 头 40 字节：RDAR、版本 12、索引偏移 u64 @8、索引长度 u32 @16。
 /// 索引：u32 表偏移、u32 表长、u64 校验、u32 文件数、u32 段数、u32 依赖数，
